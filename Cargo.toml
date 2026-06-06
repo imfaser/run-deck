@@ -1,0 +1,33 @@
+[workspace]
+members = ["src-tauri"]  # 空项目仅需 Tauri 核心目录
+resolver = "2"           # 保留 Rust 新依赖解析器
+
+# ===== 最小化构建配置 =====
+[profile.release]
+panic = "unwind"
+codegen-units = 1
+lto = "thin"
+opt-level = 3
+debug = 1
+strip = "none"
+overflow-checks = false
+
+[profile.dev]
+incremental = true
+codegen-units = 64
+opt-level = 0
+debug = true
+strip = "none"
+overflow-checks = true
+lto = false
+
+# ===== 仅保留核心依赖 =====
+[workspace.dependencies]
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = { version = "1.0.150" }
+
+# ===== 简化 Lint 规则（可选，空项目可注释）=====
+[workspace.lints.clippy]
+# 仅保留基础规则，避免干扰开发
+unused_variables = "warn"
+needless_collect = "warn"
