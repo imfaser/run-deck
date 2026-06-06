@@ -1,0 +1,54 @@
+# ========= 日志文件 =========
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ========= 依赖 =========
+node_modules/
+
+# ========= 构建输出 =========
+dist/
+dist-ssr/
+out/
+build/
+
+# ========= Tauri 特有 =========
+src-tauri/target/      # Rust 构建产物
+src-tauri/gen/         # Tauri 生成的代码
+src-tauri/app/         # Tauri 应用临时文件
+*.app                  # macOS 应用包
+*.exe                  # Windows 可执行文件
+*.msi                  # Windows 安装包
+*.dmg                  # macOS 磁盘镜像
+*.AppImage             # Linux 应用镜像
+
+# ========= 环境文件 =========
+.env
+.env.local
+.env.development
+.env.production
+
+# ========= 编辑器/IDE =========
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.cursor/
+
+# ========= 工具缓存 =========
+.eslintcache
+.prettiercache
+.opencode/
+openspec/
+
+# ========= 其他 =========
+*.local

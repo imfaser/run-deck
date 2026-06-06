@@ -1,0 +1,14 @@
+node_modules
+pnpm-lock.yaml
+dist
+out
+build
+src-tauri
+public
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.ico
+*.log
