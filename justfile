@@ -12,7 +12,7 @@ web-dev:
     vite
 
 web-build:
-    tsc --noEmit && vite build
+    vue-tsc --noEmit && vite build
 
 web-serve:
     vite preview
@@ -22,8 +22,9 @@ build:
     cross-env NODE_OPTIONS='--max-old-space-size=4096' tauri build
 
 build-fast:
-    cross-env NODE_OPTIONS='--max-old-space-size=4096' tauri build -- --profile fast-release
-
+    cross-env NODE_OPTIONS='--max-old-space-size=4096' tauri build -- -- --profile fast-release
+build-dev:
+    cross-env NODE_OPTIONS='--max-old-space-size=4096' tauri build -- -- --profile dev
 # ===== 代码质量 =====
 lint:
     eslint -c eslint.config.js --max-warnings=0 --cache --cache-location .eslintcache src
@@ -38,8 +39,15 @@ format-check:
     prettier --check .
 
 typecheck:
-    tsc --noEmit
+    vue-tsc --noEmit
+    cargo check
 
 # ===== 快捷启动 =====
 run:
     just dev
+
+test:
+    vitest run
+
+test-rust:
+    cargo test --workspace

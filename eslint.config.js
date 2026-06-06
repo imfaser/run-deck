@@ -1,7 +1,7 @@
-import eslintPluginVue from 'eslint-plugin-vue'
-import tsParser from '@typescript-eslint/parser'
-import tsPlugin from '@typescript-eslint/eslint-plugin'
-import prettierConfig from 'eslint-config-prettier'
+import eslintPluginVue from 'eslint-plugin-vue';
+import tsParser from '@typescript-eslint/parser';
+import tsPlugin from '@typescript-eslint/eslint-plugin';
+import prettierConfig from 'eslint-config-prettier';
 
 export default [
   /* ========= 1️⃣ 忽略文件（替代 .eslintignore） ========= */
@@ -62,11 +62,11 @@ export default [
       'vue/multi-word-component-names': 'off',
       'vue/html-self-closing': 'error',
       'vue/require-default-prop': 'off',
-      'vue/no-v-model-argument': 'error',
+      'vue/no-v-model-argument': 'off',
       // 已删除不存在的 vue/component-tags-order 规则
     },
   },
 
   /* ========= 6️⃣ Prettier 必须在最后 ========= */
   prettierConfig,
-]
+];

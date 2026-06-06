@@ -10,7 +10,7 @@ lto = "thin"
 opt-level = 3
 debug = 1
 strip = "none"
-overflow-checks = false
+overflow-checks = true
 
 [profile.dev]
 incremental = true
@@ -26,8 +26,7 @@ lto = false
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = { version = "1.0.150" }
 
-# ===== 简化 Lint 规则（可选，空项目可注释）=====
+# ===== Lint 规则 =====
 [workspace.lints.clippy]
-# 仅保留基础规则，避免干扰开发
-unused_variables = "warn"
-needless_collect = "warn"
+all = "warn"
+pedantic = "warn"

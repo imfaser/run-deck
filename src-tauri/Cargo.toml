@@ -7,15 +7,16 @@ edition = "2024"
 
 [lib]
 name = "run_deck_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+crate-type = ["cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "2" }  # 必须：Tauri 构建工具
+tauri-build = { version = "2", features = [] }  # 必须：Tauri 构建工具
 
 [dependencies]
 tauri = { version = "2", features = [] }  # 核心 Tauri 运行时
-serde = {workspace = true}
-serde_json = {workspace = true}
+serde = { workspace = true }
+serde_json = { workspace = true }
 tauri-plugin-opener = "2"
-# 可选：如需打开外部链接，取消注释
-# tauri-plugin-opener = "2"
+
+[lints]
+workspace = true

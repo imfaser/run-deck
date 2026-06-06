@@ -18,6 +18,7 @@ build/
 
 # ========= Tauri 特有 =========
 src-tauri/target/      # Rust 构建产物
+src-tauri/Cargo.lock   # workspace lockfile 在根目录
 src-tauri/gen/         # Tauri 生成的代码
 src-tauri/app/         # Tauri 应用临时文件
 *.app                  # macOS 应用包
@@ -44,6 +45,10 @@ src-tauri/app/         # Tauri 应用临时文件
 *.sw?
 .cursor/
 
+# ========= 自动生成 =========
+auto-imports.d.ts
+components.d.ts
+
 # ========= 工具缓存 =========
 .eslintcache
 .prettiercache
@@ -52,4 +57,5 @@ openspec/
 
 # ========= 其他 =========
 *.local
-target
+*.pdb
+target/
