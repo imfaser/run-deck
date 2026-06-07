@@ -1,14 +1,26 @@
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
+pub mod cmd;
+pub mod setup;
 
+use once_cell::sync::OnceCell;
+use tauri::AppHandle;
+
+pub static APP_HANDLE: OnceCell<AppHandle> = OnceCell::new();
+use logging::{logging, Type};
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet])
+    logging::setup_log();
+    logging!(info, Type::Setup, "应用启动中");
+    let builder = tauri::Builder::default();
+    let builder = setup::setup_plugins(builder);
+    builder
+        .setup(|app| {
+            APP_HANDLE
+                .set(app.handle().clone())
+                .expect("app handle failed to set");
+            logging!(info, Type::Setup, "应用启动完成");
+            Ok(())
+        })
+        .invoke_handler(setup::generate_handlers())
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

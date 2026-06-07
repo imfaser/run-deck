@@ -79,6 +79,7 @@ Rules:
 - Use modern SCSS syntax (no `@import`, use `@use`/`@forward`)
 - Variable names must not conflict with Vue component props
 - Create directories/files only when the feature requires them
+- 使用tauri的时候必须基于`https://tauri.app/llms.txt`中的文档需要使用webfetch来获取文档
 
 ## Code Conventions
 
