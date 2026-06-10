@@ -60,3 +60,4 @@ openspec/
 *.pdb
 target/
 ref.md
+docs

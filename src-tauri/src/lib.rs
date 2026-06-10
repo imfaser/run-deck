@@ -1,6 +1,6 @@
 pub mod cmd;
 pub mod setup;
-
+pub mod config;
 use once_cell::sync::OnceCell;
 use tauri::AppHandle;
 
