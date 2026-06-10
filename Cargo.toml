@@ -31,6 +31,10 @@ anyhow = "1.0.102"
 parking_lot = "0.12.5"
 flexi_logger = "0.31.9"
 log = "0.4.32"
+chrono = "0.4"
+tar = "0.4"
+flate2 = "1"
+tempfile = "3"
 # ===== Lint 规则 =====
 [workspace.lints.clippy]
 all = "warn"

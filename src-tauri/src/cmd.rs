@@ -1,9 +1,10 @@
+use crate::kernel::context::AppContext;
 use logging::{logging, Type};
 
 #[tauri::command]
-pub fn greet(name: &str) -> String {
-    logging!(info, Type::Cmd, "greet called with name: {}", name);
-    format!("Hello, {}! You've been greeted from Rust!", name)
+pub fn greet() {
+    logging!(info, Type::Cmd, "greet called, sending ping");
+    AppContext::send_ping();
 }
 
 #[tauri::command]

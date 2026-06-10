@@ -6,6 +6,15 @@ edition = "2024"
 [dependencies]
 log = { workspace = true }
 flexi_logger = { workspace = true }
+chrono = { workspace = true }
+tar = { workspace = true }
+flate2 = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[features]
+prod = []
 
 [lints]
 workspace = true

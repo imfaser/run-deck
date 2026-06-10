@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 
-export async function greet(name: string): Promise<string> {
-  return invoke<string>('greet', { name });
+export async function greet(): Promise<void> {
+  return invoke<void>('greet');
 }
 
 type LogLevel = 'error' | 'warn' | 'info' | 'debug' | 'trace';

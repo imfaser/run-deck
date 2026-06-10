@@ -20,14 +20,36 @@ export default [
 
   /* ========= 2️⃣ 语言选项（核心修复点） ========= */
   {
-    files: ['**/*.ts', '**/*.tsx', '**/*.vue', 'vite.config.ts'], // ✅ 显式包含 vite.config.ts
+    files: ['**/*.ts', '**/*.tsx', 'vite.config.ts'],
     languageOptions: {
       parser: tsParser,
       parserOptions: {
         ecmaVersion: 'latest',
         sourceType: 'module',
+        projectService: true,
+      },
+      globals: {
+        __TAURI__: 'readonly',
+        __TAURI_INVOKE__: 'readonly',
+        window: 'readonly',
+        document: 'readonly',
+        navigator: 'readonly',
+        process: 'readonly',
+        Buffer: 'readonly',
+      },
+    },
+  },
+
+  /* ========= 2️⃣ .vue 文件专用解析器 ========= */
+  {
+    files: ['**/*.vue'],
+    languageOptions: {
+      parserOptions: {
+        parser: tsParser,
+        ecmaVersion: 'latest',
+        sourceType: 'module',
         extraFileExtensions: ['.vue'],
-        projectService: true, // ✅ 关键修复：替代 project，支持 TS Project References
+        projectService: true,
       },
       globals: {
         __TAURI__: 'readonly',

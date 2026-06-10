@@ -1,15 +1,29 @@
 <script setup lang="ts">
-  import { logMessage } from '@/services/cmd';
+  import { ref, onMounted, onUnmounted } from 'vue';
+  import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+  import { greet } from '@/services/cmd';
 
-  function testLog() {
-    logMessage('info', '前端日志测试');
-    logMessage('warn', '前端警告测试');
-    logMessage('error', '前端错误测试');
+  const lastPing = ref<string>('');
+  let unlisten: UnlistenFn | undefined;
+
+  onMounted(async () => {
+    unlisten = await listen<string>('run-deck://ping', (event) => {
+      lastPing.value = event.payload;
+    });
+  });
+
+  onUnmounted(() => {
+    unlisten?.();
+  });
+
+  function handlePing() {
+    greet();
   }
 </script>
 
 <template>
   <div>
-    <button @click="testLog">测试日志</button>
+    <button @click="handlePing">Send Ping</button>
+    <p v-if="lastPing">Last ping: {{ lastPing }}</p>
   </div>
 </template>

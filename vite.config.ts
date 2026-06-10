@@ -50,14 +50,14 @@ export default defineConfig({
   /* ========= 4️⃣ Tauri 原有配置 ========= */
   clearScreen: false,
   server: {
-    port: 14200,
+    port: 6917,
     strictPort: true,
     host: host || false,
     hmr: host
       ? {
           protocol: 'ws',
           host,
-          port: 14210,
+          port: 6918,
         }
       : undefined,
     watch: {

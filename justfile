@@ -19,10 +19,10 @@ web-serve:
 
 # ===== 构建命令 =====
 build:
-    cross-env NODE_OPTIONS='--max-old-space-size=4096' tauri build
+    cross-env NODE_OPTIONS='--max-old-space-size=4096' tauri build -- -f prod
 
 build-fast:
-    cross-env NODE_OPTIONS='--max-old-space-size=4096' tauri build -- -- --profile fast-release
+    cross-env NODE_OPTIONS='--max-old-space-size=4096' tauri build -- -- -f prod --profile fast-release
 build-dev:
     cross-env NODE_OPTIONS='--max-old-space-size=4096' tauri build -- -- --profile dev
 # ===== 代码质量 =====
