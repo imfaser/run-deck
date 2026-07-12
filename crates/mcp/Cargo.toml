@@ -8,7 +8,6 @@ name = "mcp"
 path = "src/lib.rs"
 
 [dependencies]
-anyhow = { workspace = true }
 http = "1"
 rmcp = { version = "2.2", default-features = false, features = [
     "client",
@@ -23,8 +22,12 @@ serde = { workspace = true }
 thiserror = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
-tracing = "0.1"
+log = { workspace = true }
+logging = { workspace = true }
 
 [dev-dependencies]
 pretty_assertions = "1"
 tempfile = { workspace = true }
+
+[lints]
+workspace = true

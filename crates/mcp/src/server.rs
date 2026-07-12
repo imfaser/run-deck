@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
+use logging::{logging, Type};
 use rmcp::model::CallToolResult;
 use rmcp::model::ListToolsResult;
 use rmcp::model::PaginatedRequestParams;
 use rmcp::service::RoleClient;
 use rmcp::service::RunningService;
-use tracing::info;
 
 use crate::McpServerConfig;
 use crate::error::McpError;
@@ -27,6 +27,7 @@ pub(crate) struct McpServer {
 impl McpServer {
     /// 创建新的服务器实例
     pub fn new(name: String, config: McpServerConfig) -> Self {
+        logging!(debug, Type::Mcp, "Creating server instance '{}'", name);
         Self {
             name,
             config,
@@ -64,6 +65,7 @@ impl McpServer {
                 timeout,
                 ..
             } => {
+                logging!(debug, Type::Mcp, "Starting server '{}' as Local (stdio)", self.name);
                 if let Err(e) = self.start_stdio(command, shell, environment, timeout).await {
                     self.status = ServerStatus::Failed {
                         error: e.to_string(),
@@ -77,6 +79,7 @@ impl McpServer {
                 timeout,
                 ..
             } => {
+                logging!(debug, Type::Mcp, "Starting server '{}' as Remote (http)", self.name);
                 if let Err(e) = self.start_http(url, headers, timeout).await {
                     self.status = ServerStatus::Failed {
                         error: e.to_string(),
@@ -87,7 +90,7 @@ impl McpServer {
         }
 
         self.status = ServerStatus::Running;
-        info!("MCP server '{}' started successfully", self.name);
+        logging!(info, Type::Mcp, "Server '{}' started successfully", self.name);
 
         Ok(McpEvent::ServerReady {
             name: self.name.clone(),
@@ -110,13 +113,10 @@ impl McpServer {
             _ => {}
         }
 
-        // 关闭 rmcp 服务
-        if let Some(service) = self.service.take() {
-            drop(service);
-        }
+        self.service.take();
 
         self.status = ServerStatus::Stopped;
-        info!("MCP server '{}' stopped", self.name);
+        logging!(info, Type::Mcp, "Server '{}' stopped", self.name);
 
         Ok(McpEvent::ServerStopped {
             name: self.name.clone(),
@@ -131,6 +131,7 @@ impl McpServer {
             });
         }
 
+        logging!(info, Type::Mcp, "Restarting server '{}'", self.name);
         let mut events = Vec::new();
 
         // 如果正在运行或已失败，先停止
@@ -155,14 +156,17 @@ impl McpServer {
             name: self.name.clone(),
         })?;
 
-        service
+        let result = service
             .list_tools(params)
             .await
             .map_err(|e| McpError::CallToolFailed {
                 server: self.name.clone(),
                 tool: "list_tools".to_string(),
                 error: e.to_string(),
-            })
+            })?;
+
+        logging!(debug, Type::Mcp, "Server '{}' listed {} tool(s)", self.name, result.tools.len());
+        Ok(result)
     }
 
     /// 调用工具
@@ -174,6 +178,8 @@ impl McpServer {
         let service = self.service.as_ref().ok_or_else(|| McpError::NotRunning {
             name: self.name.clone(),
         })?;
+
+        logging!(debug, Type::Mcp, "Server '{}' calling tool '{}'", self.name, tool_name);
 
         let arguments = match arguments {
             Some(serde_json::Value::Object(map)) => Some(map),
@@ -216,6 +222,8 @@ impl McpServer {
         }
 
         let wrapped_command = wrap_command(&shell, &command);
+        logging!(debug, Type::Mcp, "Server '{}' spawning command: {:?} (shell: {:?})", self.name, wrapped_command, shell);
+
         let program = &wrapped_command[0];
         let args = if wrapped_command.len() > 1 {
             &wrapped_command[1..]
@@ -283,6 +291,8 @@ impl McpServer {
         use http::{HeaderName, HeaderValue};
         use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
         use rmcp::transport::StreamableHttpClientTransport;
+
+        logging!(debug, Type::Mcp, "Server '{}' connecting to {}", self.name, url);
 
         // 构建自定义 headers
         let mut custom_headers = HashMap::new();

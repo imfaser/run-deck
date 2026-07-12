@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use logging::{logging, Type};
 use tokio::sync::{broadcast, RwLock};
-use tracing::warn;
 
 use crate::config::McpServerConfig;
 use crate::error::McpError;
@@ -36,6 +36,8 @@ impl McpManager {
             server_map.insert(name.clone(), McpServer::new(name, config));
         }
 
+        logging!(info, Type::Mcp, "McpManager created with {} server(s)", server_map.len());
+
         Self {
             servers: Arc::new(RwLock::new(server_map)),
             event_tx,
@@ -49,6 +51,7 @@ impl McpManager {
 
     /// 启动指定服务器
     pub async fn start_server(&self, name: &str) -> Result<(), McpError> {
+        logging!(debug, Type::Mcp, "Acquiring write lock to start server '{}'", name);
         let mut servers = self.servers.write().await;
         let server = servers
             .get_mut(name)
@@ -64,6 +67,7 @@ impl McpManager {
             e
         })?;
 
+        logging!(info, Type::Mcp, "Server '{}' started", name);
         let _ = self.event_tx.send(event);
         Ok(())
     }
@@ -78,6 +82,7 @@ impl McpManager {
             })?;
 
         let event = server.stop().await?;
+        logging!(info, Type::Mcp, "Server '{}' stopped", name);
         let _ = self.event_tx.send(event);
         Ok(())
     }
@@ -91,6 +96,7 @@ impl McpManager {
                 name: name.to_string(),
             })?;
 
+        logging!(info, Type::Mcp, "Restarting server '{}'", name);
         let events = server.restart().await?;
         for event in events {
             let _ = self.event_tx.send(event);
@@ -100,6 +106,7 @@ impl McpManager {
 
     /// 查询服务器状态
     pub async fn server_status(&self, name: &str) -> Result<ServerStatus, McpError> {
+        logging!(debug, Type::Mcp, "Querying status for server '{}'", name);
         let servers = self.servers.read().await;
         let server = servers
             .get(name)
@@ -122,6 +129,7 @@ impl McpManager {
 
             match server.list_tools(None).await {
                 Ok(result) => {
+                    logging!(debug, Type::Mcp, "Server '{}' returned {} tool(s)", name, result.tools.len());
                     for tool in result.tools {
                         all_tools.push(ToolInfo {
                             server_name: name.clone(),
@@ -130,11 +138,12 @@ impl McpManager {
                     }
                 }
                 Err(e) => {
-                    warn!("failed to list tools from '{}': {}", name, e);
+                    logging!(warn, Type::Mcp, "Failed to list tools from '{}': {}", name, e);
                 }
             }
         }
 
+        logging!(info, Type::Mcp, "Discovered {} tool(s) total", all_tools.len());
         all_tools
     }
 
@@ -145,6 +154,7 @@ impl McpManager {
         tool_name: &str,
         arguments: Option<serde_json::Value>,
     ) -> Result<rmcp::model::CallToolResult, McpError> {
+        logging!(debug, Type::Mcp, "Calling tool '{}' on server '{}'", tool_name, server_name);
         let servers = self.servers.read().await;
         let server = servers
             .get(server_name)

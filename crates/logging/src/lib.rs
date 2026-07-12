@@ -20,6 +20,7 @@ pub enum Type {
     Config,
     Frontend,
     File,
+    Mcp,
 }
 
 impl fmt::Display for Type {
@@ -32,6 +33,7 @@ impl fmt::Display for Type {
             Self::Config => write!(f, "[Config]"),
             Self::Frontend => write!(f, "[Frontend]"),
             Self::File => write!(f, "[File]"),
+            Self::Mcp => write!(f, "[Mcp]"),
         }
     }
 }
@@ -40,19 +42,6 @@ impl fmt::Display for Type {
 macro_rules! logging {
     ($level:ident, $type:expr, $($arg:tt)*) => {
         log::$level!(target: "app", "{} {}", $type, format_args!($($arg)*))
-    };
-}
-
-#[macro_export]
-macro_rules! logging_error {
-    ($type:expr, $expr:expr) => {
-        if let Err(err) = $expr {
-            log::error!(target: "app", "[{}] {}", $type, err);
-        }
-    };
-
-    ($type:expr, $fmt:literal $(, $arg:expr)*) => {
-        log::error!(target: "app", "[{}] {}", $type, format_args!($fmt $(, $arg)*));
     };
 }
 

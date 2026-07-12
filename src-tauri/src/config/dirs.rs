@@ -1,5 +1,6 @@
 use crate::APP_HANDLE;
 use anyhow::Result;
+use logging::{logging, Type};
 use std::path::PathBuf;
 use tauri::Manager as _;
 
@@ -58,6 +59,11 @@ pub fn app_resources_dir() -> Result<PathBuf> {
     }
 }
 
+/// Config file path (config.json)
+pub fn config_file() -> Result<PathBuf> {
+    Ok(app_home_dir()?.join("config.json"))
+}
+
 /// Convert a `PathBuf` to `&str`
 pub fn path_to_str(path: &PathBuf) -> Result<&str> {
     path.as_os_str()
@@ -74,7 +80,7 @@ impl PathBufExec for PathBuf {
     fn remove_if_exists(&self) -> Result<()> {
         if self.exists() {
             std::fs::remove_file(self)?;
-            log::info!(target: "app", "[File] Removed file: {:?}", self);
+            logging!(info, Type::File, "Removed file: {:?}", self);
         }
         Ok(())
     }

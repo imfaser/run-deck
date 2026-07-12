@@ -1,3 +1,4 @@
+pub mod async_handler;
 pub mod singleton;
 
 use crate::config::dirs;

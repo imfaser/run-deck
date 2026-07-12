@@ -31,6 +31,8 @@ pub use event::{McpEvent, ServerStatus};
 pub use manager::McpManager;
 pub use shell::ShellType;
 
+use logging::{logging, Type};
+
 /// 工具信息，包含服务器来源和工具定义
 #[derive(Debug, Clone)]
 pub struct ToolInfo {
@@ -38,4 +40,14 @@ pub struct ToolInfo {
     pub server_name: String,
     /// MCP 工具定义
     pub tool: rmcp::model::Tool,
+}
+
+pub fn log_message(level: log::Level, server_name: &str, tool_name: &str, message: &str) {
+    match level {
+        log::Level::Error => logging!(error, Type::Mcp, "server={}, tool={}, message={}", server_name, tool_name, message),
+        log::Level::Warn => logging!(warn, Type::Mcp, "server={}, tool={}, message={}", server_name, tool_name, message),
+        log::Level::Info => logging!(info, Type::Mcp, "server={}, tool={}, message={}", server_name, tool_name, message),
+        log::Level::Debug => logging!(debug, Type::Mcp, "server={}, tool={}, message={}", server_name, tool_name, message),
+        log::Level::Trace => logging!(trace, Type::Mcp, "server={}, tool={}, message={}", server_name, tool_name, message),
+    }
 }

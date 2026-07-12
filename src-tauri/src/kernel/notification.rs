@@ -1,3 +1,4 @@
+use logging::{logging, Type};
 use serde_json::json;
 use tauri::{AppHandle, Emitter as _};
 
@@ -12,7 +13,7 @@ impl NotificationSystem {
     pub fn send_event(app: &AppHandle, event: FrontendEvent) {
         let (name, payload) = Self::serialize(event);
         if let Err(e) = app.emit(name, payload) {
-            log::warn!(target: "app", "[Frontend] Event emit failed: {e}");
+            logging!(warn, Type::Frontend, "Event emit failed: {e}");
         }
     }
 
