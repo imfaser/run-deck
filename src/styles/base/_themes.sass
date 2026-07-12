@@ -45,5 +45,15 @@ $colors-dark: (bg-primary: #0f0f1a, bg-secondary: #1a1a2e, bg-tertiary: #16162a,
 
   +generate-theme-vars($colors-light, 0.10, 0.05)
 
+  // Element Plus overrides
+  --el-color-primary: #{map.get($colors-light, accent-primary)}
+  --el-button-text-color: #{map.get($colors-light, text-primary)}
+  --el-button-border-color: #{map.get($colors-light, border-default)}
+
 [data-theme="dark"]
   +generate-theme-vars($colors-dark, 0.15, 0.08)
+
+  // Element Plus overrides
+  --el-color-primary: #{map.get($colors-dark, accent-primary)}
+  --el-button-text-color: #{map.get($colors-dark, text-primary)}
+  --el-button-border-color: #{map.get($colors-dark, border-default)}

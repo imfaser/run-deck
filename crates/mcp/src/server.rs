@@ -1,7 +1,9 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use logging::{logging, Type};
 use rmcp::model::CallToolResult;
+use rmcp::model::InitializeResult;
 use rmcp::model::ListToolsResult;
 use rmcp::model::PaginatedRequestParams;
 use rmcp::service::RoleClient;
@@ -22,6 +24,8 @@ pub(crate) struct McpServer {
     status: ServerStatus,
     /// rmcp 客户端服务
     service: Option<RunningService<RoleClient, ()>>,
+    /// 服务器初始化信息（启动成功后从 peer_info 获取）
+    server_info: Option<Arc<InitializeResult>>,
 }
 
 impl McpServer {
@@ -33,12 +37,18 @@ impl McpServer {
             config,
             status: ServerStatus::Stopped,
             service: None,
+            server_info: None,
         }
     }
 
     /// 获取当前状态
     pub fn status(&self) -> &ServerStatus {
         &self.status
+    }
+
+    /// 获取服务器初始化信息
+    pub fn server_info(&self) -> Option<&InitializeResult> {
+        self.server_info.as_deref()
     }
 
     /// 启动服务器
@@ -89,6 +99,13 @@ impl McpServer {
         }
 
         self.status = ServerStatus::Running;
+
+        // 保存服务器初始化信息
+        if let Some(service) = &self.service {
+            self.server_info = service.peer_info();
+            logging!(debug, Type::Mcp, "Server '{}' info: {:?}", self.name, self.server_info.as_ref().map(|i| &i.server_info));
+        }
+
         logging!(info, Type::Mcp, "Server '{}' started successfully", self.name);
 
         Ok(McpEvent::ServerReady {
@@ -113,6 +130,7 @@ impl McpServer {
         }
 
         self.service.take();
+        self.server_info = None;
 
         self.status = ServerStatus::Stopped;
         logging!(info, Type::Mcp, "Server '{}' stopped", self.name);
@@ -201,6 +219,44 @@ impl McpServer {
                 tool: tool_name.to_string(),
                 error: e.to_string(),
             })
+    }
+
+    /// 列出所有提示
+    pub async fn list_prompts(&self) -> Result<Vec<rmcp::model::Prompt>, McpError> {
+        let service = self.service.as_ref().ok_or_else(|| McpError::NotRunning {
+            name: self.name.clone(),
+        })?;
+
+        let prompts = service
+            .list_all_prompts()
+            .await
+            .map_err(|e| McpError::CallToolFailed {
+                server: self.name.clone(),
+                tool: "list_prompts".to_string(),
+                error: e.to_string(),
+            })?;
+
+        logging!(debug, Type::Mcp, "Server '{}' listed {} prompt(s)", self.name, prompts.len());
+        Ok(prompts)
+    }
+
+    /// 列出所有资源
+    pub async fn list_resources(&self) -> Result<Vec<rmcp::model::Resource>, McpError> {
+        let service = self.service.as_ref().ok_or_else(|| McpError::NotRunning {
+            name: self.name.clone(),
+        })?;
+
+        let resources = service
+            .list_all_resources()
+            .await
+            .map_err(|e| McpError::CallToolFailed {
+                server: self.name.clone(),
+                tool: "list_resources".to_string(),
+                error: e.to_string(),
+            })?;
+
+        logging!(debug, Type::Mcp, "Server '{}' listed {} resource(s)", self.name, resources.len());
+        Ok(resources)
     }
 
     /// 启动 stdio 服务器

@@ -1,13 +1,22 @@
 <script setup lang="ts">
-  import { ref, onMounted } from 'vue';
+  import { ref, onMounted, computed } from 'vue';
   import { Window } from '@tauri-apps/api/window';
-  import { House, Setting } from '@element-plus/icons-vue';
+  import { House, Setting, Close } from '@element-plus/icons-vue';
   import { useRouter, useRoute } from 'vue-router';
+  import { useAppStore } from '@/stores/app';
 
   const router = useRouter();
   const route = useRoute();
+  const store = useAppStore();
   const isMaximized = ref(false);
   const appWindow = new Window('main');
+
+  const fixedTabs = [
+    { id: 'overview', title: '导航', icon: House, route: '/overview', closable: false },
+    { id: 'config', title: '配置', icon: Setting, route: '/config', closable: false },
+  ];
+
+  const allTabs = computed(() => [...fixedTabs, ...store.tabs.map((t) => ({ ...t, icon: null }))]);
 
   onMounted(async () => {
     isMaximized.value = await appWindow.isMaximized();
@@ -16,30 +25,61 @@
     });
   });
 
-  function goHome() {
-    router.push('/overview');
+  function handleTabClick(tabId: string, tabRoute: string) {
+    store.setActiveTab(tabId);
+    router.push(tabRoute);
   }
 
-  function goConfig() {
-    router.push('/config');
+  function handleCloseTab(tabId: string) {
+    const tab = store.tabs.find((t) => t.id === tabId);
+    if (!tab) return;
+
+    store.removeTab(tabId);
+
+    const targetId = store.activeTab;
+    const targetTab = allTabs.value.find((t) => t.id === targetId);
+    if (targetTab) {
+      router.push(targetTab.route);
+    } else {
+      router.push('/overview');
+    }
   }
 
-  function isActive(path: string): boolean {
-    return route.path === path;
+  function isActive(id: string): boolean {
+    return (
+      store.activeTab === id || route.path === (allTabs.value.find((t) => t.id === id)?.route ?? '')
+    );
   }
 </script>
 
 <template>
   <div class="titlebar" data-tauri-drag-region>
     <div class="titlebar-left">
-      <button class="nav-tab" :class="{ active: isActive('/overview') }" @click="goHome">
-        <el-icon><House /></el-icon>
-        <span>首页</span>
+      <button
+        v-for="tab in fixedTabs"
+        :key="tab.id"
+        class="nav-tab"
+        :class="{ active: isActive(tab.id) }"
+        @click="handleTabClick(tab.id, tab.route)"
+      >
+        <el-icon><component :is="tab.icon" /></el-icon>
+        <span>{{ tab.title }}</span>
       </button>
-      <button class="nav-tab" :class="{ active: isActive('/config') }" @click="goConfig">
-        <el-icon><Setting /></el-icon>
-        <span>设置</span>
-      </button>
+      <template v-if="store.tabs.length > 0">
+        <div class="tab-divider" />
+        <button
+          v-for="tab in store.tabs"
+          :key="tab.id"
+          class="nav-tab dynamic"
+          :class="{ active: isActive(tab.id) }"
+          @click="handleTabClick(tab.id, tab.route)"
+        >
+          <span>{{ tab.title }}</span>
+          <span class="tab-close" @click.stop="handleCloseTab(tab.id)">
+            <el-icon :size="12"><Close /></el-icon>
+          </span>
+        </button>
+      </template>
     </div>
 
     <div class="titlebar-right">
@@ -121,6 +161,20 @@
     height: 100%;
     padding-left: 12px;
     gap: 4px;
+    overflow-x: auto;
+    max-width: calc(100vw - 150px);
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .tab-divider {
+    width: 1px;
+    height: 20px;
+    background: var(--border-default);
+    margin: 0 4px;
+    flex-shrink: 0;
   }
 
   .nav-tab {
@@ -135,6 +189,8 @@
     cursor: pointer;
     border-radius: 6px;
     transition: all 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
 
     &:hover {
       background: var(--surface-hover);
@@ -145,12 +201,32 @@
       background: var(--surface-active);
       color: var(--text-primary);
     }
+
+    &.dynamic {
+      padding-right: 8px;
+    }
+  }
+
+  .tab-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    margin-left: 4px;
+    transition: all 0.15s;
+
+    &:hover {
+      background: var(--surface-hover);
+    }
   }
 
   .titlebar-right {
     display: flex;
     align-items: center;
     height: 100%;
+    flex-shrink: 0;
   }
 
   .titlebar-button {

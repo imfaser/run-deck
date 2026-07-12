@@ -2,8 +2,10 @@
   import { ref, onMounted } from 'vue';
   import { useRouter } from 'vue-router';
   import { getConfig, type Config } from '@/services/cmd';
+  import { useAppStore } from '@/stores/app';
 
   const router = useRouter();
+  const store = useAppStore();
   const config = ref<Config | null>(null);
   const loading = ref(true);
 
@@ -20,15 +22,20 @@
     name: string;
     icon: string;
     color: string;
-    route?: string;
+    route: string;
   }
 
   const apps = ref<AppItem[]>([
     { id: 'config', name: '配置', icon: '⚙', color: '#6366f1', route: '/config' },
+    { id: 'mcp-panel', name: 'MCP 面板', icon: '🔌', color: '#10b981', route: '/mcp-panel' },
   ]);
 
   function handleAppClick(app: AppItem) {
-    if (app.route) {
+    if (app.id === 'config') {
+      store.setActiveTab('config');
+      router.push(app.route);
+    } else {
+      store.addTab({ title: app.name, closable: true, route: app.route });
       router.push(app.route);
     }
   }

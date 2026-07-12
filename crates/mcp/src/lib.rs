@@ -44,6 +44,39 @@ pub struct ToolInfo {
     pub tool: rmcp::model::Tool,
 }
 
+/// 提示信息，包含服务器来源和提示定义
+#[derive(Debug, Clone, Serialize)]
+pub struct PromptInfo {
+    /// 提示所属的服务器名称
+    pub server_name: String,
+    /// MCP 提示定义
+    pub prompt: rmcp::model::Prompt,
+}
+
+/// 资源信息，包含服务器来源和资源定义
+#[derive(Debug, Clone, Serialize)]
+pub struct ResourceInfo {
+    /// 资源所属的服务器名称
+    pub server_name: String,
+    /// MCP 资源定义
+    pub resource: rmcp::model::Resource,
+}
+
+/// 服务器信息，从初始化结果中提取
+#[derive(Debug, Clone, Serialize)]
+pub struct ServerInfo {
+    /// 服务器名称
+    pub name: String,
+    /// 服务器版本
+    pub version: String,
+    /// 是否支持工具
+    pub has_tools: bool,
+    /// 是否支持提示
+    pub has_prompts: bool,
+    /// 是否支持资源
+    pub has_resources: bool,
+}
+
 pub fn log_message(level: log::Level, server_name: &str, tool_name: &str, message: &str) {
     match level {
         log::Level::Error => logging!(error, Type::Mcp, "server={}, tool={}, message={}", server_name, tool_name, message),

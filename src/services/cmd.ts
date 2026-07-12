@@ -50,21 +50,13 @@ export async function updateConfig(newConfig: Config): Promise<void> {
   return invoke<void>('update_config', { newConfig });
 }
 
-export async function saveConfig(): Promise<void> {
-  return invoke<void>('save_config');
-}
-
-export async function configHasChanges(): Promise<boolean> {
-  return invoke<boolean>('config_has_changes');
-}
-
 // MCP types
 export interface ToolInfo {
   server_name: string;
   tool: {
     name: string;
     description?: string;
-    input_schema: Record<string, unknown>;
+    inputSchema: Record<string, unknown>;
   };
 }
 
@@ -94,4 +86,49 @@ export async function mcpCallTool(
 
 export async function mcpServerStatus(serverName: string): Promise<ServerStatus> {
   return invoke<ServerStatus>('mcp_server_status', { serverName });
+}
+
+// MCP Panel types
+export interface ServerInfo {
+  name: string;
+  version: string;
+  has_tools: boolean;
+  has_prompts: boolean;
+  has_resources: boolean;
+}
+
+export interface PromptInfo {
+  server_name: string;
+  prompt: {
+    name: string;
+    description?: string;
+    arguments?: Array<{
+      name: string;
+      description?: string;
+      required?: boolean;
+    }>;
+  };
+}
+
+export interface ResourceInfo {
+  server_name: string;
+  resource: {
+    uri: string;
+    name: string;
+    description?: string;
+    mime_type?: string;
+  };
+}
+
+// MCP Panel commands
+export async function mcpServerInfo(serverName: string): Promise<ServerInfo | null> {
+  return invoke<ServerInfo | null>('mcp_server_info', { serverName });
+}
+
+export async function mcpListPrompts(): Promise<PromptInfo[]> {
+  return invoke<PromptInfo[]>('mcp_list_prompts');
+}
+
+export async function mcpListResources(): Promise<ResourceInfo[]> {
+  return invoke<ResourceInfo[]>('mcp_list_resources');
 }

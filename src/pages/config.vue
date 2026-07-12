@@ -1,11 +1,10 @@
 <script setup lang="ts">
   import { ref, onMounted } from 'vue';
+  import { useDebounceFn } from '@vueuse/core';
   import { ElMessage, ElMessageBox } from 'element-plus';
   import {
     getConfig,
     updateConfig,
-    saveConfig,
-    configHasChanges,
     logMessage,
     mcpServerStatus,
     type Config,
@@ -22,8 +21,6 @@
 
   const config = ref<Config | null>(null);
   const loading = ref(true);
-  const saving = ref(false);
-  const hasChanges = ref(false);
   const error = ref('');
   const activeSection = ref('general');
   const serverStatuses = ref<Record<string, ServerStatus>>({});
@@ -34,14 +31,17 @@
     { key: 'mcp', label: 'MCP 服务器', icon: '🔌' },
   ];
 
+  const debouncedUpdateConfig = useDebounceFn(async (cfg: Config) => {
+    try {
+      await updateConfig(cfg);
+    } catch (e) {
+      await logMessage('error', `配置更新失败: ${e}`);
+    }
+  }, 500);
+
   onMounted(async () => {
     try {
       config.value = await getConfig();
-      hasChanges.value = await configHasChanges();
-      // Apply theme from config
-      if (config.value.frontend.mode) {
-        setTheme(config.value.frontend.mode);
-      }
     } catch (e) {
       error.value = String(e);
     } finally {
@@ -61,25 +61,7 @@
     }
   }
 
-  async function handleSave() {
-    if (!config.value) return;
-    saving.value = true;
-    try {
-      await updateConfig(config.value);
-      await saveConfig();
-      hasChanges.value = await configHasChanges();
-      await logMessage('info', '配置已保存');
-      ElMessage.success('配置已保存');
-    } catch (e) {
-      const err = String(e);
-      await logMessage('error', `配置保存失败: ${err}`);
-      ElMessage.error(`保存失败: ${err}`);
-    } finally {
-      saving.value = false;
-    }
-  }
-
-  function handleConfigUpdate(key: string, value: unknown) {
+  async function handleConfigUpdate(key: string, value: unknown) {
     if (!config.value) return;
     if (key === 'log_level') {
       config.value.log_level = value as string;
@@ -91,11 +73,20 @@
     } else if (key === 'shell') {
       config.value.shell = value as ShellType;
     }
-    hasChanges.value = true;
+    debouncedUpdateConfig(config.value);
   }
 
-  function addServer() {
+  async function addServer() {
     if (!config.value) return;
+    try {
+      await ElMessageBox.confirm('是否添加 MCP 服务器？', '确认添加', {
+        confirmButtonText: '添加',
+        cancelButtonText: '取消',
+        type: 'info',
+      });
+    } catch {
+      return;
+    }
     const name = 'MCP 服务器';
     const newConfig: McpServerConfig = {
       type: 'local',
@@ -104,7 +95,11 @@
     };
     config.value.mcp[name] = newConfig;
     editingServer.value = { name, config: newConfig };
-    hasChanges.value = true;
+    try {
+      await updateConfig(config.value);
+    } catch (e) {
+      await logMessage('error', `配置更新失败: ${e}`);
+    }
   }
 
   function editServer(name: string) {
@@ -128,22 +123,26 @@
         type: 'warning',
       });
       delete config.value.mcp[name];
-      hasChanges.value = true;
       if (editingServer.value?.name === name) {
         editingServer.value = null;
       }
+      await updateConfig(config.value);
       ElMessage.success('已删除');
     } catch {
       // cancelled
     }
   }
 
-  function toggleServer(name: string) {
+  async function toggleServer(name: string) {
     if (!config.value) return;
     const cfg = config.value.mcp[name];
     if (cfg) {
       cfg.enabled = !cfg.enabled;
-      hasChanges.value = true;
+      try {
+        await updateConfig(config.value);
+      } catch (e) {
+        await logMessage('error', `配置更新失败: ${e}`);
+      }
     }
   }
 
@@ -156,7 +155,7 @@
       delete config.value.mcp[oldName];
       config.value.mcp[newName] = cfg;
       editingServer.value.name = newName;
-      hasChanges.value = true;
+      debouncedUpdateConfig(config.value);
     }
   }
 
@@ -164,7 +163,7 @@
     if (!editingServer.value || !config.value) return;
     editingServer.value.config = newConfig;
     config.value.mcp[editingServer.value.name] = newConfig;
-    hasChanges.value = true;
+    debouncedUpdateConfig(config.value);
   }
 </script>
 
@@ -213,10 +212,6 @@
             @toggle="toggleServer"
           />
         </template>
-
-        <div v-if="!editingServer" class="config-footer">
-          <el-button type="primary" :loading="saving" @click="handleSave">保存配置</el-button>
-        </div>
       </template>
     </main>
   </div>
@@ -289,12 +284,6 @@
     border: 1px solid rgba(239, 68, 68, 0.3);
     border-radius: 8px;
     color: var(--status-error);
-  }
-
-  .config-footer {
-    margin-top: 2rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid var(--border-default);
   }
 
   @media (max-width: 768px) {

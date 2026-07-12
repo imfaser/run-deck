@@ -9,7 +9,7 @@ use crate::error::McpError;
 use crate::event::{McpEvent, ServerStatus};
 use crate::server::McpServer;
 use crate::shell::ShellType;
-use crate::ToolInfo;
+use crate::{PromptInfo, ResourceInfo, ToolInfo};
 
 /// MCP 服务器管理器
 ///
@@ -122,6 +122,31 @@ impl McpManager {
         Ok(server.status().clone())
     }
 
+    /// 查询服务器信息（名称、版本、能力等）
+    pub async fn server_info(
+        &self,
+        name: &str,
+    ) -> Result<Option<crate::ServerInfo>, McpError> {
+        logging!(debug, Type::Mcp, "Querying info for server '{}'", name);
+        let servers = self.servers.read().await;
+        let server = servers
+            .get(name)
+            .ok_or_else(|| McpError::ServerNotFound {
+                name: name.to_string(),
+            })?;
+
+        Ok(server.server_info().map(|info| {
+            let caps = &info.capabilities;
+            crate::ServerInfo {
+                name: info.server_info.name.to_string(),
+                version: info.server_info.version.to_string(),
+                has_tools: caps.tools.is_some(),
+                has_prompts: caps.prompts.is_some(),
+                has_resources: caps.resources.is_some(),
+            }
+        }))
+    }
+
     /// 列出所有运行中服务器的工具
     pub async fn list_tools(&self) -> Vec<ToolInfo> {
         let servers = self.servers.read().await;
@@ -150,6 +175,81 @@ impl McpManager {
 
         logging!(info, Type::Mcp, "Discovered {} tool(s) total", all_tools.len());
         all_tools
+    }
+
+    /// 列出所有运行中服务器的提示
+    pub async fn list_prompts(&self) -> Vec<PromptInfo> {
+        let servers = self.servers.read().await;
+        let mut all_prompts = Vec::new();
+
+        for (name, server) in servers.iter() {
+            if !matches!(server.status(), ServerStatus::Running) {
+                continue;
+            }
+
+            match server.list_prompts().await {
+                Ok(prompts) => {
+                    logging!(debug, Type::Mcp, "Server '{}' returned {} prompt(s)", name, prompts.len());
+                    for prompt in prompts {
+                        all_prompts.push(PromptInfo {
+                            server_name: name.clone(),
+                            prompt,
+                        });
+                    }
+                }
+                Err(e) => {
+                    logging!(warn, Type::Mcp, "Failed to list prompts from '{}': {}", name, e);
+                }
+            }
+        }
+
+        logging!(info, Type::Mcp, "Discovered {} prompt(s) total", all_prompts.len());
+        all_prompts
+    }
+
+    /// 列出所有运行中服务器的资源
+    pub async fn list_resources(&self) -> Vec<ResourceInfo> {
+        let servers = self.servers.read().await;
+        let mut all_resources = Vec::new();
+
+        for (name, server) in servers.iter() {
+            if !matches!(server.status(), ServerStatus::Running) {
+                continue;
+            }
+
+            match server.list_resources().await {
+                Ok(resources) => {
+                    logging!(debug, Type::Mcp, "Server '{}' returned {} resource(s)", name, resources.len());
+                    for resource in resources {
+                        all_resources.push(ResourceInfo {
+                            server_name: name.clone(),
+                            resource,
+                        });
+                    }
+                }
+                Err(e) => {
+                    logging!(warn, Type::Mcp, "Failed to list resources from '{}': {}", name, e);
+                }
+            }
+        }
+
+        logging!(info, Type::Mcp, "Discovered {} resource(s) total", all_resources.len());
+        all_resources
+    }
+
+    /// 停止所有服务器
+    pub async fn stop_all(&self) {
+        let mut servers = self.servers.write().await;
+        for (name, server) in servers.iter_mut() {
+            match server.stop().await {
+                Ok(_) => {}
+                Err(McpError::AlreadyStopped { .. }) => {}
+                Err(e) => {
+                    logging!(warn, Type::Mcp, "Failed to stop server '{}' during shutdown: {}", name, e);
+                }
+            }
+        }
+        logging!(info, Type::Mcp, "All MCP servers stopped");
     }
 
     /// 调用指定服务器的工具

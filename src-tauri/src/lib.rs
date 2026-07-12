@@ -19,7 +19,7 @@ pub(crate) static MCP_MANAGER: OnceLock<McpManager> = OnceLock::new();
 pub fn run() {
     let builder = tauri::Builder::default();
     let builder = setup::setup_plugins(builder);
-    builder
+    let builder = builder
         .setup(|app| {
             APP_HANDLE
                 .set(app.handle().clone())
@@ -44,7 +44,7 @@ pub fn run() {
                 "bash" => ShellType::Bash,
                 _ => ShellType::Auto,
             };
-            
+
             // Initialize McpManager
             if MCP_MANAGER.set(McpManager::new(mcp_config, shell)).is_err() {
                 logging!(error, Type::Setup, "Failed to init McpManager");
@@ -66,7 +66,44 @@ pub fn run() {
 
             Ok(())
         })
-        .invoke_handler(setup::generate_handlers())
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .invoke_handler(setup::generate_handlers());
+
+    let app = builder
+        .build(tauri::generate_context!())
+        .unwrap_or_else(|e| {
+            logging!(error, Type::Setup, "Failed to build Tauri application: {e}");
+            std::process::exit(1);
+        });
+
+    app.run(|app_handle, e| match e {
+        tauri::RunEvent::ExitRequested { api: _, .. } => {
+            // Prevent re-entry
+            if kernel::context::AppContext::global().is_exiting() {
+                return;
+            }
+            kernel::context::AppContext::global().set_is_exiting();
+
+            logging!(info, Type::System, "Exit requested, saving config and cleaning up");
+
+            // Save config
+            if let Err(e) = config::Config::save_global() {
+                logging!(warn, Type::System, "Failed to save config on exit: {e}");
+            }
+
+            // Stop MCP servers (async in sync context)
+            if let Some(manager) = MCP_MANAGER.get() {
+                AsyncHandler::block_on(manager.stop_all());
+            }
+
+            app_handle.exit(0);
+        }
+        tauri::RunEvent::Exit => {
+            // Final save attempt (e.g., system shutdown)
+            if !kernel::context::AppContext::global().is_exiting() {
+                let _ = config::Config::save_global();
+            }
+            logging!(info, Type::System, "Application exited");
+        }
+        _ => {}
+    });
 }

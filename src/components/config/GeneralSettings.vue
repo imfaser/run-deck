@@ -23,6 +23,11 @@
     { label: '浅色', value: 'light' },
   ];
 
+  const homeRouteOptions = [
+    { label: '导航', value: 'overview' },
+    { label: '配置', value: 'config' },
+  ];
+
   function updateLogLevel(value: string) {
     emit('update', 'log_level', value);
   }
@@ -65,12 +70,19 @@
           <div class="setting-label">首页路由</div>
           <div class="setting-desc">应用启动时跳转的页面</div>
         </div>
-        <el-input
+        <el-select
           :model-value="config.frontend.home"
-          placeholder="如 overview、config"
-          style="width: 200px"
-          @update:model-value="(v: string) => updateHome(v)"
-        />
+          placeholder="选择首页"
+          style="width: 160px"
+          @update:model-value="updateHome"
+        >
+          <el-option
+            v-for="option in homeRouteOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
       </div>
 
       <div class="setting-item">

@@ -14,11 +14,10 @@ pub fn generate_handlers() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         crate::cmd::mcp::mcp_list_tools,
         crate::cmd::mcp::mcp_call_tool,
         crate::cmd::mcp::mcp_server_status,
+        crate::cmd::mcp::mcp_server_info,
+        crate::cmd::mcp::mcp_list_prompts,
+        crate::cmd::mcp::mcp_list_resources,
         crate::cmd::config::get_config,
-        crate::cmd::config::get_draft_config,
-        crate::cmd::config::config_draft_exist,
-        crate::cmd::config::config_has_changes,
-        crate::cmd::config::update_config,
-        crate::cmd::config::save_config
+        crate::cmd::config::update_config
     ]
 }

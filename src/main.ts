@@ -3,6 +3,8 @@ import { createRouter, createWebHistory } from 'vue-router';
 import { createPinia } from 'pinia';
 import { routes } from 'vue-router/auto-routes';
 import App from './App.vue';
+import 'element-plus/theme-chalk/src/message-box.scss';
+import 'element-plus/theme-chalk/src/button.scss';
 import './styles/main.sass';
 
 const router = createRouter({

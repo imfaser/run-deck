@@ -52,7 +52,7 @@
           <div class="server-info">
             <div class="server-name">{{ server.name }}</div>
             <div class="server-meta">
-              <el-tag size="small" :type="server.config.type === 'local' ? '' : 'info'">
+              <el-tag size="small" :type="server.config.type === 'local' ? undefined : 'info'">
                 {{ server.config.type === 'local' ? 'STDIO' : 'HTTP' }}
               </el-tag>
               <span
@@ -66,7 +66,7 @@
         <div class="server-actions">
           <el-switch
             :model-value="server.config.enabled"
-            @change="emit('toggle', server.name)"
+            @update:model-value="emit('toggle', server.name)"
             @click.stop
           />
           <button class="action-btn delete" @click.stop="emit('remove', server.name)">🗑</button>
