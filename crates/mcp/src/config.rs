@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use crate::shell::ShellType;
-
 /// MCP 服务器配置
 ///
 /// 参考 opencode 的配置格式，支持两种类型：
@@ -14,9 +12,6 @@ pub enum McpServerConfig {
     Local {
         /// 启动命令及参数
         command: Vec<String>,
-        /// Shell 类型
-        #[serde(default)]
-        shell: ShellType,
         /// 环境变量
         #[serde(default)]
         environment: Option<HashMap<String, String>>,

@@ -10,17 +10,47 @@ use std::sync::OnceLock;
 use mcp::McpServerConfig;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct FrontendConfig {
+    pub home: String,
+    #[serde(default = "default_mode")]
+    pub mode: String,
+}
+
+fn default_mode() -> String {
+    "dark".to_string()
+}
+
+impl Default for FrontendConfig {
+    fn default() -> Self {
+        Self {
+            home: "overview".to_string(),
+            mode: default_mode(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Config {
     pub log_level: String,
-    #[serde(default, alias = "mcp")]
-    pub mcp_servers: HashMap<String, McpServerConfig>,
+    #[serde(default = "default_shell")]
+    pub shell: String,
+    #[serde(default)]
+    pub frontend: FrontendConfig,
+    #[serde(default, alias = "mcp_servers")]
+    pub mcp: HashMap<String, McpServerConfig>,
+}
+
+fn default_shell() -> String {
+    "auto".to_string()
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
             log_level: "info".to_string(),
-            mcp_servers: HashMap::new(),
+            shell: default_shell(),
+            frontend: FrontendConfig::default(),
+            mcp: HashMap::new(),
         }
     }
 }

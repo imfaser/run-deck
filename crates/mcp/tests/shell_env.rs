@@ -6,62 +6,10 @@ use std::process::Stdio;
 use tokio::process::Command;
 
 #[test]
-fn test_shell_type_cmd_serialization() {
-    let config = mcp::McpServerConfig::Local {
-        command: vec!["echo".into()],
-        shell: ShellType::Cmd,
-        environment: Some(HashMap::from([(
-            "TEST_VAR".to_string(),
-            "test_value".to_string(),
-        )])),
-        enabled: true,
-        timeout: None,
-    };
-
-    let json = serde_json::to_string(&config).unwrap();
-    assert!(json.contains("\"cmd\""));
-    assert!(json.contains("TEST_VAR"));
-    assert!(json.contains("test_value"));
-}
-
-#[test]
-fn test_shell_type_powershell_serialization() {
-    let config = mcp::McpServerConfig::Local {
-        command: vec!["echo".into()],
-        shell: ShellType::PowerShell,
-        environment: Some(HashMap::from([(
-            "TEST_VAR".to_string(),
-            "test_value".to_string(),
-        )])),
-        enabled: true,
-        timeout: None,
-    };
-
-    let json = serde_json::to_string(&config).unwrap();
-    assert!(json.contains("\"powershell\""));
-    assert!(json.contains("TEST_VAR"));
-}
-
-#[test]
-fn test_shell_type_auto_serialization() {
-    let config = mcp::McpServerConfig::Local {
-        command: vec!["echo".into()],
-        shell: ShellType::Auto,
-        environment: None,
-        enabled: true,
-        timeout: None,
-    };
-
-    let json = serde_json::to_string(&config).unwrap();
-    assert!(json.contains("\"auto\""));
-}
-
-#[test]
-fn test_config_json_with_shell_and_env() {
+fn test_config_json_with_env() {
     let json = r#"{
         "type": "local",
         "command": ["npx", "-y", "my-server"],
-        "shell": "powershell",
         "environment": {
             "NODE_ENV": "production",
             "DEBUG": "true"
@@ -73,11 +21,9 @@ fn test_config_json_with_shell_and_env() {
 
     match config {
         mcp::McpServerConfig::Local {
-            shell,
             environment,
             ..
         } => {
-            assert_eq!(shell, ShellType::PowerShell);
             let env = environment.unwrap();
             assert_eq!(env.get("NODE_ENV").unwrap(), "production");
             assert_eq!(env.get("DEBUG").unwrap(), "true");
@@ -87,7 +33,7 @@ fn test_config_json_with_shell_and_env() {
 }
 
 #[test]
-fn test_config_json_default_shell() {
+fn test_config_json_default_values() {
     let json = r#"{
         "type": "local",
         "command": ["npx", "-y", "my-server"],
@@ -98,8 +44,8 @@ fn test_config_json_default_shell() {
     let config: mcp::McpServerConfig = serde_json::from_str(json).unwrap();
 
     match config {
-        mcp::McpServerConfig::Local { shell, .. } => {
-            assert_eq!(shell, ShellType::Auto);
+        mcp::McpServerConfig::Local { enabled, .. } => {
+            assert!(enabled);
         }
         _ => panic!("expected Local config"),
     }

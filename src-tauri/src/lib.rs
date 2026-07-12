@@ -9,6 +9,7 @@ use std::sync::OnceLock;
 use tauri::AppHandle;
 
 use mcp::McpManager;
+use mcp::shell::ShellType;
 use utils::async_handler::AsyncHandler;
 
 pub(crate) static APP_HANDLE: OnceLock<AppHandle> = OnceLock::new();
@@ -36,15 +37,21 @@ pub fn run() {
 
             // Initialize Config
             let config = config::Config::global();
-            let mcp_config = config.data_arc().mcp_servers.clone();
+            let mcp_config = config.data_arc().mcp.clone();
+            let shell = match config.data_arc().shell.as_str() {
+                "powershell" | "pwsh" => ShellType::PowerShell,
+                "cmd" => ShellType::Cmd,
+                "bash" => ShellType::Bash,
+                _ => ShellType::Auto,
+            };
             
             // Initialize McpManager
-            if MCP_MANAGER.set(McpManager::new(mcp_config)).is_err() {
+            if MCP_MANAGER.set(McpManager::new(mcp_config, shell)).is_err() {
                 logging!(error, Type::Setup, "Failed to init McpManager");
             }
 
             // Async start MCP servers
-            let server_names: Vec<String> = config.data_arc().mcp_servers.keys().cloned().collect();
+            let server_names: Vec<String> = config.data_arc().mcp.keys().cloned().collect();
             if !server_names.is_empty() {
                 logging!(info, Type::Setup, "Starting {} MCP server(s)...", server_names.len());
                 AsyncHandler::spawn(move || async move {

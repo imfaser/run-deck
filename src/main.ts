@@ -1,14 +1,16 @@
 import { createApp } from 'vue';
-import { createRouter, createWebHashHistory } from 'vue-router';
+import { createRouter, createWebHistory } from 'vue-router';
+import { createPinia } from 'pinia';
 import { routes } from 'vue-router/auto-routes';
 import App from './App.vue';
-import './styles/main.scss';
+import './styles/main.sass';
 
 const router = createRouter({
-  history: createWebHashHistory(),
+  history: createWebHistory(),
   routes,
 });
 
 const app = createApp(App);
+app.use(createPinia());
 app.use(router);
 app.mount('#app');

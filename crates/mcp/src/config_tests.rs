@@ -1,14 +1,12 @@
 #[cfg(test)]
 mod tests {
     use crate::McpServerConfig;
-    use crate::shell::ShellType;
     use std::collections::HashMap;
 
     #[test]
     fn test_local_config_enabled_by_default() {
         let config = McpServerConfig::Local {
             command: vec!["echo".to_string()],
-            shell: ShellType::Auto,
             environment: None,
             enabled: true,
             timeout: None,
@@ -20,7 +18,6 @@ mod tests {
     fn test_local_config_disabled() {
         let config = McpServerConfig::Local {
             command: vec!["echo".to_string()],
-            shell: ShellType::Auto,
             environment: None,
             enabled: false,
             timeout: None,
@@ -54,7 +51,6 @@ mod tests {
     fn test_config_timeout() {
         let config = McpServerConfig::Local {
             command: vec!["echo".to_string()],
-            shell: ShellType::Auto,
             environment: None,
             enabled: true,
             timeout: Some(5000),
@@ -66,7 +62,6 @@ mod tests {
     fn test_config_no_timeout() {
         let config = McpServerConfig::Local {
             command: vec!["echo".to_string()],
-            shell: ShellType::Auto,
             environment: None,
             enabled: true,
             timeout: None,
@@ -81,7 +76,6 @@ mod tests {
 
         let config = McpServerConfig::Local {
             command: vec!["echo".to_string()],
-            shell: ShellType::Auto,
             environment: Some(env.clone()),
             enabled: true,
             timeout: None,
@@ -99,7 +93,6 @@ mod tests {
     fn test_config_serialization_roundtrip() {
         let config = McpServerConfig::Local {
             command: vec!["npx".to_string(), "-y".to_string(), "my-mcp-server".to_string()],
-            shell: ShellType::Auto,
             environment: Some(HashMap::from([("KEY".to_string(), "value".to_string())])),
             enabled: true,
             timeout: Some(5000),

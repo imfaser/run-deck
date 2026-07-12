@@ -1,0 +1,128 @@
+// ============================================================
+// Theme Variables - CSS Custom Properties
+// ============================================================
+
+// ---- 生成间距变量 ----
+// --spacing-0: 0; --spacing-1: 4px; ... --spacing-20: 80px
+
+// ---- 生成字体大小变量 ----
+// --text-xs: 0.75rem; --text-sm: 0.8125rem; ...
+
+// ---- 生成字重变量 ----
+// --font-normal: 400; --font-medium: 500; --font-bold: 600
+
+// ---- 生成圆角变量 ----
+// --radius-sm: 4px; --radius-md: 8px; ...
+
+// ---- 生成 z-index 变量 ----
+// --z-dropdown: 1000; --z-sticky: 1020; ...
+
+// ============================================================
+// Color Palette
+// ============================================================
+
+$colors-light: (
+  bg-primary: #ffffff,
+  bg-secondary: #f8fafc,
+  bg-tertiary: #f1f5f9,
+  bg-elevated: #ffffff,
+  text-primary: #0f172a,
+  text-secondary: #64748b,
+  text-tertiary: #94a3b8,
+  text-inverse: #e2e8f0,
+  border-default: #e2e8f0,
+  border-subtle: #f1f5f9,
+  border-strong: #cbd5e1,
+  accent-primary: #4f46e5,
+  accent-hover: #6366f1,
+  status-success: #16a34a,
+  status-warning: #d97706,
+  status-error: #dc2626,
+  status-info: #2563eb,
+)
+
+$colors-dark: (
+  bg-primary: #0f0f1a,
+  bg-secondary: #1a1a2e,
+  bg-tertiary: #16162a,
+  bg-elevated: #1e1e32,
+  text-primary: #e2e8f0,
+  text-secondary: #94a3b8,
+  text-tertiary: #64748b,
+  text-inverse: #0f172a,
+  border-default: #2a2a4a,
+  border-subtle: #1e1e32,
+  border-strong: #3a3a5a,
+  accent-primary: #6366f1,
+  accent-hover: #818cf8,
+  status-success: #22c55e,
+  status-warning: #f59e0b,
+  status-error: #ef4444,
+  status-info: #3b82f6,
+)
+
+// ============================================================
+// Mixin: 生成主题变量
+// ============================================================
+
+=generate-theme-vars($colors, $alpha-hover: null, $alpha-active: null)
+  // 颜色变量
+  @each $name, $value in $colors
+    --#{$name}: #{$value}
+
+  // accent-muted (需要透明度)
+  @if $alpha-hover != null
+    --accent-muted: #{rgba(map-get($colors, accent-primary), $alpha-hover)}
+
+  // surface 交互色 (需要透明度)
+  @if $alpha-active != null
+    --surface-hover: rgba(#{if($alpha-hover < 0.5, 255, 0)}, #{if($alpha-hover < 0.5, 255, 0)}, #{if($alpha-hover < 0.5, 255, 0)}, #{$alpha-hover})
+    --surface-active: rgba(#{if($alpha-active < 0.5, 255, 0)}, #{if($alpha-active < 0.5, 255, 0)}, #{if($alpha-active < 0.5, 255, 0)}, #{$alpha-active})
+
+// ============================================================
+// Light Theme
+// ============================================================
+
+:root, [data-theme="light"]
+  // 间距 (通过 @each 生成)
+  @each $key, $value in $spacing
+    --spacing-#{$key}: #{$value}
+
+  // 字体大小
+  @each $key, $value in $font-sizes
+    --text-#{$key}: #{$value}
+
+  // 字重
+  @each $key, $value in $font-weights
+    --font-#{$key}: #{$value}
+
+  // 圆角
+  @each $key, $value in $border-radius
+    --radius-#{$key}: #{$value}
+
+  // z-index
+  @each $key, $value in $z-index
+    --z-#{$key}: #{$value}
+
+  // 字体族
+  --font-family-base: #{$font-family-base}
+
+  // 过渡
+  --transition-fast: #{$transition-fast}
+  --transition-base: #{$transition-base}
+  --transition-slow: #{$transition-slow}
+
+  // 布局
+  --titlebar-height: #{$titlebar-height}
+  --sidebar-width: #{$sidebar-width}
+
+  // 颜色主题 (light: 白色背景, 深色文字)
+  +generate-theme-vars($colors-light, 0.10, 0.05)
+
+// ============================================================
+// Dark Theme
+// ============================================================
+
+[data-theme="dark"]
+  // 颜色主题 (dark: 深色背景, 浅色文字)
+  +generate-theme-vars($colors-dark, 0.15, 0.08)

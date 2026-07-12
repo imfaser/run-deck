@@ -4,14 +4,13 @@ use mcp::{McpManager, McpServerConfig, ShellType, ServerStatus};
 use std::collections::HashMap;
 use std::time::Duration;
 
-fn local_everything_with_shell(shell: ShellType) -> McpServerConfig {
+fn local_everything_config() -> McpServerConfig {
     McpServerConfig::Local {
         command: vec![
             "npx".into(),
             "-y".into(),
             "@modelcontextprotocol/server-everything".into(),
         ],
-        shell,
         environment: None,
         enabled: true,
         timeout: common::TIMEOUT,
@@ -41,7 +40,7 @@ async fn wait_for_running(manager: &McpManager, name: &str) {
 /// 测试 Auto (Windows 默认 Cmd) 启动 MCP 服务器
 #[tokio::test(flavor = "multi_thread")]
 async fn test_start_with_auto_shell() {
-    let config = local_everything_with_shell(ShellType::Auto);
+    let config = local_everything_config();
     let manager = common::make_manager(vec![("auto-srv".into(), config)]).await;
 
     manager.start_server("auto-srv").await.unwrap();
@@ -61,8 +60,11 @@ async fn test_start_with_auto_shell() {
 /// 测试 Cmd 启动 MCP 服务器
 #[tokio::test(flavor = "multi_thread")]
 async fn test_start_with_cmd_shell() {
-    let config = local_everything_with_shell(ShellType::Cmd);
-    let manager = common::make_manager(vec![("cmd-srv".into(), config)]).await;
+    let config = local_everything_config();
+    let manager = McpManager::new(
+        HashMap::from([("cmd-srv".into(), config)]),
+        ShellType::Cmd,
+    );
 
     manager.start_server("cmd-srv").await.unwrap();
     wait_for_running(&manager, "cmd-srv").await;
@@ -81,8 +83,11 @@ async fn test_start_with_cmd_shell() {
 /// 测试 PowerShell 启动 MCP 服务器
 #[tokio::test(flavor = "multi_thread")]
 async fn test_start_with_powershell_shell() {
-    let config = local_everything_with_shell(ShellType::PowerShell);
-    let manager = common::make_manager(vec![("ps-srv".into(), config)]).await;
+    let config = local_everything_config();
+    let manager = McpManager::new(
+        HashMap::from([("ps-srv".into(), config)]),
+        ShellType::PowerShell,
+    );
 
     manager.start_server("ps-srv").await.unwrap();
     wait_for_running(&manager, "ps-srv").await;
@@ -104,8 +109,11 @@ async fn test_start_with_powershell_shell() {
 /// 测试 PowerShell 调用工具
 #[tokio::test(flavor = "multi_thread")]
 async fn test_call_tool_with_powershell() {
-    let config = local_everything_with_shell(ShellType::PowerShell);
-    let manager = common::make_manager(vec![("ps-srv".into(), config)]).await;
+    let config = local_everything_config();
+    let manager = McpManager::new(
+        HashMap::from([("ps-srv".into(), config)]),
+        ShellType::PowerShell,
+    );
 
     manager.start_server("ps-srv").await.unwrap();
     wait_for_running(&manager, "ps-srv").await;
@@ -138,7 +146,6 @@ async fn test_start_with_powershell_and_env() {
             "-y".into(),
             "@modelcontextprotocol/server-everything".into(),
         ],
-        shell: ShellType::PowerShell,
         environment: Some(HashMap::from([(
             "NODE_ENV".to_string(),
             "test".to_string(),
@@ -146,7 +153,10 @@ async fn test_start_with_powershell_and_env() {
         enabled: true,
         timeout: common::TIMEOUT,
     };
-    let manager = common::make_manager(vec![("ps-env-srv".into(), config)]).await;
+    let manager = McpManager::new(
+        HashMap::from([("ps-env-srv".into(), config)]),
+        ShellType::PowerShell,
+    );
 
     manager.start_server("ps-env-srv").await.unwrap();
     wait_for_running(&manager, "ps-env-srv").await;
@@ -162,9 +172,9 @@ async fn test_start_with_powershell_and_env() {
 /// 测试不同 shell 启动后工具列表一致
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tools_consistent_across_shells() {
-    let auto_config = local_everything_with_shell(ShellType::Auto);
-    let cmd_config = local_everything_with_shell(ShellType::Cmd);
-    let ps_config = local_everything_with_shell(ShellType::PowerShell);
+    let auto_config = local_everything_config();
+    let cmd_config = local_everything_config();
+    let ps_config = local_everything_config();
 
     let manager = common::make_manager(vec![
         ("auto-srv".into(), auto_config),

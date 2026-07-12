@@ -8,6 +8,7 @@ use crate::config::McpServerConfig;
 use crate::error::McpError;
 use crate::event::{McpEvent, ServerStatus};
 use crate::server::McpServer;
+use crate::shell::ShellType;
 use crate::ToolInfo;
 
 /// MCP 服务器管理器
@@ -18,6 +19,8 @@ pub struct McpManager {
     servers: Arc<RwLock<HashMap<String, McpServer>>>,
     /// 事件发送器
     event_tx: broadcast::Sender<McpEvent>,
+    /// 全局 Shell 配置
+    shell: ShellType,
 }
 
 impl McpManager {
@@ -25,10 +28,11 @@ impl McpManager {
     ///
     /// # Arguments
     /// * `servers` - 服务器配置，key 为服务器名称
+    /// * `shell` - 全局 Shell 配置，所有本地 MCP 服务器共用
     ///
     /// 注意：`enabled: false` 的服务器会被过滤掉，不会进入管理器。
     /// 对 disabled 服务器调用任何操作都会返回 `McpError::ServerNotFound`。
-    pub fn new(servers: HashMap<String, McpServerConfig>) -> Self {
+    pub fn new(servers: HashMap<String, McpServerConfig>, shell: ShellType) -> Self {
         let (event_tx, _) = broadcast::channel(100);
         let mut server_map = HashMap::new();
 
@@ -36,11 +40,12 @@ impl McpManager {
             server_map.insert(name.clone(), McpServer::new(name, config));
         }
 
-        logging!(info, Type::Mcp, "McpManager created with {} server(s)", server_map.len());
+        logging!(info, Type::Mcp, "McpManager created with {} server(s), shell: {:?}", server_map.len(), shell);
 
         Self {
             servers: Arc::new(RwLock::new(server_map)),
             event_tx,
+            shell,
         }
     }
 
@@ -59,7 +64,7 @@ impl McpManager {
                 name: name.to_string(),
             })?;
 
-        let event = server.start().await.map_err(|e| {
+        let event = server.start(&self.shell).await.map_err(|e| {
             let _ = self.event_tx.send(McpEvent::ServerFailed {
                 name: name.to_string(),
                 error: e.to_string(),
@@ -97,7 +102,7 @@ impl McpManager {
             })?;
 
         logging!(info, Type::Mcp, "Restarting server '{}'", name);
-        let events = server.restart().await?;
+        let events = server.restart(&self.shell).await?;
         for event in events {
             let _ = self.event_tx.send(event);
         }

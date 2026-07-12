@@ -42,7 +42,7 @@ impl McpServer {
     }
 
     /// 启动服务器
-    pub async fn start(&mut self) -> Result<McpEvent, McpError> {
+    pub async fn start(&mut self, shell: &ShellType) -> Result<McpEvent, McpError> {
         if matches!(self.status, ServerStatus::Running) {
             return Err(McpError::AlreadyRunning {
                 name: self.name.clone(),
@@ -60,13 +60,12 @@ impl McpServer {
         match self.config.clone() {
             McpServerConfig::Local {
                 command,
-                shell,
                 environment,
                 timeout,
                 ..
             } => {
                 logging!(debug, Type::Mcp, "Starting server '{}' as Local (stdio)", self.name);
-                if let Err(e) = self.start_stdio(command, shell, environment, timeout).await {
+                if let Err(e) = self.start_stdio(command, shell.clone(), environment, timeout).await {
                     self.status = ServerStatus::Failed {
                         error: e.to_string(),
                     };
@@ -124,7 +123,7 @@ impl McpServer {
     }
 
     /// 重启服务器
-    pub async fn restart(&mut self) -> Result<Vec<McpEvent>, McpError> {
+    pub async fn restart(&mut self, shell: &ShellType) -> Result<Vec<McpEvent>, McpError> {
         if matches!(self.status, ServerStatus::Starting) {
             return Err(McpError::StillStarting {
                 name: self.name.clone(),
@@ -141,7 +140,7 @@ impl McpServer {
         }
 
         // 重新启动
-        let start_event = self.start().await?;
+        let start_event = self.start(shell).await?;
         events.push(start_event);
 
         Ok(events)

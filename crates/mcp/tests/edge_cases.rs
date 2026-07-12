@@ -86,7 +86,6 @@ async fn test_start_timeout() {
             "-y".into(),
             "@modelcontextprotocol/server-everything".into(),
         ],
-        shell: mcp::ShellType::Auto,
         environment: None,
         enabled: true,
         timeout: Some(1),
@@ -105,7 +104,6 @@ async fn test_start_timeout() {
 async fn test_start_invalid_command() {
     let config = McpServerConfig::Local {
         command: vec!["this_program_definitely_does_not_exist_xyz".into()],
-        shell: mcp::ShellType::Auto,
         environment: None,
         enabled: true,
         timeout: Some(5000),
@@ -125,7 +123,6 @@ async fn test_start_invalid_command() {
 async fn test_start_empty_command() {
     let config = McpServerConfig::Local {
         command: vec![],
-        shell: mcp::ShellType::Auto,
         environment: None,
         enabled: true,
         timeout: Some(5000),

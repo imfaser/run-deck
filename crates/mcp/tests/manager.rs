@@ -28,7 +28,6 @@ async fn test_server_not_found() {
 async fn test_disabled_server_returns_not_found() {
     let config = mcp::McpServerConfig::Local {
         command: vec!["echo".into()],
-        shell: mcp::ShellType::Auto,
         environment: None,
         enabled: false,
         timeout: common::TIMEOUT,

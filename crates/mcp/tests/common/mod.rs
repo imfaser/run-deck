@@ -14,7 +14,6 @@ pub fn local_everything_config() -> McpServerConfig {
             "-y".into(),
             "@modelcontextprotocol/server-everything".into(),
         ],
-        shell: ShellType::Auto,
         environment: None,
         enabled: true,
         timeout: TIMEOUT,
@@ -24,7 +23,6 @@ pub fn local_everything_config() -> McpServerConfig {
 pub fn local_git_config() -> McpServerConfig {
     McpServerConfig::Local {
         command: vec!["uvx".into(), "mcp-server-git".into()],
-        shell: ShellType::Auto,
         environment: None,
         enabled: true,
         timeout: TIMEOUT,
@@ -62,5 +60,5 @@ pub async fn wait_for_running(manager: &McpManager, name: &str) {
 
 pub async fn make_manager(configs: Vec<(String, McpServerConfig)>) -> McpManager {
     let map: HashMap<String, McpServerConfig> = configs.into_iter().collect();
-    McpManager::new(map)
+    McpManager::new(map, ShellType::Auto)
 }
