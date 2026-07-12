@@ -1,13 +1,15 @@
 <script setup lang="ts">
   import { ref, onMounted, computed } from 'vue';
   import { Window } from '@tauri-apps/api/window';
-  import { House, Setting, Close } from '@element-plus/icons-vue';
+  import { House, Setting, Close, Sunny, Moon } from '@element-plus/icons-vue';
   import { useRouter, useRoute } from 'vue-router';
   import { useAppStore } from '@/stores/app';
+  import { useTheme } from '@/composables/useTheme';
 
   const router = useRouter();
   const route = useRoute();
   const store = useAppStore();
+  const { theme, toggleTheme } = useTheme();
   const isMaximized = ref(false);
   const appWindow = new Window('main');
 
@@ -83,6 +85,13 @@
     </div>
 
     <div class="titlebar-right">
+      <button class="titlebar-button" @click="toggleTheme">
+        <el-icon :size="14">
+          <Moon v-if="theme === 'dark'" />
+          <Sunny v-else />
+        </el-icon>
+      </button>
+      <div class="window-divider" />
       <button class="titlebar-button" @click="appWindow.minimize()">
         <svg width="12" height="12" viewBox="0 0 12 12">
           <rect x="2" y="5.5" width="8" height="1" fill="currentColor" />
@@ -227,6 +236,13 @@
     align-items: center;
     height: 100%;
     flex-shrink: 0;
+  }
+
+  .window-divider {
+    width: 1px;
+    height: 20px;
+    background: var(--border-default);
+    margin: 0 4px;
   }
 
   .titlebar-button {

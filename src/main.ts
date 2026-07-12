@@ -5,7 +5,7 @@ import { routes } from 'vue-router/auto-routes';
 import App from './App.vue';
 import 'element-plus/theme-chalk/src/message-box.scss';
 import 'element-plus/theme-chalk/src/button.scss';
-import './styles/main.sass';
+import './styles/main.scss';
 
 const router = createRouter({
   history: createWebHistory(),

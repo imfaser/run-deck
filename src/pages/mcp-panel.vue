@@ -19,7 +19,7 @@
   const loading = ref(true);
   const error = ref('');
   const config = ref<Config | null>(null);
-  const selectedServer = ref<string>('');
+  const selectedServer = ref('');
   const activeTab = ref('tools');
 
   const serverStatuses = ref<Record<string, ServerStatus>>({});
@@ -92,7 +92,6 @@
     selectedServer.value = name;
     activeTab.value = 'tools';
 
-    // 先刷新服务器状态
     await fetchServerData(name);
 
     if (!isServerRunning.value) return;
@@ -118,259 +117,229 @@
     }
   }
 
-  function getStatusColor(status: ServerStatus): string {
-    if (status === 'Running') return '#22c55e';
-    if (status === 'Starting') return '#f59e0b';
-    return '#6b7280';
+  function getStatusType(status: ServerStatus): 'success' | 'warning' | 'info' | 'danger' {
+    if (status === 'Running') return 'success';
+    if (status === 'Starting') return 'warning';
+    return 'info';
+  }
+
+  function getStatusLabel(status: ServerStatus): string {
+    if (typeof status === 'object' && 'Failed' in status) return '失败';
+    return status;
   }
 
   function getServerTypeLabel(cfg: McpServerConfig): string {
     return cfg.type === 'local' ? 'STDIO' : 'HTTP';
   }
 
-  function getSchemaProperties(schema: Record<string, unknown> | undefined | null): Array<{
-    name: string;
-    type: string;
-    required: boolean;
-    description: string;
-  }> {
+  function getSchemaProperties(
+    schema: Record<string, unknown> | undefined | null
+  ): Array<{ name: string; type: string; required: boolean; description: string }> {
     if (!schema) return [];
-    const properties = (schema as Record<string, Record<string, unknown>>).properties;
-    const required = ((schema as Record<string, string[]>).required ?? []) as string[];
+    const properties = schema.properties as Record<string, Record<string, unknown>> | undefined;
+    const required = (schema.required as string[] | undefined) ?? [];
 
     if (!properties) return [];
 
     return Object.entries(properties).map(([name, prop]) => ({
       name,
-      type: (prop.type as string) ?? 'unknown',
+      type: (prop?.type as string) ?? 'unknown',
       required: required.includes(name),
-      description: (prop.description as string) ?? '',
+      description: (prop?.description as string) ?? '',
     }));
   }
 </script>
 
 <template>
   <div v-loading="loading" class="mcp-panel">
-    <div v-if="error" class="error-banner">{{ error }}</div>
+    <el-alert v-if="error" :title="error" type="error" show-icon class="error-alert" />
 
-    <aside class="panel-sidebar">
-      <div class="sidebar-title">MCP 服务器</div>
-      <nav class="sidebar-nav">
-        <button
-          v-for="server in serverList"
-          :key="server.name"
-          :class="['server-item', { active: selectedServer === server.name }]"
-          @click="loadServerDetails(server.name)"
-        >
-          <div class="server-name">{{ server.name }}</div>
-          <div class="server-meta">
-            <span v-if="server.info" class="server-version">{{ server.info.version }}</span>
-            <span class="server-type">{{ getServerTypeLabel(server.config) }}</span>
-            <span class="status-dot" :style="{ backgroundColor: getStatusColor(server.status) }" />
-          </div>
-        </button>
-      </nav>
-    </aside>
+    <div class="panel-layout">
+      <el-menu
+        :default-active="selectedServer"
+        class="server-menu"
+        @select="(name: string) => loadServerDetails(name)"
+      >
+        <template v-for="server in serverList" :key="server.name">
+          <el-menu-item :index="server.name">
+            <div class="server-menu-content">
+              <div class="server-menu-header">
+                <span class="server-menu-name">{{ server.name }}</span>
+                <el-tag v-if="server.info" size="small" type="info">
+                  {{ server.info.version }}
+                </el-tag>
+                <el-tag size="small">{{ getServerTypeLabel(server.config) }}</el-tag>
+              </div>
+              <el-tag :type="getStatusType(server.status)" size="small" effect="dark">
+                {{ getStatusLabel(server.status) }}
+              </el-tag>
+            </div>
+          </el-menu-item>
+        </template>
+      </el-menu>
 
-    <main class="panel-main">
-      <div v-if="!selectedServer" class="empty-state">
-        <p>请选择一个 MCP 服务器查看详情</p>
-      </div>
-
-      <template v-else>
-        <div class="server-header">
-          <h2 class="server-title">{{ selectedServer }}</h2>
-          <span v-if="selectedServerInfo" class="server-version-badge">
-            {{ selectedServerInfo.version }}
-          </span>
-        </div>
-
-        <div v-if="!isServerRunning" class="empty-state">
-          <p>服务器未运行</p>
-          <p class="hint">请在配置页面启动此服务器</p>
-        </div>
+      <div class="panel-main">
+        <el-empty v-if="!selectedServer" description="请选择一个 MCP 服务器查看详情" />
 
         <template v-else>
-          <el-tabs v-model="activeTab" class="server-tabs">
+          <div class="server-header">
+            <h2>{{ selectedServer }}</h2>
+            <el-tag v-if="selectedServerInfo" size="small">
+              {{ selectedServerInfo.version }}
+            </el-tag>
+          </div>
+
+          <el-alert
+            v-if="!isServerRunning"
+            title="服务器未运行"
+            description="请在配置页面启动此服务器"
+            type="warning"
+            show-icon
+          />
+
+          <el-tabs v-else v-model="activeTab">
             <el-tab-pane label="工具" name="tools">
-              <div v-if="selectedServerTools.length === 0" class="empty-state">
-                <p>暂无工具</p>
-              </div>
+              <el-empty v-if="selectedServerTools.length === 0" description="暂无工具" />
               <div v-else class="tools-list">
-                <div
-                  v-for="toolInfo in selectedServerTools"
-                  :key="toolInfo.tool.name"
-                  class="tool-card"
-                >
-                  <div class="tool-header">
-                    <span class="tool-name">{{ toolInfo.tool.name }}</span>
-                    <span v-if="toolInfo.tool.description" class="tool-desc">
-                      {{ toolInfo.tool.description }}
-                    </span>
-                  </div>
-                  <div class="tool-params">
-                    <div
-                      v-for="param in getSchemaProperties(toolInfo.tool.inputSchema)"
-                      :key="param.name"
-                      class="param-row"
-                    >
-                      <span class="param-name">
-                        {{ param.name }}
-                        <span v-if="param.required" class="required">*</span>
-                      </span>
-                      <span class="param-type">{{ param.type }}</span>
-                      <span v-if="param.description" class="param-desc">
-                        {{ param.description }}
-                      </span>
+                <el-card v-for="toolInfo in selectedServerTools" :key="toolInfo.tool.name">
+                  <template #header>
+                    <div class="tool-card-header">
+                      <span class="tool-name">{{ toolInfo.tool.name }}</span>
                     </div>
-                  </div>
-                </div>
+                  </template>
+                  <p v-if="toolInfo.tool.description" class="tool-desc">
+                    {{ toolInfo.tool.description }}
+                  </p>
+                  <el-table
+                    v-if="getSchemaProperties(toolInfo.tool.inputSchema).length > 0"
+                    :data="getSchemaProperties(toolInfo.tool.inputSchema)"
+                    stripe
+                    size="small"
+                    border
+                  >
+                    <el-table-column prop="name" label="参数" width="140">
+                      <template #default="{ row }">
+                        <span class="param-name">
+                          {{ row.name }}
+                          <el-tag v-if="row.required" size="small" type="danger">必填</el-tag>
+                        </span>
+                      </template>
+                    </el-table-column>
+                    <el-table-column prop="type" label="类型" width="100">
+                      <template #default="{ row }">
+                        <el-tag size="small" effect="plain">{{ row.type }}</el-tag>
+                      </template>
+                    </el-table-column>
+                    <el-table-column prop="description" label="描述" />
+                  </el-table>
+                  <el-text v-else type="info" size="small">无参数</el-text>
+                </el-card>
               </div>
             </el-tab-pane>
 
             <el-tab-pane :label="`提示 (${selectedServerPrompts.length})`" name="prompts">
-              <div v-if="selectedServerPrompts.length === 0" class="empty-state">
-                <p>暂无提示</p>
-              </div>
+              <el-empty v-if="selectedServerPrompts.length === 0" description="暂无提示" />
               <div v-else class="prompts-list">
-                <div
-                  v-for="promptInfo in selectedServerPrompts"
-                  :key="promptInfo.prompt.name"
-                  class="prompt-card"
-                >
-                  <div class="prompt-name">{{ promptInfo.prompt.name }}</div>
-                  <div v-if="promptInfo.prompt.description" class="prompt-desc">
+                <el-card v-for="promptInfo in selectedServerPrompts" :key="promptInfo.prompt.name">
+                  <template #header>
+                    <div class="prompt-card-header">
+                      <span class="prompt-name">{{ promptInfo.prompt.name }}</span>
+                    </div>
+                  </template>
+                  <p v-if="promptInfo.prompt.description" class="prompt-desc">
                     {{ promptInfo.prompt.description }}
-                  </div>
+                  </p>
                   <div
                     v-if="promptInfo.prompt.arguments && promptInfo.prompt.arguments.length > 0"
                     class="prompt-args"
                   >
-                    <span
-                      v-for="arg in promptInfo.prompt.arguments"
-                      :key="arg.name"
-                      class="arg-tag"
-                    >
+                    <el-tag v-for="arg in promptInfo.prompt.arguments" :key="arg.name" size="small">
                       {{ arg.name }}
                       <span v-if="arg.required">*</span>
-                    </span>
+                    </el-tag>
                   </div>
-                </div>
+                </el-card>
               </div>
             </el-tab-pane>
 
             <el-tab-pane :label="`资源 (${selectedServerResources.length})`" name="resources">
-              <div v-if="selectedServerResources.length === 0" class="empty-state">
-                <p>暂无资源</p>
-              </div>
+              <el-empty v-if="selectedServerResources.length === 0" description="暂无资源" />
               <div v-else class="resources-list">
-                <div
+                <el-card
                   v-for="resourceInfo in selectedServerResources"
                   :key="resourceInfo.resource.uri"
-                  class="resource-card"
                 >
-                  <div class="resource-name">{{ resourceInfo.resource.name }}</div>
-                  <div class="resource-uri">{{ resourceInfo.resource.uri }}</div>
-                  <div v-if="resourceInfo.resource.mime_type" class="resource-mime">
-                    {{ resourceInfo.resource.mime_type }}
-                  </div>
-                  <div v-if="resourceInfo.resource.description" class="resource-desc">
+                  <template #header>
+                    <div class="resource-card-header">
+                      <span class="resource-name">{{ resourceInfo.resource.name }}</span>
+                      <el-tag v-if="resourceInfo.resource.mime_type" size="small" type="info">
+                        {{ resourceInfo.resource.mime_type }}
+                      </el-tag>
+                    </div>
+                  </template>
+                  <el-text type="info" size="small" class="resource-uri">
+                    {{ resourceInfo.resource.uri }}
+                  </el-text>
+                  <p v-if="resourceInfo.resource.description" class="resource-desc">
                     {{ resourceInfo.resource.description }}
-                  </div>
-                </div>
+                  </p>
+                </el-card>
               </div>
             </el-tab-pane>
           </el-tabs>
         </template>
-      </template>
-    </main>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped lang="scss">
   .mcp-panel {
-    display: flex;
     min-height: calc(100vh - 40px);
     background: var(--bg-secondary);
     color: var(--text-primary);
   }
 
-  .panel-sidebar {
-    width: 240px;
-    background: var(--bg-tertiary);
-    border-right: 1px solid var(--border-default);
-    padding: 1.5rem 0;
-    flex-shrink: 0;
-  }
-
-  .sidebar-title {
-    font-size: 1.125rem;
-    font-weight: 600;
-    padding: 0 1.25rem;
+  .error-alert {
     margin-bottom: 1rem;
-    color: var(--text-primary);
   }
 
-  .sidebar-nav {
+  .panel-layout {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    min-height: calc(100vh - 40px);
   }
 
-  .server-item {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.25rem;
-    padding: 0.75rem 1.25rem;
-    border: none;
-    background: none;
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-align: left;
-    width: 100%;
+  .server-menu {
+    width: 240px;
+    border-right: 1px solid var(--border-default);
+    background: var(--bg-tertiary);
+  }
 
-    &:hover {
-      background: var(--surface-hover);
-      color: var(--text-primary);
-    }
+  :deep(.el-menu-item) {
+    border-bottom: 1px solid var(--border-subtle);
+    height: auto;
+    padding: 12px 16px;
 
-    &.active {
+    &.is-active {
       background: var(--accent-muted);
-      color: var(--accent-hover);
     }
   }
 
-  .server-name {
-    font-weight: 500;
-    color: var(--text-primary);
+  .server-menu-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    width: 100%;
   }
 
-  .server-meta {
+  .server-menu-header {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    font-size: 0.75rem;
   }
 
-  .server-version {
-    color: var(--text-tertiary);
-  }
-
-  .server-type {
-    padding: 0.125rem 0.375rem;
-    background: var(--surface-hover);
-    border-radius: 4px;
-    font-size: 0.625rem;
-    color: var(--text-secondary);
-  }
-
-  .status-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
+  .server-menu-name {
+    font-weight: 500;
   }
 
   .panel-main {
@@ -384,34 +353,11 @@
     align-items: center;
     gap: 0.75rem;
     margin-bottom: 1.5rem;
-  }
 
-  .server-title {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin: 0;
-  }
-
-  .server-version-badge {
-    padding: 0.25rem 0.5rem;
-    background: var(--accent-muted);
-    color: var(--accent-hover);
-    border-radius: 4px;
-    font-size: 0.75rem;
-  }
-
-  .empty-state {
-    text-align: center;
-    padding: 3rem 1rem;
-    color: var(--text-tertiary);
-
-    p {
+    h2 {
       margin: 0;
-    }
-
-    .hint {
-      margin-top: 0.5rem;
-      font-size: 0.875rem;
+      font-size: 1.25rem;
+      font-weight: 600;
     }
   }
 
@@ -420,82 +366,41 @@
   .resources-list {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 1rem;
   }
 
-  .tool-card,
-  .prompt-card,
-  .resource-card {
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-default);
-    border-radius: 8px;
-    padding: 1rem;
+  .tool-card-header,
+  .prompt-card-header,
+  .resource-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0;
   }
 
-  .tool-header {
-    margin-bottom: 0.75rem;
-  }
-
-  .tool-name {
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-
-  .tool-desc {
-    display: block;
-    margin-top: 0.25rem;
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-  }
-
-  .tool-params {
-    border-top: 1px solid var(--border-subtle);
-    padding-top: 0.75rem;
-  }
-
-  .param-row {
-    display: grid;
-    grid-template-columns: 120px 80px 1fr;
-    gap: 0.75rem;
-    padding: 0.375rem 0;
-    font-size: 0.875rem;
-
-    &:not(:last-child) {
-      border-bottom: 1px solid var(--border-subtle);
-    }
-  }
-
-  .param-name {
-    font-weight: 500;
-    color: var(--text-primary);
-  }
-
-  .required {
-    color: var(--status-error);
-    margin-left: 2px;
-  }
-
-  .param-type {
-    color: var(--accent);
-    font-size: 0.75rem;
-  }
-
-  .param-desc {
-    color: var(--text-secondary);
-  }
-
+  .tool-name,
   .prompt-name,
   .resource-name {
     font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 0.25rem;
   }
 
+  .tool-desc,
   .prompt-desc,
   .resource-desc {
-    font-size: 0.875rem;
+    margin: 0 0 1rem;
     color: var(--text-secondary);
-    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+  }
+
+  .resource-uri {
+    font-family: monospace;
+  }
+
+  .param-name {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-weight: 500;
   }
 
   .prompt-args {
@@ -504,74 +409,19 @@
     flex-wrap: wrap;
   }
 
-  .arg-tag {
-    padding: 0.125rem 0.5rem;
-    background: var(--surface-hover);
-    border-radius: 4px;
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-  }
-
-  .resource-uri {
-    font-family: monospace;
-    font-size: 0.75rem;
-    color: var(--text-tertiary);
-    margin-bottom: 0.25rem;
-  }
-
-  .resource-mime {
-    font-size: 0.75rem;
-    color: var(--accent);
-  }
-
-  .debug-schema {
-    margin-top: 0.5rem;
-    padding: 0.5rem;
-    background: var(--bg-secondary);
-    border-radius: 4px;
-    font-size: 0.75rem;
-    color: var(--text-tertiary);
-    overflow-x: auto;
-  }
-
-  .error-banner {
-    padding: 1rem;
-    background: rgba(239, 68, 68, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.3);
-    border-radius: 8px;
-    color: var(--status-error);
-    margin-bottom: 1rem;
-  }
-
   @media (max-width: 768px) {
-    .mcp-panel {
+    .panel-layout {
       flex-direction: column;
     }
 
-    .panel-sidebar {
+    .server-menu {
       width: 100%;
       border-right: none;
       border-bottom: 1px solid var(--border-default);
-      padding: 1rem 0;
-    }
-
-    .sidebar-nav {
-      flex-direction: row;
-      overflow-x: auto;
-      padding: 0 1rem;
-    }
-
-    .server-item {
-      white-space: nowrap;
-      padding: 0.5rem 1rem;
     }
 
     .panel-main {
-      padding: 1.5rem 1rem;
-    }
-
-    .param-row {
-      grid-template-columns: 1fr;
+      padding: 1rem;
     }
   }
 </style>

@@ -153,7 +153,7 @@
         <label class="form-label">启用</label>
         <el-switch
           :model-value="config.enabled"
-          @update:model-value="(v: boolean) => updateField('enabled', v)"
+          @update:model-value="(v: boolean | string | number) => updateField('enabled', Boolean(v))"
         />
       </div>
     </div>

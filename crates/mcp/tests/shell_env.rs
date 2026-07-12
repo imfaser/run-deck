@@ -1,7 +1,6 @@
 mod common;
 
 use mcp::ShellType;
-use std::collections::HashMap;
 use std::process::Stdio;
 use tokio::process::Command;
 

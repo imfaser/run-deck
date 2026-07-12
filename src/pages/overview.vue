@@ -59,7 +59,7 @@
 
 <style scoped lang="scss">
   .overview-page {
-    min-height: 100vh;
+    min-height: calc(100vh - 40px);
     background: var(--bg-secondary);
     color: var(--text-primary);
   }

@@ -66,7 +66,7 @@
         <div class="server-actions">
           <el-switch
             :model-value="server.config.enabled"
-            @update:model-value="emit('toggle', server.name)"
+            @update:model-value="() => emit('toggle', server.name)"
             @click.stop
           />
           <button class="action-btn delete" @click.stop="emit('remove', server.name)">🗑</button>

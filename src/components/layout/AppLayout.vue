@@ -13,13 +13,15 @@
 
 <style scoped lang="scss">
   .app-layout {
-    min-height: 100vh;
+    height: 100vh;
     background: var(--bg-secondary);
     color: var(--text-primary);
+    overflow: hidden;
   }
 
   .app-content {
     padding-top: 40px;
-    min-height: 100vh;
+    height: 100vh;
+    overflow-y: auto;
   }
 </style>
