@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import { resolve } from 'path';
+import VueRouter from 'vue-router/vite';
+import { VueRouterAutoImports } from 'vue-router/unplugin';
 
 // Element Plus 按需自动导入
 import AutoImport from 'unplugin-auto-import/vite';
@@ -12,11 +14,14 @@ const host = process.env.TAURI_DEV_HOST;
 
 export default defineConfig({
   plugins: [
+    VueRouter({
+      dts: 'src/route-map.d.ts',
+    }),
     vue(),
 
     AutoImport({
       resolvers: [ElementPlusResolver()],
-      imports: ['vue'],
+      imports: ['vue', VueRouterAutoImports],
       dts: true,
     }),
 

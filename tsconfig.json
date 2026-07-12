@@ -30,6 +30,7 @@
     "src/**/*.d.ts",
     "src/**/*.tsx",
     "src/**/*.vue",
+    "src/route-map.d.ts",
     "auto-imports.d.ts",
     "components.d.ts"
   ],
