@@ -19,12 +19,12 @@ web-serve:
 
 # ===== 构建命令 =====
 build:
-    cross-env NODE_OPTIONS='--max-old-space-size=4096' tauri build -- -f prod
+    cross-env NODE_OPTIONS='--max-old-space-size=4096' tauri build -f prod
 
 build-fast:
-    cross-env NODE_OPTIONS='--max-old-space-size=4096' tauri build -- -- -f prod --profile fast-release
+    cross-env NODE_OPTIONS='--max-old-space-size=4096' tauri build -f prod -- -- --profile fast-release
 build-dev:
-    cross-env NODE_OPTIONS='--max-old-space-size=4096' tauri build -- -- --profile dev
+    cross-env NODE_OPTIONS='--max-old-space-size=4096' tauri build -f prod -- -- --profile dev
 # ===== 代码质量 =====
 lint:
     eslint -c eslint.config.js --max-warnings=0 --cache --cache-location .eslintcache src

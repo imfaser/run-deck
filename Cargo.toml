@@ -1,6 +1,11 @@
 [workspace]
-members = ["crates/logging","src-tauri"]  # 空项目仅需 Tauri 核心目录
-resolver = "2"           # 保留 Rust 新依赖解析器
+members = [
+    "crates/logging",
+    "src-tauri",
+    "crates/draft",
+    "crates/mcp",
+]
+resolver = "2" # 保留 Rust 新依赖解析器
 
 # ===== 最小化构建配置 =====
 [profile.release]
@@ -21,12 +26,22 @@ strip = "none"
 overflow-checks = true
 lto = false
 
+[profile.fast-release]
+inherits = "release"
+codegen-units = 64
+incremental = true
+lto = false
+opt-level = 0
+debug = true
+strip = false
+
 # ===== 仅保留核心依赖 =====
 [workspace.dependencies]
 draft = { path = "crates/draft" }
 logging = { path = "crates/logging" }
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = { version = "1.0.150" }
+mcp = { path = "crates/mcp" }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1" }
 anyhow = "1.0.102"
 parking_lot = "0.12.5"
 flexi_logger = "0.31.9"
@@ -35,6 +50,8 @@ chrono = "0.4"
 tar = "0.4"
 flate2 = "1"
 tempfile = "3"
+thiserror = "2"
+tokio = { version = "1" ,features = ["full"] }
 # ===== Lint 规则 =====
 [workspace.lints.clippy]
 all = "warn"
