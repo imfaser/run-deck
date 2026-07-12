@@ -29,12 +29,14 @@ pub use config::McpServerConfig;
 pub use error::McpError;
 pub use event::{McpEvent, ServerStatus};
 pub use manager::McpManager;
+pub use rmcp::model::CallToolResult;
 pub use shell::ShellType;
 
 use logging::{logging, Type};
+use serde::Serialize;
 
 /// 工具信息，包含服务器来源和工具定义
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ToolInfo {
     /// 工具所属的服务器名称
     pub server_name: String,

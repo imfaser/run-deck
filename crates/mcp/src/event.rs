@@ -1,5 +1,7 @@
+use serde::Serialize;
+
 /// MCP 服务器事件
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum McpEvent {
     /// 服务器正在启动
     ServerStarting { name: String },
@@ -24,7 +26,7 @@ impl McpEvent {
 }
 
 /// 服务器状态
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub enum ServerStatus {
     /// 正在启动
     Starting,

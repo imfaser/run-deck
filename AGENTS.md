@@ -65,39 +65,39 @@ Follow this directory structure under `src/styles/` (create on demand, not eager
 
 styles/
 |
-|-- abstracts/     # 核心：这里放你的“树根”
-|   |-- _variables.scss  # 全局变量（颜色、字体、间距）
-|   |-- _functions.scss  # 自定义函数（如：px转rem的计算）
-|   |-- _mixins.scss     # 混合宏（如：clearfix, 响应式断点）
-|   `-- _placeholders.scss # 占位符（%clearfix）
+|-- abstracts/ # 核心：这里放你的“树根”
+| |-- \_variables.scss # 全局变量（颜色、字体、间距）
+| |-- \_functions.scss # 自定义函数（如：px转rem的计算）
+| |-- \_mixins.scss # 混合宏（如：clearfix, 响应式断点）
+| `-- _placeholders.scss # 占位符（%clearfix）
 |
 |-- base/           # 基础样式
 |   |-- _reset.scss      # 或 normalize.css
 |   |-- _typography.scss # 排版
-|   `-- _animations.scss
+|   `-- \_animations.scss
 |
-|-- components/     # 组件级样式（UI Library的核心）
-|   |-- _button.scss
-|   |-- _input.scss
-|   |-- _modal.scss
-|   `-- _table.scss
+|-- components/ # 组件级样式（UI Library的核心）
+| |-- \_button.scss
+| |-- \_input.scss
+| |-- \_modal.scss
+| `-- _table.scss
 |
 |-- layout/         # 布局相关
 |   |-- _grid.scss
 |   |-- _header.scss
-|   `-- _footer.scss
+|   `-- \_footer.scss
 |
-|-- pages/          # 页面级别的特殊样式（尽量少的代码）
-|   `-- _home.scss
+|-- pages/ # 页面级别的特殊样式（尽量少的代码）
+| `-- _home.scss
 |
 |-- themes/         # 主题管理（非常重要，用于换肤）
 |   |-- _light.scss
-|   `-- _dark.scss
+|   `-- \_dark.scss
 |
-|-- vendors/        # 第三方库样式覆盖
-|   `-- _bootstrap.scss
+|-- vendors/ # 第三方库样式覆盖
+| `-- _bootstrap.scss
 |
-`-- main.scss       # 入口文件：只负责 @import 或 @use
+`-- main.scss # 入口文件：只负责 @import 或 @use
 
 Entry point: `src/styles/main.scss` — the only file imported by the app.
 

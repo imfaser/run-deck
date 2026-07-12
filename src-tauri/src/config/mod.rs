@@ -12,7 +12,7 @@ use mcp::McpServerConfig;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub log_level: String,
-    #[serde(default)]
+    #[serde(default, alias = "mcp")]
     pub mcp_servers: HashMap<String, McpServerConfig>,
 }
 
