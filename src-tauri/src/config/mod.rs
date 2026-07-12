@@ -9,7 +9,7 @@ use std::sync::OnceLock;
 
 use mcp::McpServerConfig;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Config {
     pub log_level: String,
     #[serde(default, alias = "mcp")]

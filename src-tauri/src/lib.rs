@@ -11,8 +11,8 @@ use tauri::AppHandle;
 use mcp::McpManager;
 use utils::async_handler::AsyncHandler;
 
-pub static APP_HANDLE: OnceLock<AppHandle> = OnceLock::new();
-pub static MCP_MANAGER: OnceLock<McpManager> = OnceLock::new();
+pub(crate) static APP_HANDLE: OnceLock<AppHandle> = OnceLock::new();
+pub(crate) static MCP_MANAGER: OnceLock<McpManager> = OnceLock::new();
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

@@ -1,6 +1,7 @@
 use crate::singleton;
-use crate::APP_HANDLE;
+use crate::{APP_HANDLE, MCP_MANAGER};
 use chrono::Local;
+use mcp::McpManager;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::AppHandle;
 
@@ -29,6 +30,11 @@ impl AppContext {
     pub fn app_handle() -> &'static AppHandle {
         #[allow(clippy::expect_used)]
         APP_HANDLE.get().expect("App handle not initialized")
+    }
+
+    pub fn mcp_manager() -> &'static McpManager {
+        #[allow(clippy::expect_used)]
+        MCP_MANAGER.get().expect("MCP manager not initialized")
     }
 
     pub fn set_is_exiting(&self) {

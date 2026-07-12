@@ -7,7 +7,7 @@ use crate::shell::ShellType;
 /// 参考 opencode 的配置格式，支持两种类型：
 /// - `Local`: 本地 stdio 服务器
 /// - `Remote`: 远程 HTTP 服务器
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum McpServerConfig {
     /// 本地 stdio 服务器

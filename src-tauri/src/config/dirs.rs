@@ -1,4 +1,4 @@
-use crate::APP_HANDLE;
+use crate::kernel::context::AppContext;
 use anyhow::Result;
 use logging::{logging, Type};
 use std::path::PathBuf;
@@ -17,9 +17,7 @@ fn project_root() -> PathBuf {
 /// - `prod` feature OFF: `<project_root> / ".app"`
 #[cfg(feature = "prod")]
 pub fn app_home_dir() -> Result<PathBuf> {
-    let app_handle = APP_HANDLE
-        .get()
-        .ok_or_else(|| anyhow::anyhow!("App handle not initialized"))?;
+    let app_handle = AppContext::app_handle();
 
     match app_handle.path().data_dir() {
         Ok(dir) => Ok(dir.join(APP_ID)),
@@ -49,9 +47,7 @@ pub fn app_icons_dir() -> Result<PathBuf> {
 
 /// Tauri resource directory
 pub fn app_resources_dir() -> Result<PathBuf> {
-    let app_handle = APP_HANDLE
-        .get()
-        .ok_or_else(|| anyhow::anyhow!("App handle not initialized"))?;
+    let app_handle = AppContext::app_handle();
 
     match app_handle.path().resource_dir() {
         Ok(dir) => Ok(dir.join("resources")),
