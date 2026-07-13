@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import { computed } from 'vue';
+  import { Delete, Setting } from '@element-plus/icons-vue';
   import type { McpServerConfig, ServerStatus } from '@/services/cmd';
 
   const props = defineProps<{
@@ -22,10 +23,10 @@
     }))
   );
 
-  function getStatusColor(status: ServerStatus): string {
-    if (status === 'Running') return '#22c55e';
-    if (status === 'Starting') return '#f59e0b';
-    return '#6b7280';
+  function getStatusType(status: ServerStatus): 'success' | 'warning' | 'info' | 'danger' {
+    if (status === 'Running') return 'success';
+    if (status === 'Starting') return 'warning';
+    return 'info';
   }
 
   function getStatusLabel(status: ServerStatus): string {
@@ -41,10 +42,9 @@
       <el-button type="primary" @click="emit('add')">+ 添加</el-button>
     </div>
 
-    <div v-if="serverList.length === 0" class="empty-state">
-      <p>暂无 MCP 服务器</p>
-      <p class="hint">点击「添加」按钮创建新的 MCP 服务器</p>
-    </div>
+    <el-empty v-if="serverList.length === 0" description="暂无 MCP 服务器">
+      <el-button type="primary" @click="emit('add')">+ 添加</el-button>
+    </el-empty>
 
     <div v-else class="server-list">
       <div v-for="server in serverList" :key="server.name" class="server-card">
@@ -55,11 +55,9 @@
               <el-tag size="small" :type="server.config.type === 'local' ? undefined : 'info'">
                 {{ server.config.type === 'local' ? 'STDIO' : 'HTTP' }}
               </el-tag>
-              <span
-                class="status-dot"
-                :style="{ backgroundColor: getStatusColor(server.status) }"
-              />
-              <span class="status-text">{{ getStatusLabel(server.status) }}</span>
+              <el-tag :type="getStatusType(server.status)" size="small" effect="dark">
+                {{ getStatusLabel(server.status) }}
+              </el-tag>
             </div>
           </div>
         </div>
@@ -69,8 +67,8 @@
             @update:model-value="() => emit('toggle', server.name)"
             @click.stop
           />
-          <button class="action-btn delete" @click.stop="emit('remove', server.name)">🗑</button>
-          <button class="action-btn settings" @click.stop="emit('edit', server.name)">⚙</button>
+          <el-button :icon="Delete" circle @click.stop="emit('remove', server.name)" />
+          <el-button :icon="Setting" circle @click.stop="emit('edit', server.name)" />
         </div>
       </div>
     </div>
@@ -78,50 +76,30 @@
 </template>
 
 <style scoped lang="scss">
+  @use '../../styles/abstracts/mixins' as *;
+
   .section-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 1.5rem;
+    margin-bottom: var(--spacing-rem-lg);
   }
 
   .section-title {
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--text-primary);
+    @include section-title;
     margin: 0;
   }
 
-  .empty-state {
-    text-align: center;
-    padding: 3rem 1rem;
-    color: var(--text-tertiary);
-
-    p {
-      margin: 0;
-    }
-
-    .hint {
-      margin-top: 0.5rem;
-      font-size: 0.875rem;
-    }
-  }
-
   .server-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
+    @include flex-column;
+    gap: var(--spacing-rem-md);
   }
 
   .server-card {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-default);
-    border-radius: 12px;
-    padding: 1rem 1.25rem;
-    transition: border-color 0.2s;
+    @include flex-between;
+    @include card;
+    padding: var(--spacing-rem-base) var(--spacing-rem-lg);
+    transition: border-color var(--transition-base);
 
     &:hover {
       border-color: var(--border-strong);
@@ -135,51 +113,22 @@
   }
 
   .server-name {
-    font-size: 0.9375rem;
-    font-weight: 500;
+    font-size: var(--text-md);
+    font-weight: var(--font-medium);
     color: var(--text-primary);
-    margin-bottom: 0.375rem;
+    margin-bottom: var(--spacing-rem-xs);
   }
 
   .server-meta {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-  }
-
-  .status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-  }
-
-  .status-text {
-    font-size: 0.75rem;
-    color: var(--text-tertiary);
+    gap: var(--spacing-rem-sm);
   }
 
   .server-actions {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    margin-left: 1rem;
-  }
-
-  .action-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 1rem;
-    padding: 0.25rem;
-    opacity: 0.6;
-    transition: opacity 0.2s;
-
-    &:hover {
-      opacity: 1;
-    }
-
-    &.delete:hover {
-      color: #ef4444;
-    }
+    gap: var(--spacing-rem-md);
+    margin-left: var(--spacing-rem-base);
   }
 </style>

@@ -127,25 +127,21 @@
 </template>
 
 <style scoped lang="scss">
+  @use '../../styles/abstracts/mixins' as *;
+
   .section-title {
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin: 0 0 1.5rem 0;
+    @include section-title;
+    margin-bottom: var(--spacing-rem-lg);
   }
 
   .setting-group {
-    background: var(--bg-tertiary);
-    border-radius: 12px;
-    border: 1px solid var(--border-default);
+    @include card;
     overflow: hidden;
   }
 
   .setting-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1rem 1.25rem;
+    @include flex-between;
+    padding: var(--spacing-rem-base) var(--spacing-rem-lg);
 
     & + .setting-item {
       border-top: 1px solid var(--border-default);
@@ -154,17 +150,17 @@
 
   .setting-info {
     flex: 1;
-    margin-right: 1rem;
+    margin-right: var(--spacing-rem-base);
   }
 
   .setting-label {
-    font-size: 0.9375rem;
+    font-size: var(--text-md);
     color: var(--text-primary);
   }
 
   .setting-desc {
-    font-size: 0.8125rem;
+    font-size: var(--text-sm);
     color: var(--text-tertiary);
-    margin-top: 0.25rem;
+    margin-top: var(--spacing-rem-xs);
   }
 </style>

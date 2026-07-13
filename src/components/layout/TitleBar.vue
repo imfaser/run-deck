@@ -91,7 +91,6 @@
           <Sunny v-else />
         </el-icon>
       </button>
-      <div class="window-divider" />
       <button class="titlebar-button" @click="appWindow.minimize()">
         <svg width="12" height="12" viewBox="0 0 12 12">
           <rect x="2" y="5.5" width="8" height="1" fill="currentColor" />
@@ -148,17 +147,17 @@
 </template>
 
 <style scoped lang="scss">
+  @use '../../styles/abstracts/mixins' as *;
+
   .titlebar {
-    height: 40px;
+    height: var(--titlebar-height);
     background: var(--bg-primary);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    @include flex-between;
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
-    z-index: 999;
+    z-index: var(--z-titlebar);
     user-select: none;
     -webkit-user-select: none;
     border-bottom: 1px solid var(--border-subtle);
@@ -168,8 +167,8 @@
     display: flex;
     align-items: center;
     height: 100%;
-    padding-left: 12px;
-    gap: 4px;
+    padding-left: var(--spacing-3);
+    gap: var(--spacing-1);
     overflow-x: auto;
     max-width: calc(100vw - 150px);
 
@@ -180,24 +179,24 @@
 
   .tab-divider {
     width: 1px;
-    height: 20px;
+    height: var(--spacing-5);
     background: var(--border-default);
-    margin: 0 4px;
+    margin: 0 var(--spacing-1);
     flex-shrink: 0;
   }
 
   .nav-tab {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 14px;
+    gap: var(--spacing-1);
+    padding: var(--spacing-1) var(--spacing-3);
     border: none;
     background: none;
     color: var(--text-secondary);
-    font-size: 13px;
+    font-size: var(--spacing-3);
     cursor: pointer;
-    border-radius: 6px;
-    transition: all 0.2s;
+    border-radius: var(--radius-md);
+    transition: all var(--transition-base);
     white-space: nowrap;
     flex-shrink: 0;
 
@@ -212,19 +211,17 @@
     }
 
     &.dynamic {
-      padding-right: 8px;
+      padding-right: var(--spacing-2);
     }
   }
 
   .tab-close {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 16px;
-    height: 16px;
-    border-radius: 4px;
-    margin-left: 4px;
-    transition: all 0.15s;
+    @include flex-center;
+    width: var(--spacing-4);
+    height: var(--spacing-4);
+    border-radius: var(--radius-sm);
+    margin-left: var(--spacing-1);
+    transition: all var(--transition-fast);
 
     &:hover {
       background: var(--surface-hover);
@@ -236,26 +233,27 @@
     align-items: center;
     height: 100%;
     flex-shrink: 0;
+    gap: var(--spacing-2);
+    padding-right: var(--spacing-2);
   }
 
   .window-divider {
     width: 1px;
-    height: 20px;
+    height: var(--spacing-5);
     background: var(--border-default);
-    margin: 0 4px;
+    margin: 0 var(--spacing-1);
   }
 
   .titlebar-button {
     display: inline-flex;
-    justify-content: center;
-    align-items: center;
-    width: 36px;
+    @include flex-center;
+    width: var(--spacing-8);
     height: 100%;
     border: none;
     background: none;
     color: var(--text-secondary);
     cursor: pointer;
-    transition: all 0.15s;
+    transition: all var(--transition-fast);
 
     &:hover {
       background: var(--surface-hover);
@@ -264,7 +262,7 @@
 
     &.close:hover {
       background: var(--status-error);
-      color: #fff;
+      color: var(--text-inverse);
     }
   }
 </style>

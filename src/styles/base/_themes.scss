@@ -64,6 +64,10 @@ $colors-dark: (
     --spacing-#{$key}: #{$value};
   }
 
+  @each $key, $value in $spacing-rem {
+    --spacing-rem-#{$key}: #{$value};
+  }
+
   @each $key, $value in $font-sizes {
     --text-#{$key}: #{$value};
   }
@@ -109,6 +113,9 @@ $colors-dark: (
   --el-table-header-bg-color: #{map.get($colors-dark, bg-secondary)};
   --el-table-row-hover-bg-color: #{map.get($colors-dark, bg-secondary)};
   --el-table-border-color: #{map.get($colors-dark, border-default)};
+  --el-table-current-row-bg-color: #{map.get($colors-dark, accent-primary)}1a;
+  --el-table-expanded-cell-bg-color: transparent;
+  --el-fill-color-lighter: #{map.get($colors-dark, bg-secondary)};
   --el-text-color-primary: #{map.get($colors-dark, text-primary)};
   --el-text-color-regular: #{map.get($colors-dark, text-primary)};
   --el-text-color-secondary: #{map.get($colors-dark, text-secondary)};
@@ -120,4 +127,7 @@ $colors-dark: (
   --el-border-color: #{map.get($colors-dark, border-default)};
   --el-border-color-light: #{map.get($colors-dark, border-subtle)};
   --el-border-color-lighter: #{map.get($colors-dark, border-subtle)};
+
+  // Select dropdown & popper overlay
+  --el-bg-color-overlay: #{map.get($colors-dark, bg-elevated)};
 }

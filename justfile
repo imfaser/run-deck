@@ -12,7 +12,8 @@ web-dev:
     vite
 
 web-build:
-    vue-tsc --noEmit && vite build
+    vue-tsc --noEmit 
+    vite build
 
 web-serve:
     vite preview

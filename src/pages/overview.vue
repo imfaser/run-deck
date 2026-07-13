@@ -58,29 +58,29 @@
 </template>
 
 <style scoped lang="scss">
+  @use '../styles/abstracts/mixins' as *;
+
   .overview-page {
-    min-height: calc(100vh - 40px);
-    background: var(--bg-secondary);
-    color: var(--text-primary);
+    @include page-layout;
   }
 
   .overview-main {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 2rem;
+    padding: var(--spacing-rem-xl);
   }
 
   .section-title {
-    font-size: 1.125rem;
-    font-weight: 500;
-    margin-bottom: 1.5rem;
+    font-size: var(--text-lg);
+    font-weight: var(--font-medium);
+    margin-bottom: var(--spacing-rem-lg);
     color: var(--text-primary);
   }
 
   .app-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-    gap: 1.5rem;
+    gap: var(--spacing-rem-lg);
     justify-items: start;
   }
 
@@ -88,9 +88,9 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--spacing-rem-sm);
     cursor: pointer;
-    transition: transform 0.2s;
+    transition: transform var(--transition-base);
 
     &:hover {
       transform: scale(1.05);
@@ -100,11 +100,11 @@
   .app-icon {
     width: 56px;
     height: 56px;
-    border-radius: 14px;
+    border-radius: var(--radius-xl);
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: box-shadow 0.2s;
+    transition: box-shadow var(--transition-base);
 
     &:hover {
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
@@ -112,36 +112,36 @@
   }
 
   .icon-text {
-    font-size: 1.5rem;
+    font-size: var(--text-2xl);
     color: #fff;
-    font-weight: 500;
+    font-weight: var(--font-medium);
   }
 
   .app-name {
-    font-size: 0.75rem;
+    font-size: var(--text-xs);
     color: var(--text-secondary);
     text-align: center;
     white-space: nowrap;
   }
 
-  @media (max-width: 768px) {
+  @include respond-to('md') {
     .overview-main {
-      padding: 1rem;
+      padding: var(--spacing-rem-base);
     }
 
     .app-grid {
       grid-template-columns: repeat(4, 1fr);
-      gap: 1rem;
+      gap: var(--spacing-rem-base);
     }
 
     .app-icon {
       width: 48px;
       height: 48px;
-      border-radius: 12px;
+      border-radius: var(--radius-lg);
     }
 
     .icon-text {
-      font-size: 1.25rem;
+      font-size: var(--text-xl);
     }
   }
 </style>

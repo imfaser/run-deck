@@ -70,31 +70,28 @@
 <template>
   <div class="mcp-server-form">
     <div class="section-header">
-      <button class="back-btn" @click="emit('back')">← 返回</button>
+      <el-button text @click="emit('back')">← 返回</el-button>
       <h2 class="section-title">编辑服务器</h2>
     </div>
 
-    <div class="form-card">
-      <div class="form-item">
-        <label class="form-label required">名称</label>
+    <el-form label-width="auto" class="form-card">
+      <el-form-item label="名称" required>
         <el-input
           :model-value="localName"
           placeholder="MCP 服务器"
           @update:model-value="updateName"
         />
-      </div>
+      </el-form-item>
 
-      <div class="form-item">
-        <label class="form-label">类型</label>
+      <el-form-item label="类型">
         <el-select :model-value="config.type" style="width: 100%" disabled>
           <el-option label="标准输入 / 输出 (stdio)" value="local" />
           <el-option label="远程 HTTP 服务器 (http)" value="remote" />
         </el-select>
-      </div>
+      </el-form-item>
 
       <template v-if="config.type === 'local'">
-        <div class="form-item">
-          <label class="form-label">启动命令</label>
+        <el-form-item label="启动命令">
           <el-input
             :model-value="getCommandText()"
             type="textarea"
@@ -102,10 +99,9 @@
             placeholder="每行一个参数，例如：&#10;uvx&#10;echo-mcp-server"
             @update:model-value="updateCommand"
           />
-        </div>
+        </el-form-item>
 
-        <div class="form-item">
-          <label class="form-label">环境变量</label>
+        <el-form-item label="环境变量">
           <el-input
             :model-value="getEnvText()"
             type="textarea"
@@ -113,21 +109,19 @@
             placeholder="每行一个，格式：KEY=value"
             @update:model-value="updateEnv"
           />
-        </div>
+        </el-form-item>
       </template>
 
       <template v-else>
-        <div class="form-item">
-          <label class="form-label required">URL</label>
+        <el-form-item label="URL" required>
           <el-input
             :model-value="config.url"
             placeholder="https://example.com/mcp"
             @update:model-value="(v: string) => updateField('url', v)"
           />
-        </div>
+        </el-form-item>
 
-        <div class="form-item">
-          <label class="form-label">请求头</label>
+        <el-form-item label="请求头">
           <el-input
             :model-value="getEnvText()"
             type="textarea"
@@ -135,11 +129,10 @@
             placeholder="每行一个，格式：KEY=value"
             @update:model-value="updateEnv"
           />
-        </div>
+        </el-form-item>
       </template>
 
-      <div class="form-item">
-        <label class="form-label">超时（毫秒）</label>
+      <el-form-item label="超时（毫秒）">
         <el-input-number
           :model-value="config.timeout"
           :min="0"
@@ -147,82 +140,34 @@
           controls-position="right"
           @update:model-value="(v: number | undefined) => updateField('timeout', v)"
         />
-      </div>
+      </el-form-item>
 
-      <div class="form-item row">
-        <label class="form-label">启用</label>
+      <el-form-item label="启用">
         <el-switch
           :model-value="config.enabled"
           @update:model-value="(v: boolean | string | number) => updateField('enabled', Boolean(v))"
         />
-      </div>
-    </div>
+      </el-form-item>
+    </el-form>
   </div>
 </template>
 
 <style scoped lang="scss">
+  @use '../../styles/abstracts/mixins' as *;
+
   .section-header {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .back-btn {
-    background: none;
-    border: none;
-    color: var(--accent-hover);
-    cursor: pointer;
-    font-size: 0.875rem;
-    padding: 0;
-
-    &:hover {
-      color: var(--accent-primary);
-    }
+    gap: var(--spacing-rem-base);
+    margin-bottom: var(--spacing-rem-lg);
   }
 
   .section-title {
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin: 0;
+    @include section-title;
   }
 
   .form-card {
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-default);
-    border-radius: 12px;
-    padding: 1.5rem;
-  }
-
-  .form-item {
-    margin-bottom: 1.25rem;
-
-    &:last-child {
-      margin-bottom: 0;
-    }
-
-    &.row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-  }
-
-  .form-label {
-    display: block;
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-    margin-bottom: 0.5rem;
-
-    &.required::before {
-      content: '*';
-      color: var(--status-error);
-      margin-right: 0.25rem;
-    }
-
-    .row & {
-      margin-bottom: 0;
-    }
+    @include card;
+    padding: var(--spacing-rem-lg);
   }
 </style>

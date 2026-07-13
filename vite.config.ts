@@ -20,13 +20,13 @@ export default defineConfig({
     vue(),
 
     AutoImport({
-      resolvers: [ElementPlusResolver()],
+      resolvers: [ElementPlusResolver({ importStyle: 'sass' })],
       imports: ['vue', VueRouterAutoImports],
       dts: true,
     }),
 
     Components({
-      resolvers: [ElementPlusResolver()],
+      resolvers: [ElementPlusResolver({ importStyle: 'sass' })],
       dts: true,
     }),
   ],
@@ -45,9 +45,8 @@ export default defineConfig({
   css: {
     preprocessorOptions: {
       scss: {
-        // 以后要做主题定制再打开下面两行（并且 ElementPlusResolver 要配合 importStyle:'sass'）
-        // api: 'modern-compiler',
-        // additionalData: `@use "@/styles/element/index.scss" as *;`,
+        api: 'modern-compiler',
+        additionalData: `@use "@/styles/element/index.scss" as *;`,
       },
     },
   },

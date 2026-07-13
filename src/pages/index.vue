@@ -26,12 +26,12 @@
 </template>
 
 <style scoped lang="scss">
+  @use '../styles/abstracts/mixins' as *;
+
   .loading {
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    @include flex-center;
     height: 100vh;
     font-family: sans-serif;
-    color: #999;
+    color: var(--text-tertiary);
   }
 </style>

@@ -20,7 +20,7 @@
   }
 
   .app-content {
-    padding-top: 40px;
+    padding-top: var(--titlebar-height);
     height: 100vh;
     overflow-y: auto;
   }

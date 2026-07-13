@@ -15,6 +15,7 @@
   import GeneralSettings from '@/components/config/GeneralSettings.vue';
   import McpServerList from '@/components/config/McpServerList.vue';
   import McpServerForm from '@/components/config/McpServerForm.vue';
+  import PageLayout from '@/components/layout/PageLayout.vue';
   import { useTheme } from '@/composables/useTheme';
 
   const { setTheme } = useTheme();
@@ -168,149 +169,72 @@
 </script>
 
 <template>
-  <div v-loading="loading" class="config-page">
-    <aside class="config-sidebar">
+  <PageLayout v-loading="loading">
+    <template #aside>
       <div class="sidebar-title">设置</div>
-      <nav class="sidebar-nav">
-        <button
-          v-for="section in sections"
-          :key="section.key"
-          :class="['nav-item', { active: activeSection === section.key }]"
-          @click="activeSection = section.key"
-        >
-          <span class="nav-label">{{ section.label }}</span>
-        </button>
-      </nav>
-    </aside>
+      <el-menu
+        :default-active="activeSection"
+        class="sidebar-nav"
+        @select="(key) => (activeSection = key)"
+      >
+        <el-menu-item v-for="section in sections" :key="section.key" :index="section.key">
+          {{ section.label }}
+        </el-menu-item>
+      </el-menu>
+    </template>
 
-    <main class="config-main">
-      <div v-if="error" class="error-banner">{{ error }}</div>
+    <el-alert v-if="error" :title="error" type="error" show-icon class="error-alert" />
 
-      <template v-else-if="config">
-        <GeneralSettings
-          v-if="activeSection === 'general'"
-          :config="config"
-          @update="handleConfigUpdate"
+    <template v-else-if="config">
+      <GeneralSettings
+        v-if="activeSection === 'general'"
+        :config="config"
+        @update="handleConfigUpdate"
+      />
+
+      <template v-if="activeSection === 'mcp'">
+        <McpServerForm
+          v-if="editingServer"
+          :name="editingServer.name"
+          :config="editingServer.config"
+          @back="backToList"
+          @update:name="updateServerName"
+          @update:config="updateServerConfig"
         />
-
-        <template v-if="activeSection === 'mcp'">
-          <McpServerForm
-            v-if="editingServer"
-            :name="editingServer.name"
-            :config="editingServer.config"
-            @back="backToList"
-            @update:name="updateServerName"
-            @update:config="updateServerConfig"
-          />
-          <McpServerList
-            v-else
-            :servers="config.mcp"
-            :statuses="serverStatuses"
-            @add="addServer"
-            @edit="editServer"
-            @remove="removeServer"
-            @toggle="toggleServer"
-          />
-        </template>
+        <McpServerList
+          v-else
+          :servers="config.mcp"
+          :statuses="serverStatuses"
+          @add="addServer"
+          @edit="editServer"
+          @remove="removeServer"
+          @toggle="toggleServer"
+        />
       </template>
-    </main>
-  </div>
+    </template>
+  </PageLayout>
 </template>
 
 <style scoped lang="scss">
-  .config-page {
-    display: flex;
-    min-height: calc(100vh - 40px);
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-  }
-
-  .config-sidebar {
-    width: 200px;
-    background: var(--bg-tertiary);
-    border-right: 1px solid var(--border-default);
-    padding: 1.5rem 0;
-    flex-shrink: 0;
-  }
-
   .sidebar-title {
-    font-size: 1.125rem;
-    font-weight: 600;
-    padding: 0 1.25rem;
-    margin-bottom: 1rem;
+    font-size: var(--text-lg);
+    font-weight: var(--font-bold);
+    padding: 0 var(--spacing-rem-lg);
+    margin-bottom: var(--spacing-rem-base);
     color: var(--text-primary);
   }
 
   .sidebar-nav {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
+    border-right: none;
   }
 
-  .nav-item {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem 1.25rem;
-    border: none;
-    background: none;
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-align: left;
-    width: 100%;
-
-    &:hover {
-      background: var(--surface-hover);
-      color: var(--text-primary);
-    }
-
-    &.active {
+  :deep(.el-menu-item) {
+    &.is-active {
       background: var(--accent-muted);
-      color: var(--accent-hover);
     }
   }
 
-  .config-main {
-    flex: 1;
-    padding: 2rem;
-    overflow-y: auto;
-  }
-
-  .error-banner {
-    padding: 1rem;
-    background: rgba(239, 68, 68, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.3);
-    border-radius: 8px;
-    color: var(--status-error);
-  }
-
-  @media (max-width: 768px) {
-    .config-page {
-      flex-direction: column;
-    }
-
-    .config-sidebar {
-      width: 100%;
-      border-right: none;
-      border-bottom: 1px solid var(--border-default);
-      padding: 1rem 0;
-    }
-
-    .sidebar-nav {
-      flex-direction: row;
-      overflow-x: auto;
-      padding: 0 1rem;
-    }
-
-    .nav-item {
-      white-space: nowrap;
-      padding: 0.5rem 1rem;
-    }
-
-    .config-main {
-      padding: 1.5rem 1rem;
-    }
+  .error-alert {
+    margin-bottom: var(--spacing-rem-base);
   }
 </style>

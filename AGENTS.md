@@ -94,3 +94,87 @@ Rules:
 - Prettier: semi, single quotes, trailing comma es5, 100 width, LF, vue script/style indented
 - ESLint: `_` prefix suppresses unused vars (`argsIgnorePattern: '^_'`), `vue/multi-word-component-names` off
 - TS: strict mode, `noUnusedLocals`/`noUnusedParameters` enabled — prefix unused params with `_`
+
+## Element Plus 踩坑与经验
+
+### 主题定制
+
+**必须用 SCSS 变量编译时覆盖，纯 CSS 变量不够。**
+
+1. 创建 `src/styles/element/index.scss`：
+
+```scss
+@forward 'element-plus/theme-chalk/src/common/var.scss' with (
+  $colors: (
+    'primary': (
+      'base': #6366f1,
+    ),
+    'success': (
+      'base': #22c55e,
+    ),
+    // ...
+  )
+);
+```
+
+2. `vite.config.ts` 配置：
+
+```ts
+css: {
+  preprocessorOptions: {
+    scss: {
+      api: 'modern-compiler',
+      additionalData: `@use "@/styles/element/index.scss" as *;`,
+    },
+  },
+},
+```
+
+3. `unplugin-vue-components` resolver 加 `importStyle: 'sass'`：
+
+```ts
+ElementPlusResolver({ importStyle: 'sass' });
+```
+
+4. **改完必须重启 dev server**，SCSS 配置热更新不生效。
+
+### 暗色模式 CSS 变量
+
+在 `[data-theme='dark']` 中覆盖 Element Plus CSS 变量，关键变量名：
+
+| 变量                      | 作用                               |
+| ------------------------- | ---------------------------------- |
+| `--el-bg-color`           | 主背景                             |
+| `--el-bg-color-page`      | 页面背景                           |
+| `--el-bg-color-overlay`   | 弹出层（select 下拉、popper）背景  |
+| `--el-fill-color-blank`   | 输入框/空白背景                    |
+| `--el-fill-color-light`   | hover 背景                         |
+| `--el-fill-color-lighter` | 表格斑马纹行背景                   |
+| `--el-text-color-primary` | 主文字                             |
+| `--el-text-color-regular` | 常规文字                           |
+| `--el-border-color`       | 边框                               |
+| `--el-card-bg-color`      | 卡片背景                           |
+| `--el-table-*`            | 表格系列（bg/header/hover/border） |
+
+**常见坑：**
+
+- select/dropdown/popper 渲染在 `<body>` 上，用 `--el-bg-color-overlay` 不是 `--el-bg-color`
+- 表格斑马纹用 `--el-fill-color-lighter`，不是 `--el-table-tr-bg-color`
+
+### 布局组件
+
+用 `el-container` / `el-aside` / `el-main` 做侧边栏+内容区布局：
+
+- `el-aside` 默认 `overflow: auto`（需设 height）
+- `el-main` 默认 `overflow: auto`
+- 两侧各自独立滚动，互不干扰
+
+不要手写 `position: fixed` + `margin-left`，维护成本高且容易出 bug。
+
+### 按需导入
+
+项目用 `unplugin-vue-components` + `ElementPlusResolver` 自动导入。新增组件直接在模板中使用 `<el-xxx>`，无需手动 import。JS API（如 `ElMessage`、`ElMessageBox`）需手动 import：
+
+```ts
+import { ElMessage, ElMessageBox } from 'element-plus';
+```
