@@ -1,7 +1,7 @@
 set windows-shell := ["powershell", "-NoProfile"]
 export PATH := "./node_modules/.bin;" + env('PATH')
 
-# ===== 开发命令 =====
+# ===== 开发 =====
 dev:
     cross-env RUST_BACKTRACE=full tauri dev
 
@@ -17,14 +17,16 @@ web-build:
 web-serve:
     vite preview
 
-# ===== 构建命令 =====
+# ===== 构建 =====
 build:
     cross-env NODE_OPTIONS='--max-old-space-size=4096' tauri build -f prod
 
 build-fast:
     cross-env NODE_OPTIONS='--max-old-space-size=4096' tauri build -f prod -- -- --profile fast-release
+
 build-dev:
     cross-env NODE_OPTIONS='--max-old-space-size=4096' tauri build -f prod -- -- --profile dev
+
 # ===== 代码质量 =====
 lint:
     eslint -c eslint.config.js --max-warnings=0 --cache --cache-location .eslintcache src
@@ -42,12 +44,13 @@ typecheck:
     vue-tsc --noEmit
     cargo check
 
-# ===== 快捷启动 =====
-run:
-    just dev
-
+# ===== 测试 =====
 test:
     vitest run
 
 test-rust:
     cargo test --workspace
+
+test-all:
+    just test
+    just test-rust
