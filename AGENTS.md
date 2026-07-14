@@ -27,12 +27,12 @@ If a justfile recipe is missing for your scenario, add it — but request user r
 
 Code changes must pass all gates in sequence:
 
-1. `just lint` — ESLint
-2. `just format-check` — Prettier
-3. `just test` — Vitest
+1. `just lint` — ESLint (via rtk)
+2. `just format-check` — Prettier (via rtk)
+3. `just test` — Vitest (via rtk)
 4. `just web-build` — Frontend build verification
 5. `cargo check` — Rust type check
-6. `cargo test` — Rust unit tests (run per-crate, see below)
+6. `cargo test` — Rust unit tests (via rtk, run per-crate, see below)
 
 Run auto-fix first (`just lint-fix`, `just format`) before manual fixes.
 

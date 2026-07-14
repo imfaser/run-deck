@@ -8,6 +8,9 @@ use rmcp::model::ListToolsResult;
 use rmcp::model::PaginatedRequestParams;
 use rmcp::service::RoleClient;
 use rmcp::service::RunningService;
+use tokio::io::AsyncBufReadExt;
+use tokio::io::BufReader;
+use tokio::task::JoinHandle;
 
 use crate::McpServerConfig;
 use crate::error::McpError;
@@ -26,6 +29,8 @@ pub(crate) struct McpServer {
     service: Option<RunningService<RoleClient, ()>>,
     /// 服务器初始化信息（启动成功后从 peer_info 获取）
     server_info: Option<Arc<InitializeResult>>,
+    /// stderr 日志任务句柄
+    stderr_task: Option<JoinHandle<()>>,
 }
 
 impl McpServer {
@@ -38,6 +43,7 @@ impl McpServer {
             status: ServerStatus::Stopped,
             service: None,
             server_info: None,
+            stderr_task: None,
         }
     }
 
@@ -127,6 +133,11 @@ impl McpServer {
                 });
             }
             _ => {}
+        }
+
+        // 取消 stderr 日志任务
+        if let Some(task) = self.stderr_task.take() {
+            task.abort();
         }
 
         self.service.take();
@@ -300,12 +311,25 @@ impl McpServer {
         }
 
         // 使用 rmcp 的 TokioChildProcess 传输
-        let (transport, _stderr) = rmcp::transport::TokioChildProcess::builder(cmd)
+        let (transport, stderr) = rmcp::transport::TokioChildProcess::builder(cmd)
             .spawn()
             .map_err(|e| McpError::SpawnFailed {
                 name: self.name.clone(),
                 error: e.to_string(),
             })?;
+
+        // 启动 stderr 日志任务
+        let server_name = self.name.clone();
+        let stderr_task = tokio::spawn(async move {
+            if let Some(stderr) = stderr {
+                let reader = BufReader::new(stderr);
+                let mut lines = reader.lines();
+                while let Ok(Some(line)) = lines.next_line().await {
+                    logging!(debug, Type::Mcp, "Server '{}' stderr: {}", server_name, line);
+                }
+            }
+        });
+        self.stderr_task = Some(stderr_task);
 
         // 通过 serve_client 建立连接并自动完成初始化握手
         let timeout_duration = timeout.map(std::time::Duration::from_millis);
