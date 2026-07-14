@@ -31,11 +31,14 @@ export default defineConfig({
     // 测试文件去哪里找
     include: ['src/**/*.{test,spec}.{ts,tsx,js,jsx}', 'src/**/__tests__/**/*.{ts,tsx,js,jsx}'],
 
+    // 没有测试文件时也正常退出（基础设施搭建阶段）
+    passWithNoTests: true,
+
     // 排除 Rust / 构建产物 / node_modules
     exclude: ['node_modules', 'dist', 'out', 'src-tauri', '.idea', '.vscode'],
 
-    // 如果你需要全局 mock / 初始化（比如注册 Pinia / Router）
-    // setupFiles: ['@/test/setup.ts'],
+    // 测试前的全局初始化（WebCrypto polyfill、Tauri mock 清理）
+    setupFiles: ['@/test/setup.ts'],
 
     coverage: {
       provider: 'v8',

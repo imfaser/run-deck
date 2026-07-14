@@ -2,6 +2,7 @@ import eslintPluginVue from 'eslint-plugin-vue';
 import tsParser from '@typescript-eslint/parser';
 import tsPlugin from '@typescript-eslint/eslint-plugin';
 import prettierConfig from 'eslint-config-prettier';
+import vitestPlugin from '@vitest/eslint-plugin';
 
 export default [
   /* ========= 1️⃣ 忽略文件（替代 .eslintignore） ========= */
@@ -89,6 +90,17 @@ export default [
     },
   },
 
-  /* ========= 6️⃣ Prettier 必须在最后 ========= */
+  /* ========= 6️⃣ 测试文件规则 ========= */
+  {
+    files: ['**/*.{test,spec}.{ts,tsx}', '**/__tests__/**/*.{ts,tsx}'],
+    plugins: { vitest: vitestPlugin },
+    rules: {
+      'vitest/expect-expect': 'warn',
+      'vitest/no-disabled-tests': 'warn',
+      'vitest/no-focused-tests': 'error',
+    },
+  },
+
+  /* ========= 7️⃣ Prettier 必须在最后 ========= */
   prettierConfig,
 ];
