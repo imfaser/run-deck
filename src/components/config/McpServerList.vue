@@ -76,7 +76,7 @@
 </template>
 
 <style scoped lang="scss">
-  @use '../../styles/abstracts/mixins' as *;
+  @use '@/styles/abstracts/mixins' as *;
 
   .section-header {
     display: flex;

@@ -26,6 +26,7 @@
   const activeSection = ref('general');
   const serverStatuses = ref<Record<string, ServerStatus>>({});
   const editingServer = ref<{ name: string; config: McpServerConfig } | null>(null);
+  const isDirty = ref(false);
 
   const sections = [
     { key: 'general', label: '通用', icon: '⚙' },
@@ -77,30 +78,16 @@
     debouncedUpdateConfig(config.value);
   }
 
-  async function addServer() {
+  function addServer() {
     if (!config.value) return;
-    try {
-      await ElMessageBox.confirm('是否添加 MCP 服务器？', '确认添加', {
-        confirmButtonText: '添加',
-        cancelButtonText: '取消',
-        type: 'info',
-      });
-    } catch {
-      return;
-    }
     const name = 'MCP 服务器';
     const newConfig: McpServerConfig = {
       type: 'local',
       command: [],
       enabled: true,
     };
-    config.value.mcp[name] = newConfig;
     editingServer.value = { name, config: newConfig };
-    try {
-      await updateConfig(config.value);
-    } catch (e) {
-      await logMessage('error', `配置更新失败: ${e}`);
-    }
+    isDirty.value = false;
   }
 
   function editServer(name: string) {
@@ -113,6 +100,41 @@
 
   function backToList() {
     editingServer.value = null;
+    isDirty.value = false;
+  }
+
+  async function saveServer() {
+    if (!editingServer.value || !config.value) return;
+    const { name, config: cfg } = editingServer.value;
+    if (!name.trim()) {
+      ElMessage.warning('服务器名称不能为空');
+      return;
+    }
+    config.value.mcp[name] = cfg;
+    try {
+      await updateConfig(config.value);
+      ElMessage.success('保存成功');
+      backToList();
+    } catch (e) {
+      await logMessage('error', `配置更新失败: ${e}`);
+    }
+  }
+
+  async function handleMenuSelect(key: string) {
+    if (isDirty.value && editingServer.value) {
+      try {
+        await ElMessageBox.confirm('有未保存的修改，确定离开吗？', '未保存的修改', {
+          confirmButtonText: '确定离开',
+          cancelButtonText: '取消',
+          type: 'warning',
+        });
+      } catch {
+        return;
+      }
+      editingServer.value = null;
+      isDirty.value = false;
+    }
+    activeSection.value = key;
   }
 
   async function removeServer(name: string) {
@@ -148,23 +170,15 @@
   }
 
   function updateServerName(newName: string) {
-    if (!editingServer.value || !config.value) return;
-    const oldName = editingServer.value.name;
-    if (!newName.trim() || oldName === newName) return;
-    const cfg = config.value.mcp[oldName];
-    if (cfg) {
-      delete config.value.mcp[oldName];
-      config.value.mcp[newName] = cfg;
-      editingServer.value.name = newName;
-      debouncedUpdateConfig(config.value);
-    }
+    if (!editingServer.value) return;
+    editingServer.value.name = newName;
+    isDirty.value = true;
   }
 
   function updateServerConfig(newConfig: McpServerConfig) {
-    if (!editingServer.value || !config.value) return;
+    if (!editingServer.value) return;
     editingServer.value.config = newConfig;
-    config.value.mcp[editingServer.value.name] = newConfig;
-    debouncedUpdateConfig(config.value);
+    isDirty.value = true;
   }
 </script>
 
@@ -172,11 +186,7 @@
   <PageLayout v-loading="loading">
     <template #aside>
       <div class="sidebar-title">设置</div>
-      <el-menu
-        :default-active="activeSection"
-        class="sidebar-nav"
-        @select="(key) => (activeSection = key)"
-      >
+      <el-menu :default-active="activeSection" class="sidebar-nav" @select="handleMenuSelect">
         <el-menu-item v-for="section in sections" :key="section.key" :index="section.key">
           {{ section.label }}
         </el-menu-item>
@@ -197,9 +207,13 @@
           v-if="editingServer"
           :name="editingServer.name"
           :config="editingServer.config"
+          :existing-names="Object.keys(config.mcp)"
+          :is-dirty="isDirty"
           @back="backToList"
+          @save="saveServer"
           @update:name="updateServerName"
           @update:config="updateServerConfig"
+          @dirty-change="(v: boolean) => (isDirty = v)"
         />
         <McpServerList
           v-else

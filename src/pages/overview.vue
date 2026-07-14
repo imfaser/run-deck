@@ -58,7 +58,7 @@
 </template>
 
 <style scoped lang="scss">
-  @use '../styles/abstracts/mixins' as *;
+  @use '@/styles/abstracts/mixins' as *;
 
   .overview-page {
     @include page-layout;

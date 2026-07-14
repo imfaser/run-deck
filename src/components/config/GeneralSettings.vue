@@ -127,7 +127,7 @@
 </template>
 
 <style scoped lang="scss">
-  @use '../../styles/abstracts/mixins' as *;
+  @use '@/styles/abstracts/mixins' as *;
 
   .section-title {
     @include section-title;

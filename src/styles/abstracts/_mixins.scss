@@ -1,5 +1,5 @@
 @use 'sass:map';
-@use '../abstracts/variables' as *;
+@use '@/styles/abstracts/variables' as *;
 
 // Flexbox utilities
 @mixin flex-center {

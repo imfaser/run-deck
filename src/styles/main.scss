@@ -1,7 +1,7 @@
 // Abstracts
-@use 'abstracts/variables';
-@use 'abstracts/mixins';
+@use '@/styles/abstracts/variables';
+@use '@/styles/abstracts/mixins';
 
 // Base
-@use 'base/reset';
-@use 'base/themes';
+@use '@/styles/base/reset';
+@use '@/styles/base/themes';

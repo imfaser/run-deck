@@ -1,19 +1,26 @@
 <script setup lang="ts">
   import { ref, watch } from 'vue';
+  import { ElMessageBox } from 'element-plus';
   import type { McpServerConfig } from '@/services/cmd';
 
   const props = defineProps<{
     name: string;
     config: McpServerConfig;
+    existingNames: string[];
+    isDirty: boolean;
   }>();
 
   const emit = defineEmits<{
     back: [];
+    save: [];
     'update:name': [value: string];
     'update:config': [value: McpServerConfig];
+    'dirty-change': [value: boolean];
   }>();
 
   const localName = ref(props.name);
+  const nameError = ref('');
+  const formError = ref('');
 
   watch(
     () => props.name,
@@ -22,12 +29,16 @@
 
   function updateName(value: string) {
     localName.value = value;
+    nameError.value = '';
     emit('update:name', value);
+    emit('dirty-change', true);
   }
 
   function updateField(key: string, value: unknown) {
     const newConfig = { ...props.config, [key]: value } as McpServerConfig;
     emit('update:config', newConfig);
+    emit('dirty-change', true);
+    formError.value = '';
   }
 
   function updateCommand(text: string) {
@@ -65,22 +76,71 @@
       .map(([k, v]) => `${k}=${v}`)
       .join('\n');
   }
+
+  function validateAndSave() {
+    nameError.value = '';
+    formError.value = '';
+
+    if (!localName.value.trim()) {
+      nameError.value = '名称不能为空';
+      return;
+    }
+    if (props.existingNames.includes(localName.value) && localName.value !== props.name) {
+      nameError.value = '名称已存在';
+      return;
+    }
+
+    if (props.config.type === 'local') {
+      if (props.config.command.length === 0) {
+        formError.value = '启动命令不能为空';
+        return;
+      }
+    } else {
+      if (!props.config.url?.trim()) {
+        formError.value = 'URL 不能为空';
+        return;
+      }
+    }
+
+    emit('save');
+  }
+
+  async function handleBack() {
+    if (!props.isDirty) {
+      emit('back');
+      return;
+    }
+    try {
+      await ElMessageBox.confirm('有未保存的修改，确定离开吗？', '未保存的修改', {
+        confirmButtonText: '确定离开',
+        cancelButtonText: '取消',
+        type: 'warning',
+      });
+      emit('back');
+    } catch {
+      // cancelled
+    }
+  }
 </script>
 
 <template>
   <div class="mcp-server-form">
     <div class="section-header">
-      <el-button text @click="emit('back')">← 返回</el-button>
+      <el-button text @click="handleBack">← 返回</el-button>
       <h2 class="section-title">编辑服务器</h2>
     </div>
 
     <el-form label-width="auto" class="form-card">
+      <div v-if="formError" class="form-error">{{ formError }}</div>
+
       <el-form-item label="名称" required>
         <el-input
           :model-value="localName"
           placeholder="MCP 服务器"
+          :class="{ 'is-error': nameError }"
           @update:model-value="updateName"
         />
+        <div v-if="nameError" class="field-error">{{ nameError }}</div>
       </el-form-item>
 
       <el-form-item label="类型">
@@ -148,12 +208,16 @@
           @update:model-value="(v: boolean | string | number) => updateField('enabled', Boolean(v))"
         />
       </el-form-item>
+
+      <el-form-item>
+        <el-button type="primary" @click="validateAndSave">保存</el-button>
+      </el-form-item>
     </el-form>
   </div>
 </template>
 
 <style scoped lang="scss">
-  @use '../../styles/abstracts/mixins' as *;
+  @use '@/styles/abstracts/mixins' as *;
 
   .section-header {
     display: flex;
@@ -169,5 +233,24 @@
   .form-card {
     @include card;
     padding: var(--spacing-rem-lg);
+  }
+
+  .field-error {
+    color: var(--el-color-danger);
+    font-size: var(--el-font-size-small);
+    margin-top: var(--spacing-rem-xs);
+  }
+
+  .form-error {
+    color: var(--el-color-danger);
+    font-size: var(--el-font-size-base);
+    margin-bottom: var(--spacing-rem-lg);
+    padding: var(--spacing-rem-sm) var(--spacing-rem-base);
+    background: var(--el-color-danger-light-9);
+    border-radius: var(--el-border-radius-base);
+  }
+
+  :deep(.el-input.is-error) {
+    --el-input-border-color: var(--el-color-danger);
   }
 </style>
