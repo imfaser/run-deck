@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { computed } from 'vue';
+  import { ref, computed } from 'vue';
   import { Delete, Setting } from '@element-plus/icons-vue';
   import type { McpServerConfig, ServerStatus } from '@/services/cmd';
 
@@ -9,11 +9,18 @@
   }>();
 
   const emit = defineEmits<{
-    add: [];
+    add: [type: 'local' | 'remote'];
     edit: [name: string];
     remove: [name: string];
     toggle: [name: string];
   }>();
+
+  const showTypeDialog = ref(false);
+  const selectedType = ref<'local' | 'remote'>('local');
+  const typeOptions = [
+    { label: 'stdio (本地)', value: 'local' },
+    { label: 'http (远程)', value: 'remote' },
+  ];
 
   const serverList = computed(() =>
     Object.entries(props.servers).map(([name, cfg]) => ({
@@ -33,17 +40,27 @@
     if (typeof status === 'object' && 'Failed' in status) return '失败';
     return status;
   }
+
+  function openAddDialog() {
+    selectedType.value = 'local';
+    showTypeDialog.value = true;
+  }
+
+  function confirmAdd() {
+    showTypeDialog.value = false;
+    emit('add', selectedType.value);
+  }
 </script>
 
 <template>
   <div class="mcp-server-list">
     <div class="section-header">
       <h2 class="section-title">MCP 服务器</h2>
-      <el-button type="primary" @click="emit('add')">+ 添加</el-button>
+      <el-button type="primary" @click="openAddDialog">+ 添加</el-button>
     </div>
 
     <el-empty v-if="serverList.length === 0" description="暂无 MCP 服务器">
-      <el-button type="primary" @click="emit('add')">+ 添加</el-button>
+      <el-button type="primary" @click="openAddDialog">+ 添加</el-button>
     </el-empty>
 
     <div v-else class="server-list">
@@ -72,6 +89,14 @@
         </div>
       </div>
     </div>
+
+    <el-dialog v-model="showTypeDialog" title="选择服务器类型" width="400px">
+      <el-segmented v-model="selectedType" :options="typeOptions" block />
+      <template #footer>
+        <el-button @click="showTypeDialog = false">取消</el-button>
+        <el-button type="primary" @click="confirmAdd">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 

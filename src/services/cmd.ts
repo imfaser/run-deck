@@ -20,19 +20,19 @@ export type ShellType = 'auto' | 'cmd' | 'powershell' | 'bash';
 
 export type McpServerConfig =
   | {
-      type: 'local';
-      command: string[];
-      environment?: Record<string, string>;
-      enabled: boolean;
-      timeout?: number;
-    }
+    type: 'local';
+    command: string[];
+    environment?: Record<string, string>;
+    enabled: boolean;
+    timeout?: number;
+  }
   | {
-      type: 'remote';
-      url: string;
-      headers?: Record<string, string>;
-      enabled: boolean;
-      timeout?: number;
-    };
+    type: 'remote';
+    url: string;
+    headers?: Record<string, string>;
+    enabled: boolean;
+    timeout?: number;
+  };
 
 export interface Config {
   log_level: string;
@@ -60,9 +60,34 @@ export interface ToolInfo {
   };
 }
 
+export interface TextContent {
+  type: 'text';
+  text: string;
+}
+
+export interface ImageContent {
+  type: 'image';
+  data: string;
+  mimeType: string;
+}
+
+export interface EmbeddedResource {
+  type: 'resource';
+  resource: {
+    uri: string;
+    text?: string;
+    blob?: string;
+    mimeType?: string;
+  };
+}
+
+export type ContentBlock = TextContent | ImageContent | EmbeddedResource;
+
 export interface CallToolResult {
-  content: Array<{ type: string; text?: string }>;
-  is_error?: boolean;
+  content: ContentBlock[];
+  structuredContent?: unknown;
+  isError?: boolean;
+  _meta?: Record<string, unknown>;
 }
 
 export type ServerStatus = 'Starting' | 'Running' | 'Stopped' | { Failed: { error: string } };

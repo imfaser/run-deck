@@ -25,7 +25,9 @@
   const error = ref('');
   const activeSection = ref('general');
   const serverStatuses = ref<Record<string, ServerStatus>>({});
-  const editingServer = ref<{ name: string; config: McpServerConfig } | null>(null);
+  const editingServer = ref<{ name: string; config: McpServerConfig; isNew?: boolean } | null>(
+    null
+  );
   const isDirty = ref(false);
 
   const sections = [
@@ -78,15 +80,24 @@
     debouncedUpdateConfig(config.value);
   }
 
-  function addServer() {
+  function addServer(type: 'local' | 'remote') {
     if (!config.value) return;
     const name = 'MCP 服务器';
-    const newConfig: McpServerConfig = {
-      type: 'local',
-      command: [],
-      enabled: true,
-    };
-    editingServer.value = { name, config: newConfig };
+    let newConfig: McpServerConfig;
+    if (type === 'local') {
+      newConfig = {
+        type: 'local',
+        command: [],
+        enabled: true,
+      };
+    } else {
+      newConfig = {
+        type: 'remote',
+        url: '',
+        enabled: true,
+      };
+    }
+    editingServer.value = { name, config: newConfig, isNew: true };
     isDirty.value = false;
   }
 
@@ -94,7 +105,7 @@
     if (!config.value) return;
     const cfg = config.value.mcp[name];
     if (cfg) {
-      editingServer.value = { name, config: cfg };
+      editingServer.value = { name, config: cfg, isNew: false };
     }
   }
 
@@ -209,6 +220,7 @@
           :config="editingServer.config"
           :existing-names="Object.keys(config.mcp)"
           :is-dirty="isDirty"
+          :is-new="editingServer.isNew"
           @back="backToList"
           @save="saveServer"
           @update:name="updateServerName"
@@ -219,7 +231,7 @@
           v-else
           :servers="config.mcp"
           :statuses="serverStatuses"
-          @add="addServer"
+          @add="(type) => addServer(type)"
           @edit="editServer"
           @remove="removeServer"
           @toggle="toggleServer"

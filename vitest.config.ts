@@ -38,7 +38,7 @@ export default defineConfig({
     exclude: ['node_modules', 'dist', 'out', 'src-tauri', '.idea', '.vscode'],
 
     // 测试前的全局初始化（WebCrypto polyfill、Tauri mock 清理）
-    setupFiles: ['@/test/setup.ts'],
+    setupFiles: ['./src/test/setup.ts'],
 
     coverage: {
       provider: 'v8',

@@ -95,6 +95,28 @@ Rules:
 - ESLint: `_` prefix suppresses unused vars (`argsIgnorePattern: '^_'`), `vue/multi-word-component-names` off
 - TS: strict mode, `noUnusedLocals`/`noUnusedParameters` enabled — prefix unused params with `_`
 
+## UI 组件规范
+
+**严禁自己造不必要组件，必须优先使用 Element Plus。**
+
+检查流程：
+
+1. 写 UI 前先查 [Element Plus 文档](https://element-plus.org/zh-CN/component/) 是否有对应组件
+2. 有 → 直接用，不造轮子
+3. 没有 → 说明具体理由再自建
+
+Element Plus 常用组件速查：
+
+| 场景        | 组件                                            |
+| ----------- | ----------------------------------------------- |
+| 选项卡/分段 | `el-segmented`, `el-tabs`                       |
+| 弹窗        | `el-dialog`, `el-drawer`                        |
+| 表单        | `el-form`, `el-input`, `el-select`, `el-switch` |
+| 表格        | `el-table`                                      |
+| 列表        | `el-list`, `el-empty`                           |
+| 反馈        | `el-message`, `el-notification`, `elMessageBox` |
+| 布局        | `el-container`, `el-aside`, `el-main`           |
+
 ## Element Plus 踩坑与经验
 
 ### 主题定制

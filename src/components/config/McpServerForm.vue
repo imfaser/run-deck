@@ -8,6 +8,7 @@
     config: McpServerConfig;
     existingNames: string[];
     isDirty: boolean;
+    isNew?: boolean;
   }>();
 
   const emit = defineEmits<{
@@ -36,6 +37,19 @@
 
   function updateField(key: string, value: unknown) {
     const newConfig = { ...props.config, [key]: value } as McpServerConfig;
+    emit('update:config', newConfig);
+    emit('dirty-change', true);
+    formError.value = '';
+  }
+
+  function updateType(type: 'local' | 'remote') {
+    if (type === props.config.type) return;
+    let newConfig: McpServerConfig;
+    if (type === 'local') {
+      newConfig = { type: 'local', command: [], enabled: props.config.enabled };
+    } else {
+      newConfig = { type: 'remote', url: '', enabled: props.config.enabled };
+    }
     emit('update:config', newConfig);
     emit('dirty-change', true);
     formError.value = '';
@@ -144,7 +158,12 @@
       </el-form-item>
 
       <el-form-item label="类型">
-        <el-select :model-value="config.type" style="width: 100%" disabled>
+        <el-select
+          :model-value="config.type"
+          style="width: 100%"
+          :disabled="!props.isNew"
+          @update:model-value="(v: 'local' | 'remote') => updateType(v)"
+        >
           <el-option label="标准输入 / 输出 (stdio)" value="local" />
           <el-option label="远程 HTTP 服务器 (http)" value="remote" />
         </el-select>

@@ -51,7 +51,10 @@ pub fn run() {
             }
 
             // Async start MCP servers
-            let server_names: Vec<String> = config.data_arc().mcp.keys().cloned().collect();
+            let server_names: Vec<String> = config.data_arc().mcp.iter()
+                .filter(|(_, cfg)| cfg.is_enabled())
+                .map(|(name, _)| name.clone())
+                .collect();
             if !server_names.is_empty() {
                 logging!(info, Type::Setup, "Starting {} MCP server(s)...", server_names.len());
                 AsyncHandler::spawn(move || async move {
