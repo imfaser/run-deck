@@ -291,3 +291,79 @@ async fn test_server_info_after_stop() {
     let info = manager.server_info("everything").await.unwrap();
     assert!(info.is_none(), "should have no info after stop");
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_call_tool_with_progress_returns_tuple() {
+    let manager =
+        common::make_manager(vec![("everything".into(), common::local_everything_config())]).await;
+
+    manager.start_server("everything").await.unwrap();
+    common::wait_for_running(&manager, "everything").await;
+
+    let (result, _subscriber, _log_rx) = manager
+        .call_tool_with_progress(
+            "everything",
+            "echo",
+            Some(serde_json::json!({"message": "progress-test"})),
+        )
+        .await
+        .unwrap();
+
+    assert!(!result.is_error.unwrap_or(false));
+    let content_str = format!("{:?}", result.content);
+    assert!(
+        content_str.contains("progress-test"),
+        "result should contain 'progress-test'"
+    );
+
+    manager.stop_server("everything").await.unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_call_tool_regression_still_works() {
+    let manager =
+        common::make_manager(vec![("everything".into(), common::local_everything_config())]).await;
+
+    manager.start_server("everything").await.unwrap();
+    common::wait_for_running(&manager, "everything").await;
+
+    // Original call_tool should work exactly as before
+    let result = manager
+        .call_tool(
+            "everything",
+            "echo",
+            Some(serde_json::json!({"message": "regression"})),
+        )
+        .await
+        .unwrap();
+
+    assert!(!result.is_error.unwrap_or(false));
+    let content_str = format!("{:?}", result.content);
+    assert!(content_str.contains("regression"));
+
+    manager.stop_server("everything").await.unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_call_tool_with_progress_log_receiver_works() {
+    let manager =
+        common::make_manager(vec![("everything".into(), common::local_everything_config())]).await;
+
+    manager.start_server("everything").await.unwrap();
+    common::wait_for_running(&manager, "everything").await;
+
+    let (_result, _subscriber, mut log_rx) = manager
+        .call_tool_with_progress(
+            "everything",
+            "echo",
+            Some(serde_json::json!({"message": "log-test"})),
+        )
+        .await
+        .unwrap();
+
+    // log_rx should be a valid receiver — try_recv should not panic
+    // (it may be empty since the server might not send logging notifications for echo)
+    let _ = log_rx.try_recv();
+
+    manager.stop_server("everything").await.unwrap();
+}

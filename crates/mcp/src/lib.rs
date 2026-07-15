@@ -9,6 +9,7 @@
 mod config;
 mod error;
 mod event;
+pub mod handler;
 mod manager;
 pub mod shell;
 mod server;
@@ -28,6 +29,7 @@ mod shell_tests;
 pub use config::McpServerConfig;
 pub use error::McpError;
 pub use event::{McpEvent, ServerStatus};
+pub use handler::{McpClientHandler, McpLogEvent, McpLogLevel};
 pub use manager::McpManager;
 pub use rmcp::model::CallToolResult;
 pub use shell::ShellType;

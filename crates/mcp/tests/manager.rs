@@ -76,3 +76,53 @@ async fn test_event_subscription() {
         .unwrap();
     assert!(matches!(event, McpEvent::ServerStopped { name } if name == "everything"));
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_call_tool_with_progress_server_not_found() {
+    let manager = common::make_manager(vec![]).await;
+
+    let err = match manager
+        .call_tool_with_progress("nonexistent", "tool", None)
+        .await
+    {
+        Ok(_) => panic!("expected error"),
+        Err(e) => e,
+    };
+    assert!(
+        matches!(err, McpError::ServerNotFound { ref name } if name == "nonexistent"),
+        "expected ServerNotFound, got: {}",
+        err
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_call_tool_with_progress_server_not_running() {
+    let manager = common::make_manager(vec![
+        ("srv".into(), common::local_everything_config()),
+    ])
+    .await;
+
+    let err = match manager
+        .call_tool_with_progress("srv", "tool", None)
+        .await
+    {
+        Ok(_) => panic!("expected error"),
+        Err(e) => e,
+    };
+    assert!(
+        matches!(err, McpError::NotRunning { ref name } if name == "srv"),
+        "expected NotRunning, got: {}",
+        err
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_call_tool_server_not_found() {
+    let manager = common::make_manager(vec![]).await;
+
+    let err = manager
+        .call_tool("nonexistent", "tool", None)
+        .await
+        .unwrap_err();
+    assert!(matches!(err, McpError::ServerNotFound { .. }));
+}

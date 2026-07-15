@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use logging::{logging, Type};
+use rmcp::handler::client::progress::ProgressDispatcher;
 use rmcp::model::CallToolResult;
 use rmcp::model::InitializeResult;
 use rmcp::model::ListToolsResult;
@@ -10,11 +11,13 @@ use rmcp::service::RoleClient;
 use rmcp::service::RunningService;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::BufReader;
+use tokio::sync::broadcast;
 use tokio::task::JoinHandle;
 
 use crate::McpServerConfig;
 use crate::error::McpError;
 use crate::event::{McpEvent, ServerStatus};
+use crate::handler::{McpClientHandler, McpLogEvent};
 use crate::shell::{ShellType, wrap_command};
 
 /// 单个 MCP 服务器的状态管理
@@ -26,17 +29,20 @@ pub(crate) struct McpServer {
     /// 当前状态
     status: ServerStatus,
     /// rmcp 客户端服务
-    service: Option<RunningService<RoleClient, ()>>,
+    service: Option<RunningService<RoleClient, McpClientHandler>>,
     /// 服务器初始化信息（启动成功后从 peer_info 获取）
     server_info: Option<Arc<InitializeResult>>,
     /// stderr 日志任务句柄
     stderr_task: Option<JoinHandle<()>>,
+    /// 日志通知广播通道
+    log_tx: broadcast::Sender<McpLogEvent>,
 }
 
 impl McpServer {
     /// 创建新的服务器实例
     pub fn new(name: String, config: McpServerConfig) -> Self {
         logging!(debug, Type::Mcp, "Creating server instance '{}'", name);
+        let (log_tx, _) = broadcast::channel(256);
         Self {
             name,
             config,
@@ -44,6 +50,7 @@ impl McpServer {
             service: None,
             server_info: None,
             stderr_task: None,
+            log_tx,
         }
     }
 
@@ -55,6 +62,33 @@ impl McpServer {
     /// 获取服务器初始化信息
     pub fn server_info(&self) -> Option<&InitializeResult> {
         self.server_info.as_deref()
+    }
+
+    /// 订阅日志通知
+    pub fn subscribe_log(&self) -> broadcast::Receiver<McpLogEvent> {
+        self.log_tx.subscribe()
+    }
+
+    /// 获取 ProgressDispatcher 引用，供 Manager 层订阅 progress
+    pub fn progress_dispatcher(&self) -> Option<&ProgressDispatcher> {
+        self.service
+            .as_ref()
+            .map(|s| s.service().progress_dispatcher())
+    }
+
+    /// 向服务端发送 logging/setLevel 请求，启用日志推送
+    #[allow(deprecated)]
+    async fn enable_logging(&self) {
+        let Some(service) = &self.service else { return };
+        let params = rmcp::model::SetLevelRequestParams::new(rmcp::model::LoggingLevel::Info);
+        match service.set_level(params).await {
+            Ok(_) => {
+                logging!(debug, Type::Mcp, "Server '{}' logging/setLevel sent (info)", self.name);
+            }
+            Err(e) => {
+                logging!(debug, Type::Mcp, "Server '{}' logging/setLevel failed (non-fatal): {}", self.name, e);
+            }
+        }
     }
 
     /// 启动服务器
@@ -332,12 +366,13 @@ impl McpServer {
         self.stderr_task = Some(stderr_task);
 
         // 通过 serve_client 建立连接并自动完成初始化握手
+        let handler = McpClientHandler::new(self.name.clone(), self.log_tx.clone());
         let timeout_duration = timeout.map(std::time::Duration::from_millis);
         let service = match timeout_duration {
             Some(duration) => {
                 tokio::time::timeout(
                     duration,
-                    rmcp::service::serve_client((), transport),
+                    rmcp::service::serve_client(handler, transport),
                 )
                 .await
                 .map_err(|_| McpError::Timeout {
@@ -348,7 +383,7 @@ impl McpServer {
                     error: e.to_string(),
                 })?
             }
-            None => rmcp::service::serve_client((), transport)
+            None => rmcp::service::serve_client(handler, transport)
                 .await
                 .map_err(|e| McpError::StartupFailed {
                     name: self.name.clone(),
@@ -357,6 +392,7 @@ impl McpServer {
         };
 
         self.service = Some(service);
+        self.enable_logging().await;
         Ok(())
     }
 
@@ -400,12 +436,13 @@ impl McpServer {
         let transport = StreamableHttpClientTransport::from_config(config);
 
         // 通过 serve_client 建立连接并自动完成初始化握手
+        let handler = McpClientHandler::new(self.name.clone(), self.log_tx.clone());
         let timeout_duration = timeout.map(std::time::Duration::from_millis);
         let service = match timeout_duration {
             Some(duration) => {
                 tokio::time::timeout(
                     duration,
-                    rmcp::service::serve_client((), transport),
+                    rmcp::service::serve_client(handler, transport),
                 )
                 .await
                 .map_err(|_| McpError::Timeout {
@@ -416,7 +453,7 @@ impl McpServer {
                     error: e.to_string(),
                 })?
             }
-            None => rmcp::service::serve_client((), transport)
+            None => rmcp::service::serve_client(handler, transport)
                 .await
                 .map_err(|e| McpError::StartupFailed {
                     name: self.name.clone(),
@@ -425,6 +462,7 @@ impl McpServer {
         };
 
         self.service = Some(service);
+        self.enable_logging().await;
         Ok(())
     }
 }

@@ -2,11 +2,14 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use logging::{logging, Type};
+use rmcp::handler::client::progress::ProgressSubscriber;
+use rmcp::model::ProgressToken;
 use tokio::sync::{broadcast, RwLock};
 
 use crate::config::McpServerConfig;
 use crate::error::McpError;
 use crate::event::{McpEvent, ServerStatus};
+use crate::handler::McpLogEvent;
 use crate::server::McpServer;
 use crate::shell::ShellType;
 use crate::{PromptInfo, ResourceInfo, ToolInfo};
@@ -268,5 +271,65 @@ impl McpManager {
             })?;
 
         server.call_tool(tool_name, arguments).await
+    }
+
+    /// 调用指定服务器的工具，同时返回进度流和日志接收器
+    ///
+    /// 返回 `(CallToolResult, ProgressSubscriber, broadcast::Receiver<McpLogEvent>)`。
+    /// `ProgressSubscriber` 实现 `Stream<Item = ProgressNotificationParam>`，
+    /// drop 时自动取消订阅。`broadcast::Receiver` 接收服务端日志通知。
+    pub async fn call_tool_with_progress(
+        &self,
+        server_name: &str,
+        tool_name: &str,
+        arguments: Option<serde_json::Value>,
+    ) -> Result<
+        (
+            rmcp::model::CallToolResult,
+            ProgressSubscriber,
+            broadcast::Receiver<McpLogEvent>,
+        ),
+        McpError,
+    > {
+        logging!(
+            debug,
+            Type::Mcp,
+            "Calling tool '{}' on server '{}' with progress",
+            tool_name,
+            server_name
+        );
+
+        // 先订阅 log，避免丢失启动阶段的日志
+        let log_rx = {
+            let servers = self.servers.read().await;
+            let server = servers
+                .get(server_name)
+                .ok_or_else(|| McpError::ServerNotFound {
+                    name: server_name.to_string(),
+                })?;
+            server.subscribe_log()
+        };
+
+        // 生成 progress token 并订阅
+        let progress_token = ProgressToken(rmcp::model::NumberOrString::String(
+            format!("{}-{}", server_name, tool_name).into(),
+        ));
+        let progress_subscriber = {
+            let servers = self.servers.read().await;
+            let server = servers
+                .get(server_name)
+                .ok_or_else(|| McpError::ServerNotFound {
+                    name: server_name.to_string(),
+                })?;
+            let dispatcher = server.progress_dispatcher().ok_or_else(|| McpError::NotRunning {
+                name: server_name.to_string(),
+            })?;
+            dispatcher.subscribe(progress_token).await
+        };
+
+        // 执行 tool 调用
+        let result = self.call_tool(server_name, tool_name, arguments).await?;
+
+        Ok((result, progress_subscriber, log_rx))
     }
 }
