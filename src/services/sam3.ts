@@ -34,7 +34,7 @@ export async function segmentImage(
     }
   }
 
-  const args: Record<string, unknown> = { image_path: imagePath };
+  const args: Record<string, unknown> = { image: `base64://${imagePath}` };
   if (p_point && p_point.length > 0) args.p_point = p_point;
   if (n_point && n_point.length > 0) args.n_point = n_point;
   if (boxes && boxes.length > 0) args.boxes = boxes;

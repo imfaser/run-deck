@@ -98,6 +98,15 @@ pub fn run() {
                 AsyncHandler::block_on(manager.stop_all());
             }
 
+            // Clean up MCP content cache
+            if let Ok(cache_dir) = config::dirs::app_mcp_cache_dir() {
+                if cache_dir.exists() {
+                    if let Err(e) = std::fs::remove_dir_all(&cache_dir) {
+                        logging!(warn, Type::System, "Failed to remove mcp cache dir: {e}");
+                    }
+                }
+            }
+
             app_handle.exit(0);
         }
         tauri::RunEvent::Exit => {

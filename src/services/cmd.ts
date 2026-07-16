@@ -67,6 +67,7 @@ export interface TextContent {
 
 export interface ImageContent {
   type: 'image';
+  /** base64 encoded data OR absolute file path after materialization */
   data: string;
   mimeType: string;
 }

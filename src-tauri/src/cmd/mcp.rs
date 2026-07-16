@@ -1,12 +1,159 @@
 use super::{CmdResult, StringifyErr};
+use crate::config::dirs;
 use crate::kernel::context::AppContext;
 use crate::utils::async_handler::AsyncHandler;
+use base64::Engine as _;
 use logging::{logging, Type};
-use mcp::{CallToolResult, PromptInfo, ResourceInfo, ServerInfo, ServerStatus, ToolInfo};
+use mcp::{AudioContent, CallToolResult, ContentBlock, ImageContent, PromptInfo, ResourceInfo, ServerInfo, ServerStatus, ToolInfo};
 use serde::Serialize;
+use sha2::{Digest as _, Sha256};
 use tauri::ipc::Channel;
 use tokio::sync::broadcast;
 use tokio_stream::StreamExt;
+
+const BASE64_PREFIX: &str = "base64://";
+
+fn resolve_base64_args(value: serde_json::Value) -> serde_json::Value {
+    match value {
+        serde_json::Value::Object(map) => {
+            let transformed: serde_json::Map<String, serde_json::Value> = map
+                .into_iter()
+                .map(|(k, v)| (k, resolve_base64_args(v)))
+                .collect();
+            serde_json::Value::Object(transformed)
+        }
+        serde_json::Value::String(s) if s.starts_with(BASE64_PREFIX) => {
+            let file_path = &s[BASE64_PREFIX.len()..];
+            match std::fs::read(file_path) {
+                Ok(bytes) => {
+                    let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                    logging!(
+                        debug,
+                        Type::Cmd,
+                        "Resolved base64://{} -> {} bytes encoded",
+                        file_path,
+                        bytes.len()
+                    );
+                    serde_json::Value::String(encoded)
+                }
+                Err(e) => {
+                    logging!(
+                        warn,
+                        Type::Cmd,
+                        "Failed to read file for base64://{}: {e}",
+                        file_path
+                    );
+                    serde_json::Value::String(s)
+                }
+            }
+        }
+        other => other,
+    }
+}
+
+fn mime_type_to_ext(mime_type: &str) -> &'static str {
+    match mime_type {
+        "image/png" => ".png",
+        "image/jpeg" => ".jpg",
+        "image/gif" => ".gif",
+        "image/webp" => ".webp",
+        "image/svg+xml" => ".svg",
+        "image/bmp" => ".bmp",
+        "audio/wav" => ".wav",
+        "audio/mpeg" => ".mp3",
+        "audio/ogg" => ".ogg",
+        "audio/flac" => ".flac",
+        "audio/aac" => ".aac",
+        "audio/webm" => ".webm",
+        _ => ".bin",
+    }
+}
+
+fn materialize_content(mut result: CallToolResult) -> serde_json::Value {
+    let cache_dir = match dirs::app_mcp_cache_dir() {
+        Ok(dir) => dir,
+        Err(e) => {
+            logging!(warn, Type::Cmd, "Failed to get mcp cache dir: {e}");
+            return serde_json::to_value(result).unwrap_or_default();
+        }
+    };
+
+    if let Err(e) = std::fs::create_dir_all(&cache_dir) {
+        logging!(warn, Type::Cmd, "Failed to create mcp cache dir: {e}");
+        return serde_json::to_value(result).unwrap_or_default();
+    }
+
+    let content = std::mem::take(&mut result.content);
+    let mut modified = false;
+
+    let processed: Vec<ContentBlock> = content
+        .into_iter()
+        .map(|block| match block {
+            ContentBlock::Image(img) => {
+                match save_base64_to_cache(&img.data, &img.mime_type, &cache_dir) {
+                    Ok(path) => {
+                        modified = true;
+                        ContentBlock::Image(ImageContent::new(path, img.mime_type))
+                    }
+                    Err(_) => ContentBlock::Image(img),
+                }
+            }
+            ContentBlock::Audio(audio) => {
+                match save_base64_to_cache(&audio.data, &audio.mime_type, &cache_dir) {
+                    Ok(path) => {
+                        modified = true;
+                        ContentBlock::Audio(AudioContent::new(path, audio.mime_type))
+                    }
+                    Err(_) => ContentBlock::Audio(audio),
+                }
+            }
+            other => other,
+        })
+        .collect();
+
+    if modified {
+        logging!(debug, Type::Cmd, "Materialized base64 content to cache files");
+    }
+
+    // Serialize shell result to get meta/is_error/structured_content, then patch content
+    let mut value = serde_json::to_value(result).unwrap_or_default();
+    if let Ok(content_json) = serde_json::to_value(&processed) {
+        value["content"] = content_json;
+    }
+    value
+}
+
+fn save_base64_to_cache(
+    data: &str,
+    mime_type: &str,
+    cache_dir: &std::path::Path,
+) -> Result<String, ()> {
+    let ext = mime_type_to_ext(mime_type);
+    let decoded = base64::engine::general_purpose::STANDARD
+        .decode(data)
+        .map_err(|e| {
+            logging!(warn, Type::Cmd, "Failed to decode base64: {e}");
+        })?;
+
+    let hash = {
+        let mut hasher = Sha256::new();
+        hasher.update(data.as_bytes());
+        hex::encode(hasher.finalize())
+    };
+    let filename = format!("{}{}", &hash[..16], ext);
+    let file_path = cache_dir.join(&filename);
+
+    std::fs::write(&file_path, &decoded).map_err(|e| {
+        logging!(
+            warn,
+            Type::Cmd,
+            "Failed to write mcp cache file {:?}: {e}",
+            file_path
+        );
+    })?;
+
+    Ok(file_path.to_string_lossy().into_owned())
+}
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -36,7 +183,7 @@ pub async fn mcp_call_tool(
     server_name: String,
     tool_name: String,
     arguments: Option<serde_json::Value>,
-) -> CmdResult<CallToolResult> {
+) -> CmdResult<serde_json::Value> {
     logging!(
         info,
         Type::Cmd,
@@ -45,10 +192,13 @@ pub async fn mcp_call_tool(
         tool_name
     );
     let manager = AppContext::mcp_manager();
-    manager
-        .call_tool(&server_name, &tool_name, arguments)
+    let resolved_args = arguments.map(resolve_base64_args);
+    let result: CallToolResult = manager
+        .call_tool(&server_name, &tool_name, resolved_args)
         .await
-        .stringify_err()
+        .stringify_err()?;
+
+    Ok(materialize_content(result))
 }
 
 #[tauri::command]
@@ -92,7 +242,7 @@ pub async fn mcp_call_tool_with_progress(
     arguments: Option<serde_json::Value>,
     on_progress: Channel<ProgressPayload>,
     on_log: Channel<LogPayload>,
-) -> CmdResult<CallToolResult> {
+) -> CmdResult<serde_json::Value> {
     logging!(
         info,
         Type::Cmd,
@@ -101,8 +251,9 @@ pub async fn mcp_call_tool_with_progress(
         tool_name
     );
     let manager = AppContext::mcp_manager();
+    let resolved_args = arguments.map(resolve_base64_args);
     let (result, mut progress_subscriber, mut log_rx) = manager
-        .call_tool_with_progress(&server_name, &tool_name, arguments)
+        .call_tool_with_progress(&server_name, &tool_name, resolved_args)
         .await
         .stringify_err()?;
 
@@ -146,5 +297,5 @@ pub async fn mcp_call_tool_with_progress(
         }
     });
 
-    Ok(result)
+    Ok(materialize_content(result))
 }

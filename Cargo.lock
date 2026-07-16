@@ -3176,14 +3176,17 @@ name = "run-deck"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64 0.22.1",
  "chrono",
  "draft",
  "flexi_logger",
+ "hex",
  "log",
  "logging",
  "mcp",
  "serde",
  "serde_json",
+ "sha2",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",

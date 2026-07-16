@@ -32,6 +32,7 @@ pub use event::{McpEvent, ServerStatus};
 pub use handler::{McpClientHandler, McpLogEvent, McpLogLevel};
 pub use manager::McpManager;
 pub use rmcp::model::CallToolResult;
+pub use rmcp::model::{AudioContent, ContentBlock, ImageContent};
 pub use shell::ShellType;
 
 use logging::{logging, Type};
