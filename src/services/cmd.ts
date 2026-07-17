@@ -67,7 +67,7 @@ export interface TextContent {
 
 export interface ImageContent {
   type: 'image';
-  /** base64 encoded data OR absolute file path after materialization */
+  /** mcp:// URL after materialization */
   data: string;
   mimeType: string;
 }
@@ -144,6 +144,11 @@ export interface ResourceInfo {
     description?: string;
     mime_type?: string;
   };
+}
+
+// MCP content store
+export async function mcpStoreContent(path: string): Promise<string> {
+  return invoke<string>('mcp_store_content', { path });
 }
 
 // MCP Panel commands

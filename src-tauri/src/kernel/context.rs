@@ -1,4 +1,5 @@
 use crate::singleton;
+use crate::utils::mcp_content::McpContentStore;
 use crate::{APP_HANDLE, MCP_MANAGER};
 use chrono::Local;
 use mcp::McpManager;
@@ -35,6 +36,10 @@ impl AppContext {
     pub fn mcp_manager() -> &'static McpManager {
         #[allow(clippy::expect_used)]
         MCP_MANAGER.get().expect("MCP manager not initialized")
+    }
+
+    pub fn mcp_content_store() -> &'static McpContentStore {
+        McpContentStore::global()
     }
 
     pub fn set_is_exiting(&self) {

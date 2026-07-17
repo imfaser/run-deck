@@ -45,11 +45,6 @@ pub fn app_icons_dir() -> Result<PathBuf> {
     Ok(app_home_dir()?.join("icons"))
 }
 
-/// MCP content cache directory (images/audio decoded from base64)
-pub fn app_mcp_cache_dir() -> Result<PathBuf> {
-    Ok(app_home_dir()?.join("mcp-cache"))
-}
-
 /// Tauri resource directory
 pub fn app_resources_dir() -> Result<PathBuf> {
     let app_handle = AppContext::app_handle();

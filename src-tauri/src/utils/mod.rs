@@ -1,4 +1,5 @@
 pub mod async_handler;
+pub mod mcp_content;
 pub mod singleton;
 
 use crate::config::dirs;

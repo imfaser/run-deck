@@ -8,6 +8,7 @@ use logging::{logging, Type};
 use std::sync::OnceLock;
 use tauri::AppHandle;
 
+use kernel::context::AppContext;
 use mcp::McpManager;
 use mcp::shell::ShellType;
 use utils::async_handler::AsyncHandler;
@@ -19,6 +20,7 @@ pub(crate) static MCP_MANAGER: OnceLock<McpManager> = OnceLock::new();
 pub fn run() {
     let builder = tauri::Builder::default();
     let builder = setup::setup_plugins(builder);
+    let builder = setup::setup_protocols(builder);
     let builder = builder
         .setup(|app| {
             APP_HANDLE
@@ -26,17 +28,19 @@ pub fn run() {
                 .expect("app handle failed to set");
 
             // Initialize AppContext singleton
-            kernel::context::AppContext::global();
+            AppContext::global();
+
+            // Initialize Config
+            let config = config::Config::global();
 
             // Initialize logging with log directory
             let log_dir = config::dirs::app_logs_dir().ok();
-            logging::setup_log(log_dir.as_deref());
+            let log_level = config.data_arc().log_level.clone();
+            logging::setup_log(log_dir.as_deref(), &log_level);
 
             utils::log_app_info();
             logging!(info, Type::Setup, "应用启动完成");
 
-            // Initialize Config
-            let config = config::Config::global();
             let mcp_config = config.data_arc().mcp.clone();
             let shell = match config.data_arc().shell.as_str() {
                 "powershell" | "pwsh" => ShellType::PowerShell,
@@ -81,10 +85,10 @@ pub fn run() {
     app.run(|app_handle, e| match e {
         tauri::RunEvent::ExitRequested { api: _, .. } => {
             // Prevent re-entry
-            if kernel::context::AppContext::global().is_exiting() {
+            if AppContext::global().is_exiting() {
                 return;
             }
-            kernel::context::AppContext::global().set_is_exiting();
+            AppContext::global().set_is_exiting();
 
             logging!(info, Type::System, "Exit requested, saving config and cleaning up");
 
@@ -98,20 +102,11 @@ pub fn run() {
                 AsyncHandler::block_on(manager.stop_all());
             }
 
-            // Clean up MCP content cache
-            if let Ok(cache_dir) = config::dirs::app_mcp_cache_dir() {
-                if cache_dir.exists() {
-                    if let Err(e) = std::fs::remove_dir_all(&cache_dir) {
-                        logging!(warn, Type::System, "Failed to remove mcp cache dir: {e}");
-                    }
-                }
-            }
-
             app_handle.exit(0);
         }
         tauri::RunEvent::Exit => {
             // Final save attempt (e.g., system shutdown)
-            if !kernel::context::AppContext::global().is_exiting() {
+            if !AppContext::global().is_exiting() {
                 let _ = config::Config::save_global();
             }
             logging!(info, Type::System, "Application exited");

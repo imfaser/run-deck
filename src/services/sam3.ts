@@ -1,4 +1,4 @@
-import { mcpCallTool, type CallToolResult } from './cmd';
+import { mcpCallTool, mcpStoreContent, type CallToolResult } from './cmd';
 
 export interface SegmentOptions {
   p_point?: [number, number][];
@@ -34,7 +34,8 @@ export async function segmentImage(
     }
   }
 
-  const args: Record<string, unknown> = { image: `base64://${imagePath}` };
+  const mcpUrl = await mcpStoreContent(imagePath);
+  const args: Record<string, unknown> = { image: mcpUrl };
   if (p_point && p_point.length > 0) args.p_point = p_point;
   if (n_point && n_point.length > 0) args.n_point = n_point;
   if (boxes && boxes.length > 0) args.boxes = boxes;

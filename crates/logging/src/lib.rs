@@ -132,13 +132,13 @@ pub fn rotate_logs(dir: &Path) {
     }
 }
 
-pub fn setup_log(log_dir: Option<&Path>) {
+pub fn setup_log(log_dir: Option<&Path>, level: &str) {
     if let Some(dir) = log_dir {
         let _ = fs::create_dir_all(dir);
         rotate_logs(dir);
     }
 
-    let mut logger = Logger::try_with_str("info").expect("failed to init logger");
+    let mut logger = Logger::try_with_str(level).expect("failed to init logger");
 
     if let Some(dir) = log_dir {
         let filename = Local::now().format("%Y%m%d-%H%M%S_%3f").to_string();

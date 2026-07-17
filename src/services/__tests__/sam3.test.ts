@@ -7,9 +7,11 @@ const mockResult: CallToolResult = {
 };
 
 const mcpCallTool = vi.fn().mockResolvedValue(mockResult);
+const mcpStoreContent = vi.fn().mockResolvedValue('mcp://localhost/abc123');
 
 vi.mock('../cmd', () => ({
   mcpCallTool: (...args: unknown[]) => mcpCallTool(...args),
+  mcpStoreContent: (...args: unknown[]) => mcpStoreContent(...args),
 }));
 
 describe('sam3 segmentImage', () => {
@@ -19,9 +21,10 @@ describe('sam3 segmentImage', () => {
 
     const result = await segmentImage(tmpFile, { p_point: [[5, 5]] });
 
-    expect(mcpCallTool).toHaveBeenCalledWith('sam3-tracker', 'segment_image', {
+    expect(mcpStoreContent).toHaveBeenCalledWith(tmpFile);
+    expect(mcpCallTool).toHaveBeenCalledWith('sam3', 'segment_image', {
       req: {
-        image: `base64://${tmpFile}`,
+        image: 'mcp://localhost/abc123',
         p_point: [[5, 5]],
       },
     });

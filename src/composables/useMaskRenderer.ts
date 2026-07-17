@@ -26,7 +26,7 @@ export function useMaskRenderer() {
   const isRendering = ref(false);
 
   async function renderMask(
-    grayImagePath: string,
+    grayImageHash: string,
     threshold: number,
     color = '#0096ff'
   ): Promise<string | null> {
@@ -34,7 +34,7 @@ export function useMaskRenderer() {
     try {
       const img = new Image();
       img.crossOrigin = 'anonymous';
-      img.src = convertFileSrc(grayImagePath);
+      img.src = convertFileSrc(grayImageHash, 'mcp');
       await img.decode();
 
       const canvas = document.createElement('canvas');

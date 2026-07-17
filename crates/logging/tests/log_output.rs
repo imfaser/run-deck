@@ -7,7 +7,7 @@ fn test_log_file_created() {
     let tmp = TempDir::new().unwrap();
     let log_dir = tmp.path().join("logs");
 
-    setup_log(Some(&log_dir));
+    setup_log(Some(&log_dir), "info");
 
     log::info!(target: "app", "test message from setup");
 
