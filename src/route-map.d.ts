@@ -52,6 +52,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/label': RouteRecordInfo<
+      '/label',
+      '/label',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/mcp-panel': RouteRecordInfo<
       '/mcp-panel',
       '/mcp-panel',
@@ -98,6 +105,14 @@ declare module 'vue-router/auto-routes' {
     'src/pages/config.vue': {
       routes:
         | '/config'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/label.vue': {
+      routes:
+        | '/label'
       views:
         | never
       pathParamNames:

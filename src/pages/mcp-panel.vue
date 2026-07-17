@@ -1,5 +1,6 @@
 <script setup lang="ts">
-  import { ref, onMounted, computed } from 'vue';
+  // ========== 1. 第三方 / 内部模块引入 ==========
+  import { ref, computed, onMounted } from 'vue';
   import {
     getConfig,
     mcpServerStatus,
@@ -17,6 +18,7 @@
   } from '@/services/cmd';
   import PageLayout from '@/components/layout/PageLayout.vue';
 
+  // ========== 3. 响应式状态声明 ==========
   const loading = ref(true);
   const error = ref('');
   const config = ref<Config | null>(null);
@@ -29,6 +31,7 @@
   const prompts = ref<PromptInfo[]>([]);
   const resources = ref<ResourceInfo[]>([]);
 
+  // ========== 4. 计算属性 ==========
   const serverList = computed(() => {
     if (!config.value) return [];
     return Object.entries(config.value.mcp).map(([name, cfg]) => ({
@@ -58,6 +61,7 @@
     return status === 'Running';
   });
 
+  // ========== 5. 生命周期钩子 ==========
   onMounted(async () => {
     try {
       config.value = await getConfig();
@@ -75,6 +79,7 @@
     }
   });
 
+  // ========== 6. 普通方法与业务逻辑 ==========
   async function fetchServerData(name: string) {
     try {
       serverStatuses.value[name] = await mcpServerStatus(name);

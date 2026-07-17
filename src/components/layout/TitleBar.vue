@@ -1,18 +1,23 @@
 <script setup lang="ts">
-  import { ref, onMounted, computed } from 'vue';
+  // ========== 1. 第三方 / 内部模块引入 ==========
+  import { ref, computed, onMounted } from 'vue';
+  import { useRouter, useRoute } from 'vue-router';
   import { Window } from '@tauri-apps/api/window';
   import { House, Setting, Close, Sunny, Moon } from '@element-plus/icons-vue';
-  import { useRouter, useRoute } from 'vue-router';
   import { useAppStore } from '@/stores/app';
   import { useTheme } from '@/composables/useTheme';
 
+  // ========== 2. 组合式函数（Composables）调用 ==========
   const router = useRouter();
   const route = useRoute();
   const store = useAppStore();
   const { theme, toggleTheme } = useTheme();
+
+  // ========== 3. 响应式状态声明 ==========
   const isMaximized = ref(false);
   const appWindow = new Window('main');
 
+  // ========== 4. 计算属性 ==========
   const fixedTabs = [
     { id: 'overview', title: '导航', icon: House, route: '/overview', closable: false },
     { id: 'config', title: '配置', icon: Setting, route: '/config', closable: false },
@@ -20,6 +25,7 @@
 
   const allTabs = computed(() => [...fixedTabs, ...store.tabs.map((t) => ({ ...t, icon: null }))]);
 
+  // ========== 5. 生命周期钩子 ==========
   onMounted(async () => {
     isMaximized.value = await appWindow.isMaximized();
     appWindow.onResized(async () => {
@@ -27,6 +33,7 @@
     });
   });
 
+  // ========== 6. 普通方法与业务逻辑 ==========
   function handleTabClick(tabId: string, tabRoute: string) {
     store.setActiveTab(tabId);
     router.push(tabRoute);

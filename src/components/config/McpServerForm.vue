@@ -1,8 +1,10 @@
 <script setup lang="ts">
+  // ========== 1. 第三方 / 内部模块引入 ==========
   import { ref, watch } from 'vue';
   import { ElMessageBox } from 'element-plus';
   import type { McpServerConfig } from '@/services/cmd';
 
+  // ========== 2. Props / Emits 定义 ==========
   const props = defineProps<{
     name: string;
     config: McpServerConfig;
@@ -19,15 +21,18 @@
     'dirty-change': [value: boolean];
   }>();
 
+  // ========== 3. 响应式状态声明 ==========
   const localName = ref(props.name);
   const nameError = ref('');
   const formError = ref('');
 
+  // ========== 4. 侦听器 ==========
   watch(
     () => props.name,
     (v) => (localName.value = v)
   );
 
+  // ========== 5. 普通方法与业务逻辑 ==========
   function updateName(value: string) {
     localName.value = value;
     nameError.value = '';

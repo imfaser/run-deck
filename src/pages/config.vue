@@ -1,4 +1,5 @@
 <script setup lang="ts">
+  // ========== 1. 第三方 / 内部模块引入 ==========
   import { ref, onMounted } from 'vue';
   import { useDebounceFn } from '@vueuse/core';
   import { ElMessage, ElMessageBox } from 'element-plus';
@@ -18,8 +19,10 @@
   import PageLayout from '@/components/layout/PageLayout.vue';
   import { useTheme } from '@/composables/useTheme';
 
+  // ========== 2. 组合式函数（Composables）调用 ==========
   const { setTheme } = useTheme();
 
+  // ========== 3. 响应式状态声明 ==========
   const config = ref<Config | null>(null);
   const loading = ref(true);
   const error = ref('');
@@ -30,11 +33,13 @@
   );
   const isDirty = ref(false);
 
+  // ========== 4. 常量 ==========
   const sections = [
     { key: 'general', label: '通用', icon: '⚙' },
     { key: 'mcp', label: 'MCP 服务器', icon: '🔌' },
   ];
 
+  // ========== 5. 侦听器 ==========
   const debouncedUpdateConfig = useDebounceFn(async (cfg: Config) => {
     try {
       await updateConfig(cfg);
@@ -43,6 +48,7 @@
     }
   }, 500);
 
+  // ========== 6. 生命周期钩子 ==========
   onMounted(async () => {
     try {
       config.value = await getConfig();
@@ -54,6 +60,7 @@
     refreshServerStatuses();
   });
 
+  // ========== 7. 普通方法与业务逻辑 ==========
   async function refreshServerStatuses() {
     if (!config.value) return;
     for (const name of Object.keys(config.value.mcp)) {

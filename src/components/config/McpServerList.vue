@@ -1,8 +1,10 @@
 <script setup lang="ts">
+  // ========== 1. 第三方 / 内部模块引入 ==========
   import { ref, computed } from 'vue';
   import { Delete, Setting } from '@element-plus/icons-vue';
   import type { McpServerConfig, ServerStatus } from '@/services/cmd';
 
+  // ========== 2. Props / Emits 定义 ==========
   const props = defineProps<{
     servers: Record<string, McpServerConfig>;
     statuses: Record<string, ServerStatus>;
@@ -15,6 +17,7 @@
     toggle: [name: string];
   }>();
 
+  // ========== 3. 响应式状态声明 ==========
   const showTypeDialog = ref(false);
   const selectedType = ref<'local' | 'remote'>('local');
   const typeOptions = [
@@ -22,6 +25,7 @@
     { label: 'http (远程)', value: 'remote' },
   ];
 
+  // ========== 4. 计算属性 ==========
   const serverList = computed(() =>
     Object.entries(props.servers).map(([name, cfg]) => ({
       name,
@@ -30,6 +34,7 @@
     }))
   );
 
+  // ========== 5. 普通方法与业务逻辑 ==========
   function getStatusType(status: ServerStatus): 'success' | 'warning' | 'info' | 'danger' {
     if (status === 'Running') return 'success';
     if (status === 'Starting') return 'warning';

@@ -1,6 +1,8 @@
 <script setup lang="ts">
+  // ========== 1. 第三方 / 内部模块引入 ==========
   import type { Config, ShellType } from '@/services/cmd';
 
+  // ========== 2. Props / Emits 定义 ==========
   defineProps<{
     config: Config;
   }>();
@@ -9,6 +11,7 @@
     update: [key: string, value: unknown];
   }>();
 
+  // ========== 3. 响应式状态声明（常量） ==========
   const logLevelOptions = ['error', 'warn', 'info', 'debug', 'trace'];
 
   const shellOptions: { label: string; value: ShellType }[] = [
@@ -26,8 +29,10 @@
   const homeRouteOptions = [
     { label: '导航', value: 'overview' },
     { label: '配置', value: 'config' },
+    { label: '标注', value: 'label' },
   ];
 
+  // ========== 4. 普通方法与业务逻辑 ==========
   function updateLogLevel(value: string) {
     emit('update', 'log_level', value);
   }

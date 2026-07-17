@@ -20,19 +20,19 @@ export type ShellType = 'auto' | 'cmd' | 'powershell' | 'bash';
 
 export type McpServerConfig =
   | {
-    type: 'local';
-    command: string[];
-    environment?: Record<string, string>;
-    enabled: boolean;
-    timeout?: number;
-  }
+      type: 'local';
+      command: string[];
+      environment?: Record<string, string>;
+      enabled: boolean;
+      timeout?: number;
+    }
   | {
-    type: 'remote';
-    url: string;
-    headers?: Record<string, string>;
-    enabled: boolean;
-    timeout?: number;
-  };
+      type: 'remote';
+      url: string;
+      headers?: Record<string, string>;
+      enabled: boolean;
+      timeout?: number;
+    };
 
 export interface Config {
   log_level: string;
