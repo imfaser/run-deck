@@ -41,5 +41,5 @@ export async function segmentImage(
   if (prev_mask) args.prev_mask = prev_mask;
   if (multimask_output !== undefined) args.multimask_output = multimask_output;
 
-  return mcpCallTool('sam3-tracker', 'segment_image', { req: args });
+  return mcpCallTool('sam3', 'segment_image', { req: args });
 }
