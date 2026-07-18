@@ -65,3 +65,4 @@ tmp.txt
 .app/config.json
 .app
 *.png
+*.raw

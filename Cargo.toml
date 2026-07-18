@@ -4,6 +4,7 @@ members = [
     "src-tauri",
     "crates/draft",
     "crates/mcp",
+    "crates/nimg",
 ]
 resolver = "2" # 保留 Rust 新依赖解析器
 
@@ -40,6 +41,7 @@ strip = false
 draft = { path = "crates/draft" }
 logging = { path = "crates/logging" }
 mcp = { path = "crates/mcp" }
+nimg = { path = "crates/nimg" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1" }
 anyhow = "1.0.102"
@@ -52,6 +54,12 @@ flate2 = "1"
 tempfile = "3"
 thiserror = "2"
 tokio = { version = "1", features = ["full"] }
+image = "0.25.10"
+imageproc = "0.27.0"
+ndarray = "0.17.2"
+bytes = "1"
+memmap2 = "0.9"
+bytemuck = { version = "1", features = ["derive"] }
 # ===== Lint 规则 =====
 [workspace.lints.clippy]
 all = "warn"
