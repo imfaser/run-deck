@@ -218,6 +218,9 @@ export const useLabelRawStore = defineStore('label-raw', () => {
     if (!volumeId.value) return;
     if (index < 0 || index >= totalSlices.value) return;
 
+    // Save current annotations before navigating away
+    saveCurrentAnnotations();
+
     isLoadingSlice.value = true;
     try {
       currentIndex.value = index;
@@ -259,11 +262,21 @@ export const useLabelRawStore = defineStore('label-raw', () => {
 
   // ─── Actions: Keyframes ────────────────────────────
   function saveCurrentAnnotations() {
-    const kf = keyframes.value.get(currentIndex.value);
+    if (annotations.value.length === 0) return;
+    const idx = currentIndex.value;
+    const kf = keyframes.value.get(idx);
     if (kf) {
       kf.annotations = [...annotations.value];
-      cloneKeyframes();
+    } else {
+      keyframes.value.set(idx, {
+        annotations: [...annotations.value],
+        maskUrl: null,
+        maskVisible: true,
+        rawMaskHash: null,
+        manual: false,
+      });
     }
+    cloneKeyframes();
   }
 
   function toggleKeyframe() {

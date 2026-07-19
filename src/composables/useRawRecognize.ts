@@ -153,43 +153,9 @@ export function useRawRecognize(opts: UseRawRecognizeOpts) {
 
     // Check if current slice already has a mask
     const existingKf = opts.keyframes.value.get(opts.currentIndex.value);
-    if (existingKf?.rawMaskHash) {
-      const { ElMessageBox } = await import('element-plus');
-      try {
-        await ElMessageBox.confirm('已有 pred_mask，是否采用？', '提示', {
-          confirmButtonText: '采用已有',
-          cancelButtonText: '重新识别',
-          type: 'info',
-        });
-        const { renderMask } = useMaskRenderer();
-        const maskUrl = await renderMask(
-          existingKf.rawMaskHash,
-          opts.confidenceThreshold.value,
-          opts.maskColor.value
-        );
-        existingKf.maskUrl = maskUrl;
-        opts.currentMaskUrl.value = maskUrl;
-        return;
-      } catch {
-        // User chose to re-recognize
-      }
-    }
+    const hasExistingMask = !!existingKf?.rawMaskHash;
 
-    // Create or get keyframe for this slice
-    let kf = opts.keyframes.value.get(opts.currentIndex.value);
-    if (!kf) {
-      kf = {
-        annotations: cloneDeep(opts.annotations.value),
-        maskUrl: null,
-        maskVisible: true,
-        rawMaskHash: null,
-        manual: false,
-      };
-      opts.keyframes.value.set(opts.currentIndex.value, kf);
-      opts.cloneKeyframes();
-    }
-
-    // Check if both annotations and prev_mask exist — prompt user
+    // Check if both annotations and prev_mask exist
     const hasAnnotations = opts.annotations.value.length > 0;
     let hasPrevMask = false;
     for (let i = opts.currentIndex.value - 1; i >= 0; i--) {
@@ -200,9 +166,33 @@ export function useRawRecognize(opts: UseRawRecognizeOpts) {
       }
     }
 
+    const { ElMessageBox } = await import('element-plus');
+
+    // Case 1: has existing mask, no annotation+prev_mask → ask adopt or re-recognize
+    if (hasExistingMask && !(hasAnnotations && hasPrevMask)) {
+      try {
+        await ElMessageBox.confirm('已有 pred_mask，是否采用？', '提示', {
+          confirmButtonText: '采用已有',
+          cancelButtonText: '重新识别',
+          type: 'info',
+        });
+        const { renderMask } = useMaskRenderer();
+        const maskUrl = await renderMask(
+          existingKf!.rawMaskHash!,
+          opts.confidenceThreshold.value,
+          opts.maskColor.value
+        );
+        existingKf!.maskUrl = maskUrl;
+        opts.currentMaskUrl.value = maskUrl;
+        return;
+      } catch {
+        // User chose to re-recognize — fall through
+      }
+    }
+
+    // Case 2: has annotations + prev_mask → single prompt
+    let skipPrevMask = false;
     if (hasAnnotations && hasPrevMask) {
-      const { ElMessageBox } = await import('element-plus');
-      let skipPrevMask = false;
       try {
         await ElMessageBox.confirm(
           '当前 slice 有标注且存在 prev_mask，是否结合 prev_mask 一同识别？',
@@ -216,11 +206,23 @@ export function useRawRecognize(opts: UseRawRecognizeOpts) {
       } catch {
         skipPrevMask = true;
       }
-      await doRecognize(opts.currentIndex.value, kf, skipPrevMask);
-      return;
     }
 
-    await doRecognize(opts.currentIndex.value, kf);
+    // Create or get keyframe
+    let kf = opts.keyframes.value.get(opts.currentIndex.value);
+    if (!kf) {
+      kf = {
+        annotations: cloneDeep(opts.annotations.value),
+        maskUrl: null,
+        maskVisible: true,
+        rawMaskHash: null,
+        manual: false,
+      };
+      opts.keyframes.value.set(opts.currentIndex.value, kf);
+      opts.cloneKeyframes();
+    }
+
+    await doRecognize(opts.currentIndex.value, kf, skipPrevMask);
   }
 
   async function batchProcessKeyframes() {

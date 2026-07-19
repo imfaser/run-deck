@@ -88,30 +88,26 @@
   async function handleRecognizeAll() {
     const { ElMessageBox } = await import('element-plus');
 
-    // Show endSlice dialog
+    // Show endSlice dialog (1-indexed for user)
     let endSlice: number | undefined;
     try {
-      const result = await ElMessageBox.prompt(
-        '识别全部：指定结束 slice（从 0 开始）',
-        '识别全部',
-        {
-          confirmButtonText: '开始识别',
-          cancelButtonText: '取消',
-          inputPlaceholder: `默认 ${store.totalSlices - 1}`,
-          inputType: 'number',
-          inputValue: String(store.totalSlices - 1),
-          inputValidator: (val: string) => {
-            if (val === '') return true;
-            const n = Number(val);
-            if (Number.isNaN(n) || n < 0 || n >= store.totalSlices) {
-              return `请输入 0 ~ ${store.totalSlices - 1} 之间的数字`;
-            }
-            return true;
-          },
-        }
-      );
+      const result = await ElMessageBox.prompt('识别全部：指定结束 slice 编号', '识别全部', {
+        confirmButtonText: '开始识别',
+        cancelButtonText: '取消',
+        inputPlaceholder: `默认 ${store.totalSlices}`,
+        inputType: 'number',
+        inputValue: String(store.totalSlices),
+        inputValidator: (val: string) => {
+          if (val === '') return true;
+          const n = Number(val);
+          if (Number.isNaN(n) || n < 1 || n > store.totalSlices) {
+            return `请输入 1 ~ ${store.totalSlices} 之间的数字`;
+          }
+          return true;
+        },
+      });
       if (result.value !== '' && result.value !== undefined) {
-        endSlice = Number(result.value);
+        endSlice = Number(result.value) - 1; // Convert to 0-indexed
       }
     } catch {
       return; // User cancelled
@@ -123,7 +119,7 @@
 
   const recognizeProgressDisplay = computed(() => {
     if (!store.isRecognizing) return '';
-    return `${store.recognitionProgress.current}/${store.recognitionProgress.total}`;
+    return `${store.recognitionProgress.current + 1}/${store.recognitionProgress.total}`;
   });
 </script>
 
@@ -277,7 +273,7 @@
           "
         />
         <p style="margin-top: 12px; color: var(--text-secondary)">
-          {{ store.recognitionProgress.current }} / {{ store.recognitionProgress.total }}
+          {{ store.recognitionProgress.current + 1 }} / {{ store.recognitionProgress.total }}
         </p>
       </div>
       <template #footer>

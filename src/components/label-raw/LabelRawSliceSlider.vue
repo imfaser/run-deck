@@ -16,15 +16,29 @@
     },
   });
 
-  const axisLabel = computed(() => {
-    if (!store.hasVolume) return '';
-    return `${store.axis} ----- ${store.currentIndex + 1}/${store.totalSlices}`;
-  });
+  const displayIndex = computed(() => store.currentIndex + 1);
+
+  function handleInput(val: number | undefined) {
+    if (val === undefined || val === null) return;
+    const idx = Math.max(1, Math.min(val, store.totalSlices)) - 1;
+    store.loadSlice(idx);
+  }
 </script>
 
 <template>
   <div v-if="store.hasVolume" class="slice-slider">
-    <span class="axis-label">{{ axisLabel }}</span>
+    <span class="axis-badge">{{ store.axis }}</span>
+    <el-input-number
+      :model-value="displayIndex"
+      :min="1"
+      :max="store.totalSlices"
+      :step="1"
+      size="small"
+      controls-position="right"
+      :disabled="store.isRecognizing"
+      @change="handleInput"
+    />
+    <span class="slice-total">/ {{ store.totalSlices }}</span>
     <el-slider
       v-model="sliderModel"
       :min="0"
@@ -48,12 +62,25 @@
     flex-shrink: 0;
   }
 
-  .axis-label {
+  .axis-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    font-size: var(--text-xs);
+    font-weight: 600;
+    color: var(--text-inverse);
+    background: var(--color-primary);
+    border-radius: var(--radius-sm);
+    text-transform: uppercase;
+  }
+
+  .slice-total {
     font-size: var(--text-sm);
     color: var(--text-secondary);
-    font-family: monospace;
     white-space: nowrap;
-    min-width: 120px;
+    min-width: 40px;
   }
 
   .slider {
