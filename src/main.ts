@@ -11,6 +11,15 @@ import 'element-plus/theme-chalk/src/message-box.scss';
 import 'element-plus/theme-chalk/src/button.scss';
 import './styles/main.scss';
 
+if (import.meta.env.DEV) {
+  const originalWarn = console.warn;
+  console.warn = (...args: unknown[]) => {
+    const msg = typeof args[0] === 'string' ? args[0] : '';
+    if (msg.includes('[PINIA_R1006]') && msg.includes('$tauri')) return;
+    originalWarn.apply(console, args);
+  };
+}
+
 const router = createRouter({
   history: createWebHistory(),
   routes,

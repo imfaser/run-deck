@@ -27,6 +27,13 @@
     { id: 'mcp-panel', name: 'MCP 面板', icon: '🔌', color: '#10b981', route: '/mcp-panel' },
     { id: 'label', name: '标注', icon: '✏️', color: '#f59e0b', route: '/label' },
     { id: 'label-raw', name: '3D标注', icon: '🧊', color: '#3b82f6', route: '/label-raw' },
+    {
+      id: 'worktime-dashboard',
+      name: '工时仪表盘',
+      icon: '📊',
+      color: '#8b5cf6',
+      route: '/worktime-dashboard',
+    },
   ]);
 
   // ========== 5. 生命周期钩子 ==========

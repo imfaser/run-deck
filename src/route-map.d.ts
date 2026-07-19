@@ -80,6 +80,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/worktime-dashboard': RouteRecordInfo<
+      '/worktime-dashboard',
+      '/worktime-dashboard',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
   }
 
   /**
@@ -144,6 +151,14 @@ declare module 'vue-router/auto-routes' {
     'src/pages/overview.vue': {
       routes:
         | '/overview'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/worktime-dashboard.vue': {
+      routes:
+        | '/worktime-dashboard'
       views:
         | never
       pathParamNames:
