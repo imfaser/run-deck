@@ -1,9 +1,16 @@
+use crate::config::dirs;
 use tauri::Builder;
 
 pub fn setup_plugins(builder: Builder<tauri::Wry>) -> Builder<tauri::Wry> {
+    let store_dir = dirs::app_store_dir().expect("failed to resolve store directory");
     builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(
+            tauri_plugin_pinia::Builder::new()
+                .path(&store_dir)
+                .build(),
+        )
 }
 
 pub fn setup_protocols(builder: Builder<tauri::Wry>) -> Builder<tauri::Wry> {

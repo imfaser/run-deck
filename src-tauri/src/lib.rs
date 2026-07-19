@@ -19,8 +19,6 @@ pub(crate) static MCP_MANAGER: OnceLock<McpManager> = OnceLock::new();
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default();
-    let builder = setup::setup_plugins(builder);
-    let builder = setup::setup_protocols(builder);
     let builder = builder
         .setup(|app| {
             APP_HANDLE
@@ -72,8 +70,10 @@ pub fn run() {
             }
 
             Ok(())
-        })
-        .invoke_handler(setup::generate_handlers());
+        });
+    let builder = setup::setup_plugins(builder);
+    let builder = setup::setup_protocols(builder);
+    let builder = builder.invoke_handler(setup::generate_handlers());
 
     let app = builder
         .build(tauri::generate_context!())
