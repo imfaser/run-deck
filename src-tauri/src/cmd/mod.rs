@@ -1,6 +1,7 @@
 pub mod config;
 pub mod general;
 pub mod mcp;
+pub mod raw3d;
 
 use std::fmt::Display;
 

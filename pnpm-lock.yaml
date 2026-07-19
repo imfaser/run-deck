@@ -26,6 +26,9 @@ importers:
       element-plus:
         specifier: ^2.14.1
         version: 2.14.1(vue@3.5.35(typescript@6.0.3))
+      es-toolkit:
+        specifier: ^1.49.0
+        version: 1.49.0
       konva:
         specifier: ^10.3.0
         version: 10.3.0
@@ -1057,6 +1060,9 @@ packages:
 
   es-module-lexer@2.1.0:
     resolution: {integrity: sha512-n27zTYMjYu1aj4MjCWzSP7G9r75utsaoc8m61weK+W8JMBGGQybd43GstCXZ3WNmSFtGT9wi59qQTW6mhTR5LQ==}
+
+  es-toolkit@1.49.0:
+    resolution: {integrity: sha512-G5iZ6Pc/FNRY/soKZHC+TxGDD83rHUDXxzaWhGCX44vAv/tMs56WMusnm/KMNK+luUPsgA9U28cGr4RDlSzL2g==}
 
   escape-string-regexp@4.0.0:
     resolution: {integrity: sha512-TtpcNJ3XAzx3Gq8sWRzJaVajRs0uVxA2YAkdb1jm2YkPz4G6egUFAyA3n5vtEIZefPk5Wa4UXbKuS5fKkJWdgA==}
@@ -2863,6 +2869,8 @@ snapshots:
   entities@8.0.0: {}
 
   es-module-lexer@2.1.0: {}
+
+  es-toolkit@1.49.0: {}
 
   escape-string-regexp@4.0.0: {}
 

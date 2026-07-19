@@ -16,6 +16,7 @@ pub fn generate_handlers() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         crate::cmd::general::greet,
         crate::cmd::general::log_message,
         crate::cmd::general::mcp_store_content,
+        crate::cmd::general::mcp_store_image_bytes,
         crate::cmd::mcp::mcp_list_tools,
         crate::cmd::mcp::mcp_call_tool,
         crate::cmd::mcp::mcp_call_tool_with_progress,
@@ -24,6 +25,10 @@ pub fn generate_handlers() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         crate::cmd::mcp::mcp_list_prompts,
         crate::cmd::mcp::mcp_list_resources,
         crate::cmd::config::get_config,
-        crate::cmd::config::update_config
+        crate::cmd::config::update_config,
+        crate::cmd::raw3d::raw_open,
+        crate::cmd::raw3d::raw_slice,
+        crate::cmd::raw3d::raw_export_masks,
+        crate::cmd::raw3d::raw_close
     ]
 }

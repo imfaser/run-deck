@@ -1,5 +1,4 @@
 import { ref } from 'vue';
-import { convertFileSrc } from '@tauri-apps/api/core';
 
 function parseColor(color: string): { r: number; g: number; b: number } {
   const hex = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(color);
@@ -26,7 +25,7 @@ export function useMaskRenderer() {
   const isRendering = ref(false);
 
   async function renderMask(
-    grayImageHash: string,
+    grayImageUrl: string,
     threshold: number,
     color = '#0096ff'
   ): Promise<string | null> {
@@ -34,7 +33,7 @@ export function useMaskRenderer() {
     try {
       const img = new Image();
       img.crossOrigin = 'anonymous';
-      img.src = convertFileSrc(grayImageHash, 'mcp');
+      img.src = grayImageUrl;
       await img.decode();
 
       const canvas = document.createElement('canvas');

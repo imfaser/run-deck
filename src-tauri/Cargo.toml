@@ -25,6 +25,9 @@ anyhow = { workspace = true }
 chrono = { workspace = true }
 draft = { workspace = true }
 mcp = { workspace = true }
+nimg = { workspace = true }
+image = { workspace = true }
+bytes = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = "0.1"
 base64 = "0.22"

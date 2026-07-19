@@ -26,6 +26,7 @@
     { id: 'config', name: '配置', icon: '⚙', color: '#6366f1', route: '/config' },
     { id: 'mcp-panel', name: 'MCP 面板', icon: '🔌', color: '#10b981', route: '/mcp-panel' },
     { id: 'label', name: '标注', icon: '✏️', color: '#f59e0b', route: '/label' },
+    { id: 'label-raw', name: '3D标注', icon: '🧊', color: '#3b82f6', route: '/label-raw' },
   ]);
 
   // ========== 5. 生命周期钩子 ==========

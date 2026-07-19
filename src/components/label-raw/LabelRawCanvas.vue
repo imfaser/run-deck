@@ -1,42 +1,41 @@
 <script setup lang="ts">
-  // ========== 1. 第三方 / 内部模块引入 ==========
   import { ref, computed, watch, onUnmounted } from 'vue';
   import { useImage } from 'vue-konva';
   import { useResizeObserver, useEventListener } from '@vueuse/core';
   import Konva from 'konva';
-  import { useLabelStore } from '@/stores/label';
+  import { clamp } from 'es-toolkit';
+  import { useLabelRawStore } from '@/stores/label-raw';
   import { getPointerImagePos } from '@/utils/coordTransform';
   import { getPointConfig, getBoxConfig } from '@/utils/annotationConfig';
 
-  // ========== 2. 组合式函数（Composables）调用 ==========
-  const store = useLabelStore();
+  const store = useLabelRawStore();
 
-  // ========== 3. 响应式状态声明 ==========
   const containerRef = ref<HTMLDivElement | null>(null);
   const stageRef = ref<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
   const stageWidth = ref(800);
   const stageHeight = ref(600);
 
-  // Pan 状态
   const isSpaceDown = ref(false);
   const isPanning = ref(false);
   const panStart = ref({ x: 0, y: 0 });
   const groupStart = ref({ x: 0, y: 0 });
 
-  // Box 绘制状态
   const isDrawingBox = ref(false);
   const boxStart = ref<{ x: number; y: number } | null>(null);
   const tempBox = ref<{ x: number; y: number; width: number; height: number } | null>(null);
 
-  // 图片 / mask 尺寸
   const imageWidth = ref(0);
   const imageHeight = ref(0);
   const maskWidth = ref(0);
   const maskHeight = ref(0);
 
-  // ========== 4. 计算属性 ==========
-  const [baseImage] = useImage(computed(() => store.imageUrl ?? ''));
-  const [maskImage] = useImage(computed(() => store.maskUrl ?? ''));
+  const [baseImage] = useImage(computed(() => store.sliceImageUrl ?? ''));
+
+  const currentMaskVisible = computed(() => {
+    const kf = store.currentKeyframe;
+    return kf ? kf.maskVisible : false;
+  });
+  const [maskImage] = useImage(computed(() => store.currentMaskUrl ?? ''));
 
   const groupConfig = computed(() => ({
     name: 'annotation-group',
@@ -67,7 +66,6 @@
     return 'default';
   });
 
-  // ========== 5. 侦听器 ==========
   watch(baseImage, (img) => {
     if (img) {
       imageWidth.value = img.width;
@@ -82,7 +80,6 @@
     }
   });
 
-  // ========== 6. 生命周期钩子 ==========
   useEventListener(window, 'keydown', handleKeyDown);
   useEventListener(window, 'keyup', handleKeyUp);
 
@@ -94,8 +91,6 @@
     }
   });
 
-  // ========== 7. 普通方法与业务逻辑 ==========
-  // --- Konva 节点获取 ---
   function getStage(): Konva.Stage | null {
     return stageRef.value?.getStage?.() ?? null;
   }
@@ -118,7 +113,6 @@
     return stage.findOne('Layer') as Konva.Layer | null;
   }
 
-  // --- Resize ---
   useResizeObserver(containerRef, (entries) => {
     const entry = entries[0];
     if (!entry) return;
@@ -127,7 +121,6 @@
     getLayer()?.batchDraw();
   });
 
-  // --- Zoom ---
   function handleWheel(e: Konva.KonvaEventObject<WheelEvent>) {
     e.evt.preventDefault();
     const stage = getStage();
@@ -155,7 +148,6 @@
     };
   }
 
-  // --- Helper: check if target is on annotation or transformer ---
   function isOnAnnotation(target: Konva.Node): boolean {
     if (target.getParent()?.getClassName() === 'Transformer') return true;
     const name = target.name();
@@ -163,11 +155,9 @@
     return false;
   }
 
-  // --- Mouse down ---
   function handleStageMouseDown(e: Konva.KonvaEventObject<MouseEvent>) {
     const evt = e.evt;
 
-    // Pan: space + drag or middle mouse
     if (isSpaceDown.value || evt.button === 1) {
       isPanning.value = true;
       panStart.value = { x: evt.clientX, y: evt.clientY };
@@ -177,7 +167,6 @@
       return;
     }
 
-    // Create box: start drawing
     if (store.mode === 'create' && store.tool === 'box') {
       if (isOnAnnotation(e.target)) return;
       const group = getGroup();
@@ -191,14 +180,12 @@
     }
   }
 
-  // --- Mouse move ---
   function handleStageMouseMove(e: Konva.KonvaEventObject<MouseEvent>) {
     const evt = e.evt;
     const group = getGroup();
     const stage = getStage();
     if (!group || !stage) return;
 
-    // Cursor tracking
     const imgPos = getPointerImagePos(stage, group);
     store.cursorImagePos = imgPos;
 
@@ -224,7 +211,6 @@
     }
   }
 
-  // --- Mouse up ---
   function handleStageMouseUp() {
     if (isPanning.value) {
       isPanning.value = false;
@@ -236,13 +222,15 @@
     if (isDrawingBox.value && tempBox.value) {
       const { x, y, width, height } = tempBox.value;
       if (width > 2 && height > 2) {
+        const tl = clampToImage(x, y);
+        const br = clampToImage(x + width, y + height);
         store.addAnnotation({
           id: crypto.randomUUID(),
           type: 'box',
-          x1: Math.round(x),
-          y1: Math.round(y),
-          x2: Math.round(x + width),
-          y2: Math.round(y + height),
+          x1: Math.round(tl.x),
+          y1: Math.round(tl.y),
+          x2: Math.round(br.x),
+          y2: Math.round(br.y),
         });
       }
       tempBox.value = null;
@@ -251,16 +239,21 @@
     }
   }
 
-  // --- Stage click ---
+  function clampToImage(x: number, y: number) {
+    return {
+      x: clamp(x, 0, imageWidth.value),
+      y: clamp(y, 0, imageHeight.value),
+    };
+  }
+
   function handleStageClick(e: Konva.KonvaEventObject<MouseEvent>) {
     const stage = getStage();
     const transformer = getTransformer();
     if (!stage) return;
+    if (!store.hasVolume) return;
 
-    // Ignore transformer handle clicks
     if (e.target.getParent()?.getClassName() === 'Transformer') return;
 
-    // Create mode: always try to add point (ignore existing annotations)
     if (store.mode === 'create') {
       if (store.tool === 'p_point' || store.tool === 'n_point') {
         const group = getGroup();
@@ -268,29 +261,25 @@
         const pos = getPointerImagePos(stage, group);
         if (!pos) return;
 
+        const clamped = clampToImage(pos.x, pos.y);
         store.addAnnotation({
           id: crypto.randomUUID(),
           type: store.tool,
-          x: pos.x,
-          y: pos.y,
+          x: clamped.x,
+          y: clamped.y,
         });
       }
       return;
     }
 
-    // Select/delete mode: check if clicked on annotation
-    if (isOnAnnotation(e.target)) {
-      return;
-    }
+    if (isOnAnnotation(e.target)) return;
 
-    // Clicked on stage background
     if (store.mode === 'select') {
       store.clearSelection();
       if (transformer) transformer.nodes([]);
     }
   }
 
-  // --- Annotation click ---
   function handleAnnotationClick(
     ann: { id: string; type: string },
     e: Konva.KonvaEventObject<MouseEvent>
@@ -299,7 +288,6 @@
       e.cancelBubble = true;
       store.selectAnnotation(ann.id);
 
-      // Only attach Transformer for boxes (points just highlight, no resize)
       if (ann.type === 'box') {
         const stage = getStage();
         const transformer = getTransformer();
@@ -317,7 +305,6 @@
     }
   }
 
-  // --- Annotation drag ---
   function handleDragEnd(ann: { id: string; type: string }, e: Konva.KonvaEventObject<DragEvent>) {
     const node = e.target;
 
@@ -338,7 +325,6 @@
     }
   }
 
-  // --- Transformer transform end ---
   function handleTransformEnd(e: Konva.KonvaEventObject<Event>) {
     const node = e.target;
     const ann = store.annotations.find((a) => a.id === node.name());
@@ -358,7 +344,6 @@
     }
   }
 
-  // --- Keyboard ---
   function handleKeyDown(e: KeyboardEvent) {
     if (e.code === 'Space' && !isSpaceDown.value) {
       e.preventDefault();
@@ -376,7 +361,6 @@
     }
   }
 
-  // --- Fit to image ---
   function fitToImage() {
     if (!imageWidth.value || !imageHeight.value) return;
     const padding = 40;
@@ -384,7 +368,8 @@
     const availH = stageHeight.value - padding * 2;
     const scaleX = availW / imageWidth.value;
     const scaleY = availH / imageHeight.value;
-    const scale = Math.min(scaleX, scaleY, 1);
+    // Allow scale up for small images, cap at 5x
+    const scale = Math.min(scaleX, scaleY, 5);
 
     store.stageScale = scale;
     store.stagePos = {
@@ -393,7 +378,6 @@
     };
   }
 
-  // ========== 8. 模板需要的显式暴露 ==========
   defineExpose({ fitToImage });
 </script>
 
@@ -411,7 +395,6 @@
     >
       <v-layer>
         <v-group :config="groupConfig">
-          <!-- Base image -->
           <v-image
             v-if="baseImage"
             :config="{
@@ -421,9 +404,8 @@
             }"
           />
 
-          <!-- Mask layer -->
           <v-image
-            v-if="maskImage && store.maskVisible"
+            v-if="maskImage && currentMaskVisible"
             :config="{
               image: maskImage,
               width: maskWidth,
@@ -432,31 +414,32 @@
             }"
           />
 
-          <!-- Positive points -->
           <v-circle
             v-for="ann in store.positivePoints"
             :key="ann.id"
             :config="{
               ...getPointConfig(ann, store.selectedId === ann.id),
               draggable: store.mode === 'select',
+              scaleX: 1 / store.stageScale,
+              scaleY: 1 / store.stageScale,
             }"
             @click="(e: Konva.KonvaEventObject<MouseEvent>) => handleAnnotationClick(ann, e)"
             @dragend="(e: Konva.KonvaEventObject<DragEvent>) => handleDragEnd(ann, e)"
           />
 
-          <!-- Negative points -->
           <v-circle
             v-for="ann in store.negativePoints"
             :key="ann.id"
             :config="{
               ...getPointConfig(ann, store.selectedId === ann.id),
               draggable: store.mode === 'select',
+              scaleX: 1 / store.stageScale,
+              scaleY: 1 / store.stageScale,
             }"
             @click="(e: Konva.KonvaEventObject<MouseEvent>) => handleAnnotationClick(ann, e)"
             @dragend="(e: Konva.KonvaEventObject<DragEvent>) => handleDragEnd(ann, e)"
           />
 
-          <!-- Bounding boxes -->
           <v-rect
             v-for="ann in store.boxes"
             :key="ann.id"
@@ -469,11 +452,9 @@
             @transformend="handleTransformEnd"
           />
 
-          <!-- Temp box while drawing -->
           <v-rect v-if="tempBox" :config="tempBoxConfig" />
         </v-group>
 
-        <!-- Transformer -->
         <v-transformer
           :config="{
             name: 'transformer-handle',

@@ -151,6 +151,10 @@ export async function mcpStoreContent(path: string): Promise<string> {
   return invoke<string>('mcp_store_content', { path });
 }
 
+export async function mcpStoreImageBytes(data: number[], mimeType: string): Promise<string> {
+  return invoke<string>('mcp_store_image_bytes', { data, mimeType });
+}
+
 // MCP Panel commands
 export async function mcpServerInfo(serverName: string): Promise<ServerInfo | null> {
   return invoke<ServerInfo | null>('mcp_server_info', { serverName });

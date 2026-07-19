@@ -1,34 +1,19 @@
-import { ref, watchEffect } from 'vue';
+import { watchEffect } from 'vue';
+import { useLocalStorage } from '@vueuse/core';
 import { useAppStore } from '@/stores/app';
 
 export type ThemeMode = 'dark' | 'light';
 
-const THEME_KEY = 'theme-mode';
-
-function getInitialTheme(): ThemeMode {
-  const stored = localStorage.getItem(THEME_KEY);
-  if (stored === 'dark' || stored === 'light') {
-    return stored;
-  }
-  return 'dark';
-}
-
-const theme = ref<ThemeMode>(getInitialTheme());
-
-function applyTheme(mode: ThemeMode) {
-  document.documentElement.dataset.theme = mode;
-  localStorage.setItem(THEME_KEY, mode);
-}
-
 export function useTheme() {
   const store = useAppStore();
+  const theme = useLocalStorage<ThemeMode>('theme-mode', 'dark');
 
   // Apply theme on first use
-  applyTheme(theme.value);
+  document.documentElement.dataset.theme = theme.value;
 
   // Watch for changes
   watchEffect(() => {
-    applyTheme(theme.value);
+    document.documentElement.dataset.theme = theme.value;
     store.setThemeMode(theme.value);
   });
 

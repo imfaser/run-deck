@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use crate::singleton;
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
@@ -12,12 +10,15 @@ use serde_json::{Map, Value};
 use sha2::{Digest as _, Sha256};
 
 const BASE64_PREFIX: &str = "base64://";
-const MCP_PREFIX: &str = "mcp://localhost/";
+#[cfg(windows)]
+pub const MCP_PREFIX: &str = "http://mcp.localhost/";
+#[cfg(not(windows))]
+pub const MCP_PREFIX: &str = "mcp://localhost/";
 
 type CacheEntry = (String, Vec<u8>);
 
 /// MCP 内容缓存：key = SHA256 hash, value = (mime_type, bytes)
-/// 100MB 上限，30 分钟 TTL，按 bytes 权重淘汰
+/// 1GB LRU 上限，无 TTL，按 bytes 权重淘汰
 pub struct McpContentStore {
     cache: Cache<String, CacheEntry>,
 }
@@ -28,8 +29,7 @@ impl McpContentStore {
     pub fn new() -> Self {
         Self {
             cache: Cache::builder()
-                .max_capacity(100 * 1024 * 1024)
-                .time_to_live(Duration::from_secs(30 * 60))
+                .max_capacity(1024 * 1024 * 1024)
                 .weigher(|_key, value: &CacheEntry| -> u32 {
                     (value.1.len() as u32).saturating_add(64)
                 })
@@ -43,6 +43,23 @@ impl McpContentStore {
 
     pub fn insert(&self, hash: String, entry: CacheEntry) {
         self.cache.insert(hash, entry);
+    }
+
+    fn resolve_mcp_hash(&self, hash: &str, original: &str) -> Value {
+        if let Some((_mime, bytes)) = self.get(hash) {
+            let encoded = STANDARD.encode(&bytes);
+            logging!(
+                debug,
+                Type::Cmd,
+                "Resolved mcp content {} -> {} bytes encoded",
+                hash,
+                bytes.len()
+            );
+            Value::String(encoded)
+        } else {
+            logging!(warn, Type::Cmd, "Content not found for mcp://{hash}");
+            Value::String(original.to_string())
+        }
     }
 
     pub fn resolve_args(&self, value: Value) -> Value {
@@ -81,20 +98,7 @@ impl McpContentStore {
             }
             Value::String(s) if s.starts_with(MCP_PREFIX) => {
                 let hash = &s[MCP_PREFIX.len()..];
-                if let Some((_mime, bytes)) = self.get(hash) {
-                    let encoded = STANDARD.encode(&bytes);
-                    logging!(
-                        debug,
-                        Type::Cmd,
-                        "Resolved mcp://localhost/{} -> {} bytes encoded",
-                        hash,
-                        bytes.len()
-                    );
-                    Value::String(encoded)
-                } else {
-                    logging!(warn, Type::Cmd, "Content not found for mcp://localhost/{hash}");
-                    Value::String(s)
-                }
+                self.resolve_mcp_hash(hash, &s)
             }
             other => other,
         }

@@ -1,9 +1,9 @@
 import { useEventListener } from '@vueuse/core';
-import { useLabelStore } from '@/stores/label';
-import type { LabelMode, AnnotationType } from '@/stores/label';
+import { useLabelRawStore } from '@/stores/label-raw';
+import type { LabelMode, AnnotationType } from '@/stores/label-raw';
 
-export function useLabelKeyboard() {
-  const store = useLabelStore();
+export function useLabelRawKeyboard() {
+  const store = useLabelRawStore();
 
   function handleKeyDown(e: KeyboardEvent) {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;

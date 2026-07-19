@@ -34,7 +34,9 @@ export async function segmentImage(
     }
   }
 
-  const mcpUrl = await mcpStoreContent(imagePath);
+  const isMcpUrl =
+    imagePath.startsWith('mcp://localhost/') || imagePath.startsWith('http://mcp.localhost/');
+  const mcpUrl = isMcpUrl ? imagePath : await mcpStoreContent(imagePath);
   const args: Record<string, unknown> = { image: mcpUrl };
   if (p_point && p_point.length > 0) args.p_point = p_point;
   if (n_point && n_point.length > 0) args.n_point = n_point;
