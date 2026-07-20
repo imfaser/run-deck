@@ -3,13 +3,15 @@
   import { ref } from 'vue';
   import { useLabelKeyboard } from '@/composables/useLabelKeyboard';
   import LabelToolbar from '@/components/label/LabelToolbar.vue';
-  import LabelModePanel from '@/components/label/LabelModePanel.vue';
-  import LabelToolPanel from '@/components/label/LabelToolPanel.vue';
+  import LabelModePanel from '@/components/shared/LabelModePanel.vue';
+  import LabelToolPanel from '@/components/shared/LabelToolPanel.vue';
   import LabelCanvas from '@/components/label/LabelCanvas.vue';
   import LabelInfoPanel from '@/components/label/LabelInfoPanel.vue';
+  import { useLabelStore } from '@/stores/label';
 
   // ========== 2. 组合式函数（Composables）调用 ==========
   useLabelKeyboard();
+  const store = useLabelStore();
 
   // ========== 3. 响应式状态声明 ==========
   const canvasRef = ref<InstanceType<typeof LabelCanvas> | null>(null);
@@ -26,8 +28,8 @@
 
     <el-container class="label-body">
       <el-aside width="64px" class="label-sidebar-left">
-        <LabelModePanel />
-        <LabelToolPanel />
+        <LabelModePanel :mode="store.mode" @set-mode="(m) => store.setMode(m)" />
+        <LabelToolPanel :mode="store.mode" :tool="store.tool" @set-tool="(t) => store.setTool(t)" />
       </el-aside>
 
       <el-main class="label-canvas-area">

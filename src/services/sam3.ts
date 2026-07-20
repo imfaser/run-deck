@@ -1,48 +1,31 @@
 import { mcpCallTool, mcpStoreContent, type CallToolResult } from './cmd';
+import { SegmentOptionsSchema, type SegmentOptions } from '@/schemas/sam3';
 
-export interface SegmentOptions {
-  p_point?: [number, number][];
-  n_point?: [number, number][];
-  boxes?: [number, number, number, number][];
-  prev_mask?: string;
-  multimask_output?: boolean;
-}
+export type { SegmentOptions };
 
 export async function segmentImage(
   imagePath: string,
   opts: SegmentOptions
 ): Promise<CallToolResult> {
-  const { p_point, n_point, boxes, prev_mask, multimask_output } = opts;
-
-  const hasPrompt =
-    (p_point && p_point.length > 0) ||
-    (n_point && n_point.length > 0) ||
-    (boxes && boxes.length > 0) ||
-    prev_mask;
-
-  if (!hasPrompt) {
-    throw new Error('至少需要一种提示：p_point, n_point, boxes, 或 prev_mask');
-  }
-
-  if (boxes) {
-    for (let i = 0; i < boxes.length; i++) {
-      if (boxes[i].length !== 4) {
-        throw new Error(
-          `boxes[${i}] 需要恰好 4 个值 [x1, y1, x2, y2]，实际为 ${boxes[i].length} 个`
-        );
-      }
-    }
-  }
+  const validated = SegmentOptionsSchema.parse(opts);
+  const { p_point, n_point, boxes, prev_mask, multimask_output } = validated;
 
   const isMcpUrl =
     imagePath.startsWith('mcp://localhost/') || imagePath.startsWith('http://mcp.localhost/');
   const mcpUrl = isMcpUrl ? imagePath : await mcpStoreContent(imagePath);
-  const args: Record<string, unknown> = { image: mcpUrl };
-  if (p_point && p_point.length > 0) args.p_point = p_point;
-  if (n_point && n_point.length > 0) args.n_point = n_point;
-  if (boxes && boxes.length > 0) args.boxes = boxes;
-  if (prev_mask) args.prev_mask = prev_mask;
-  if (multimask_output !== undefined) args.multimask_output = multimask_output;
+
+  const args: Record<string, unknown> = {
+    image: mcpUrl,
+    ...Object.fromEntries(
+      Object.entries({
+        p_point: p_point && p_point.length > 0 ? p_point : undefined,
+        n_point: n_point && n_point.length > 0 ? n_point : undefined,
+        boxes: boxes && boxes.length > 0 ? boxes : undefined,
+        prev_mask,
+        multimask_output,
+      }).filter(([, v]) => v !== undefined)
+    ),
+  };
 
   return mcpCallTool('sam3', 'segment_image', { req: args });
 }

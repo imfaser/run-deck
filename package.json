@@ -11,11 +11,14 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
+    "@tanstack/vue-query": "^5.101.2",
     "@tauri-apps/api": "^2.11.0",
     "@tauri-apps/plugin-dialog": "^2.7.1",
     "@tauri-apps/plugin-opener": "^2.5.4",
     "@tauri-store/pinia": "^5.0.0",
+    "@vee-validate/zod": "^4.15.1",
     "@vueuse/core": "^14.3.0",
+    "@xstate/vue": "^5.0.1",
     "dayjs": "^1.11.21",
     "echarts": "^6.1.0",
     "element-plus": "^2.14.1",
@@ -23,9 +26,12 @@
     "konva": "^10.3.0",
     "pinia": "^4.0.2",
     "ts-pattern": "^5.9.0",
+    "vee-validate": "5.0.0-beta.1",
     "vue": "^3.5.40",
     "vue-konva": "^3.4.0",
-    "vue-router": "^5.1.0"
+    "vue-router": "^5.1.0",
+    "xstate": "^5.32.5",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@modelcontextprotocol/client": "2.0.0-beta.4",

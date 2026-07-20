@@ -1,4 +1,4 @@
-import type { Annotation } from '@/types/annotation';
+import type { Annotation } from '@/schemas/annotation';
 
 export function getPointConfig(
   ann: Annotation & { type: 'p_point' | 'n_point' },

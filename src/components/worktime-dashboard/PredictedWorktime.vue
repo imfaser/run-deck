@@ -1,6 +1,7 @@
 <script setup lang="ts">
   import { computed } from 'vue';
   import dayjs from 'dayjs';
+  import { match } from 'ts-pattern';
   import { useWorktimeStore } from '@/stores/worktime';
 
   const store = useWorktimeStore();
@@ -15,11 +16,14 @@
     );
   });
 
-  const currentAverage = computed(() => {
-    if (pastDaysWithRecords.value.length === 0) return store.settings.dailyTarget;
-    const total = pastDaysWithRecords.value.reduce((sum, r) => sum + r.workHours, 0);
-    return total / pastDaysWithRecords.value.length;
-  });
+  const currentAverage = computed(() =>
+    match(pastDaysWithRecords.value.length)
+      .with(0, () => store.settings.dailyTarget)
+      .otherwise(() => {
+        const total = pastDaysWithRecords.value.reduce((sum, r) => sum + r.workHours, 0);
+        return total / pastDaysWithRecords.value.length;
+      })
+  );
 
   const futureRecords = computed(() => {
     const now = dayjs();
@@ -37,12 +41,15 @@
     return pastDaysWithRecords.value.length + futureRecords.value.length;
   });
 
-  const predictedAverage = computed(() => {
-    if (totalDaysWithRecords.value === 0) return currentAverage.value;
-    const totalHours =
-      currentAverage.value * pastDaysWithRecords.value.length + futureHoursSum.value;
-    return totalHours / totalDaysWithRecords.value;
-  });
+  const predictedAverage = computed(() =>
+    match(totalDaysWithRecords.value)
+      .with(0, () => currentAverage.value)
+      .otherwise(() => {
+        const totalHours =
+          currentAverage.value * pastDaysWithRecords.value.length + futureHoursSum.value;
+        return totalHours / totalDaysWithRecords.value;
+      })
+  );
 
   const monthDaysLeft = computed(() => {
     const now = dayjs();

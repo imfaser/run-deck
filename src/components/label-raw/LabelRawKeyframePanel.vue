@@ -1,7 +1,7 @@
 <script setup lang="ts">
   import { ref } from 'vue';
+  import { match, P } from 'ts-pattern';
   import { useLabelRawStore } from '@/stores/label-raw';
-  import type { PointAnnotation, BoxAnnotation } from '@/types/annotation';
 
   const store = useLabelRawStore();
   const expandedIndex = ref<number | null>(null);
@@ -16,12 +16,13 @@
     x2?: number;
     y2?: number;
   }) {
-    if (a.type === 'p_point' || a.type === 'n_point') {
-      const pa = a as PointAnnotation;
-      return `${pa.type === 'p_point' ? '⊕' : '⊖'} (${pa.x}, ${pa.y})`;
-    }
-    const ba = a as BoxAnnotation;
-    return `▭ (${ba.x1},${ba.y1})→(${ba.x2},${ba.y2})`;
+    return match(a.type)
+      .with(P.union('p_point', 'n_point'), (type) => {
+        const icon = type === 'p_point' ? '⊕' : '⊖';
+        return `${icon} (${a.x}, ${a.y})`;
+      })
+      .with('box', () => `▭ (${a.x1},${a.y1})→(${a.x2},${a.y2})`)
+      .otherwise(() => '?');
   }
 
   function handleToggleExpand(index: number, e: Event) {

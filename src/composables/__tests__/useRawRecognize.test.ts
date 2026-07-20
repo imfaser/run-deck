@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ref } from 'vue';
-import type { Annotation } from '@/types/annotation';
+import type { Annotation } from '@/schemas/annotation';
 import type { Keyframe } from '@/stores/label-raw';
 
 vi.mock('@/services/raw3d', () => ({

@@ -1,13 +1,13 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { isMatching } from 'ts-pattern';
 import type {
   AnnotationType,
   LabelMode,
   PointAnnotation,
   BoxAnnotation,
   Annotation,
-} from '@/types/annotation';
+} from '@/schemas/annotation';
+import { createAnnotationActions } from '@/stores/shared/annotation-actions';
 
 export const useLabelStore = defineStore('label', () => {
   // Image
@@ -38,10 +38,6 @@ export const useLabelStore = defineStore('label', () => {
   const cursorImagePos = ref<{ x: number; y: number } | null>(null);
 
   // Computed
-  const isPoint = (a: Annotation): a is PointAnnotation =>
-    a.type === 'p_point' || a.type === 'n_point';
-  const isBox = (a: Annotation): a is BoxAnnotation => a.type === 'box';
-
   const positivePoints = computed(() =>
     annotations.value.filter((a): a is PointAnnotation => a.type === 'p_point')
   );
@@ -50,58 +46,23 @@ export const useLabelStore = defineStore('label', () => {
     annotations.value.filter((a): a is PointAnnotation => a.type === 'n_point')
   );
 
-  const boxes = computed(() => annotations.value.filter(isBox));
+  const boxes = computed(() =>
+    annotations.value.filter((a): a is BoxAnnotation => a.type === 'box')
+  );
 
   const selectedAnnotation = computed(
     () => annotations.value.find((a) => a.id === selectedId.value) ?? null
   );
 
-  // Actions
-  function addAnnotation(annotation: Annotation) {
-    annotations.value.push(annotation);
-  }
-
-  function removeAnnotation(id: string) {
-    annotations.value = annotations.value.filter((a) => a.id !== id);
-    if (selectedId.value === id) {
-      selectedId.value = null;
-    }
-  }
-
-  function updateAnnotation(id: string, updates: Partial<Annotation>) {
-    const idx = annotations.value.findIndex((a) => a.id === id);
-    if (idx === -1) return;
-    const existing = annotations.value[idx];
-    annotations.value[idx] = { ...existing, ...updates } as Annotation;
-  }
-
-  function selectAnnotation(id: string | null) {
-    selectedId.value = id;
-  }
-
-  function clearSelection() {
-    selectedId.value = null;
-  }
-
-  function setMode(newMode: LabelMode) {
-    mode.value = newMode;
-    clearSelection();
-  }
-
-  function setTool(newTool: AnnotationType) {
-    tool.value = newTool;
-    mode.value = 'create';
-  }
-
-  function clearAnnotations() {
-    annotations.value = [];
-    selectedId.value = null;
-  }
-
-  function resetCanvas() {
-    stageScale.value = 1;
-    stagePos.value = { x: 0, y: 0 };
-  }
+  // Shared actions
+  const sharedActions = createAnnotationActions({
+    mode,
+    tool,
+    annotations,
+    selectedId,
+    stageScale,
+    stagePos,
+  });
 
   return {
     // State
@@ -128,14 +89,6 @@ export const useLabelStore = defineStore('label', () => {
     selectedAnnotation,
 
     // Actions
-    addAnnotation,
-    removeAnnotation,
-    updateAnnotation,
-    selectAnnotation,
-    clearSelection,
-    setMode,
-    setTool,
-    clearAnnotations,
-    resetCanvas,
+    ...sharedActions,
   };
 });

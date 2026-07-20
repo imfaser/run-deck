@@ -1,11 +1,13 @@
 <script setup lang="ts">
-  import { onMounted } from 'vue';
+  import { watch } from 'vue';
   import { useRouter } from 'vue-router';
-  import { getConfig, logMessage } from '@/services/cmd';
+  import { logMessage } from '@/services/cmd';
+  import { useConfigQuery } from '@/composables/useConfigQuery';
   import { useAppStore } from '@/stores/app';
 
   const router = useRouter();
   const store = useAppStore();
+  const { data: config, isSuccess } = useConfigQuery();
 
   const fixedRoutes = ['/overview', '/config'];
 
@@ -14,27 +16,25 @@
     '/mcp-panel': 'MCP 面板',
   };
 
-  onMounted(async () => {
-    try {
-      const config = await getConfig();
-      const target = `/${config.frontend.home}`;
+  watch(
+    isSuccess,
+    async (ready) => {
+      if (!ready || !config.value) return;
+      const target = `/${config.value.frontend.home}`;
       await logMessage('info', `首页跳转: ${target}`);
 
       if (!fixedRoutes.includes(target)) {
         store.addTab({
-          title: routeTitles[target] ?? config.frontend.home,
+          title: routeTitles[target] ?? config.value.frontend.home,
           closable: true,
           route: target,
         });
       }
 
       router.push(target);
-    } catch (e) {
-      const err = String(e);
-      await logMessage('error', `首页配置读取失败: ${err}`);
-      router.push('/overview');
-    }
-  });
+    },
+    { once: true }
+  );
 </script>
 
 <template>

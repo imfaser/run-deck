@@ -1,33 +1,13 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import dayjs from 'dayjs';
+import type { WorkRecord, WorktimeSettings } from '@/schemas/worktime';
+
+export type { WorkRecord, WorktimeSettings };
 
 const PRECISION = 1e8;
 function roundHours(hours: number): number {
   return Math.round(hours * PRECISION) / PRECISION;
-}
-
-export interface WorkRecord {
-  id: string;
-  date: string;
-  clockIn: string;
-  clockOut: string;
-  isPredicted: boolean;
-  workHours: number;
-}
-
-export interface WorktimeSettings {
-  workPeriod1Start: string;
-  workPeriod1End: string;
-  breakPeriod1Start: string;
-  breakPeriod1End: string;
-  workPeriod2Start: string;
-  workPeriod2End: string;
-  breakPeriod2Start: string;
-  breakPeriod2End: string;
-  dailyTarget: number;
-  autoSync: boolean;
-  lastSyncTime: string;
 }
 
 const DEFAULT_SETTINGS: WorktimeSettings = {

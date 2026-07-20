@@ -1,17 +1,17 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { cloneDeep, sortBy } from 'es-toolkit';
-import { isMatching } from 'ts-pattern';
 import { rawOpen, rawSlice, rawExportMasks, type RawOpenResponse } from '@/services/raw3d';
 import { logMessage } from '@/services/cmd';
 import { useRawRecognize } from '@/composables/useRawRecognize';
+import { createAnnotationActions } from '@/stores/shared/annotation-actions';
 import type {
   AnnotationType,
   LabelMode,
   PointAnnotation,
   BoxAnnotation,
   Annotation,
-} from '@/types/annotation';
+} from '@/schemas/annotation';
 
 export type VolumeDtype = 'u8' | 'u16';
 export type VolumeEndian = 'little' | 'big';
@@ -84,10 +84,6 @@ export const useLabelRawStore = defineStore('label-raw', () => {
   });
 
   // ─── Computed ──────────────────────────────────────
-  const isPoint = (a: Annotation): a is PointAnnotation =>
-    a.type === 'p_point' || a.type === 'n_point';
-  const isBox = (a: Annotation): a is BoxAnnotation => a.type === 'box';
-
   const positivePoints = computed(() =>
     annotations.value.filter((a): a is PointAnnotation => a.type === 'p_point')
   );
@@ -96,7 +92,9 @@ export const useLabelRawStore = defineStore('label-raw', () => {
     annotations.value.filter((a): a is PointAnnotation => a.type === 'n_point')
   );
 
-  const boxes = computed(() => annotations.value.filter(isBox));
+  const boxes = computed(() =>
+    annotations.value.filter((a): a is BoxAnnotation => a.type === 'box')
+  );
 
   const selectedAnnotation = computed(
     () => annotations.value.find((a) => a.id === selectedId.value) ?? null
@@ -310,10 +308,18 @@ export const useLabelRawStore = defineStore('label-raw', () => {
   }
 
   // ─── Actions: Annotations ──────────────────────────
+  const sharedActions = createAnnotationActions({
+    mode,
+    tool,
+    annotations,
+    selectedId,
+    stageScale,
+    stagePos,
+  });
+
   function addAnnotation(annotation: Annotation) {
     if (!volumeId.value) return;
     annotations.value.push(annotation);
-    // Sync to keyframe if it exists
     const kf = keyframes.value.get(currentIndex.value);
     if (kf) {
       kf.annotations = [...annotations.value];
@@ -321,43 +327,9 @@ export const useLabelRawStore = defineStore('label-raw', () => {
     }
   }
 
-  function removeAnnotation(id: string) {
-    annotations.value = annotations.value.filter((a) => a.id !== id);
-    if (selectedId.value === id) selectedId.value = null;
-  }
-
-  function updateAnnotation(id: string, updates: Partial<Annotation>) {
-    const idx = annotations.value.findIndex((a) => a.id === id);
-    if (idx === -1) return;
-    annotations.value[idx] = { ...annotations.value[idx], ...updates } as Annotation;
-  }
-
-  function selectAnnotation(id: string | null) {
-    selectedId.value = id;
-  }
-
-  function clearSelection() {
-    selectedId.value = null;
-  }
-
-  function setMode(newMode: LabelMode) {
-    mode.value = newMode;
-    clearSelection();
-  }
-
-  function setTool(newTool: AnnotationType) {
-    tool.value = newTool;
-    mode.value = 'create';
-  }
-
   function clearAnnotations() {
     annotations.value = [];
     selectedId.value = null;
-  }
-
-  function resetCanvas() {
-    stageScale.value = 1;
-    stagePos.value = { x: 0, y: 0 };
   }
 
   // ─── Actions: Export ───────────────────────────────
@@ -440,15 +412,9 @@ export const useLabelRawStore = defineStore('label-raw', () => {
     removeKeyframe,
     jumpToKeyframe,
     toggleMaskVisible,
+    ...sharedActions,
     addAnnotation,
-    removeAnnotation,
-    updateAnnotation,
-    selectAnnotation,
-    clearSelection,
-    setMode,
-    setTool,
     clearAnnotations,
-    resetCanvas,
     // Recognition (from composable)
     isRecognizing: recognize.isRecognizing,
     recognitionProgress: recognize.progress,

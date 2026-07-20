@@ -1,6 +1,7 @@
 <script setup lang="ts">
   import { ref, computed, watch, onMounted, onBeforeUnmount, shallowRef } from 'vue';
   import dayjs from 'dayjs';
+  import { match } from 'ts-pattern';
   import * as echarts from 'echarts/core';
   import { LineChart } from 'echarts/charts';
   import { GridComponent, TooltipComponent } from 'echarts/components';
@@ -81,16 +82,13 @@
     return { labels, values };
   });
 
-  const currentData = computed(() => {
-    switch (activeView.value) {
-      case 'daily':
-        return dailyData.value;
-      case 'weekly':
-        return weeklyData.value;
-      case 'monthly':
-        return monthlyData.value;
-    }
-  });
+  const currentData = computed(() =>
+    match(activeView.value)
+      .with('daily', () => dailyData.value)
+      .with('weekly', () => weeklyData.value)
+      .with('monthly', () => monthlyData.value)
+      .exhaustive()
+  );
 
   const chartOption = computed(() => ({
     tooltip: {

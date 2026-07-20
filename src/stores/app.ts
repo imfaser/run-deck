@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
+import { match } from 'ts-pattern';
 import type { ThemeMode } from '@/composables/useTheme';
 
 export interface Tab {
@@ -40,12 +41,9 @@ export const useAppStore = defineStore('app', () => {
     tabs.value.splice(index, 1);
 
     if (activeTab.value === id) {
-      if (tabs.value.length > 0) {
-        const newIndex = Math.min(index, tabs.value.length - 1);
-        activeTab.value = tabs.value[newIndex].id;
-      } else {
-        activeTab.value = 'overview';
-      }
+      activeTab.value = match(tabs.value.length)
+        .with(0, () => 'overview')
+        .otherwise(() => tabs.value[Math.min(index, tabs.value.length - 1)].id);
     }
   }
 

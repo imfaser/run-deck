@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import { computed } from 'vue';
+  import { match } from 'ts-pattern';
   import { useLabelStore } from '@/stores/label';
 
   const store = useLabelStore();
@@ -7,9 +8,9 @@
   const hasAnnotations = computed(() => store.annotations.length > 0);
   const activeGroups = computed(() => {
     const groups: string[] = [];
-    if (store.positivePoints.length > 0) groups.push('positive');
-    if (store.negativePoints.length > 0) groups.push('negative');
-    if (store.boxes.length > 0) groups.push('boxes');
+    match(store.positivePoints.length > 0).with(true, () => groups.push('positive'));
+    match(store.negativePoints.length > 0).with(true, () => groups.push('negative'));
+    match(store.boxes.length > 0).with(true, () => groups.push('boxes'));
     return groups;
   });
 
@@ -18,9 +19,9 @@
   }
 
   function handleDeleteSelected() {
-    if (store.selectedId) {
-      store.removeAnnotation(store.selectedId);
-    }
+    match(store.selectedId)
+      .with(null, () => {})
+      .otherwise((id) => store.removeAnnotation(id));
   }
 
   function formatPoint(x: number, y: number): string {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
   import { Pointer, Edit, Delete } from '@element-plus/icons-vue';
   import type { Component } from 'vue';
-  import type { LabelMode } from '@/types/annotation';
+  import type { LabelMode } from '@/schemas/annotation';
 
   const props = defineProps<{
     mode: LabelMode;

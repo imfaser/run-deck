@@ -1,6 +1,7 @@
 <script setup lang="ts">
   import { computed } from 'vue';
   import dayjs from 'dayjs';
+  import { match } from 'ts-pattern';
   import { useWorktimeStore } from '@/stores/worktime';
   import StatCard from './StatCard.vue';
   import WorktimeChart from './WorktimeChart.vue';
@@ -28,10 +29,11 @@
 
   const targetColor = computed(() => (isTargetMet.value ? '#22c55e' : '#ef4444'));
 
-  const targetTooltip = computed(() => {
-    if (isTargetMet.value) return '已达标';
-    return `距离目标还差 ${targetDeficit.value} 小时`;
-  });
+  const targetTooltip = computed(() =>
+    match(isTargetMet.value)
+      .with(true, () => '已达标')
+      .otherwise(() => `距离目标还差 ${targetDeficit.value} 小时`)
+  );
 </script>
 
 <template>

@@ -1,23 +1,25 @@
 import { ref } from 'vue';
+import { match, P } from 'ts-pattern';
 
 function parseColor(color: string): { r: number; g: number; b: number } {
-  const hex = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(color);
-  if (hex) {
-    return {
-      r: parseInt(hex[1], 16),
-      g: parseInt(hex[2], 16),
-      b: parseInt(hex[3], 16),
-    };
-  }
-  const rgba = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(color);
-  if (rgba) {
-    return {
-      r: parseInt(rgba[1], 10),
-      g: parseInt(rgba[2], 10),
-      b: parseInt(rgba[3], 10),
-    };
-  }
-  return { r: 0, g: 150, b: 255 };
+  return match(color)
+    .with(P.string.regex(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i), (hex) => {
+      const parts = hex.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i)!;
+      return {
+        r: parseInt(parts[1], 16),
+        g: parseInt(parts[2], 16),
+        b: parseInt(parts[3], 16),
+      };
+    })
+    .with(P.string.regex(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/), (rgba) => {
+      const parts = rgba.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/)!;
+      return {
+        r: parseInt(parts[1], 10),
+        g: parseInt(parts[2], 10),
+        b: parseInt(parts[3], 10),
+      };
+    })
+    .otherwise(() => ({ r: 0, g: 150, b: 255 }));
 }
 
 export function useMaskRenderer() {

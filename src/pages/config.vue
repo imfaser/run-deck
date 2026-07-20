@@ -1,32 +1,31 @@
 <script setup lang="ts">
   // ========== 1. 第三方 / 内部模块引入 ==========
-  import { ref, onMounted } from 'vue';
+  import { ref, watch } from 'vue';
   import { useDebounceFn } from '@vueuse/core';
   import { ElMessage, ElMessageBox } from 'element-plus';
   import { match } from 'ts-pattern';
+  import { FrontendConfigSchema, ShellTypeSchema } from '@/schemas/config';
   import {
-    getConfig,
     updateConfig,
     logMessage,
     mcpServerStatus,
-    type Config,
     type McpServerConfig,
     type ServerStatus,
-    type ShellType,
   } from '@/services/cmd';
   import GeneralSettings from '@/components/config/GeneralSettings.vue';
   import McpServerList from '@/components/config/McpServerList.vue';
   import McpServerForm from '@/components/config/McpServerForm.vue';
   import PageLayout from '@/components/layout/PageLayout.vue';
   import { useTheme } from '@/composables/useTheme';
+  import { useConfigQuery } from '@/composables/useConfigQuery';
+  import { useMcpMutation } from '@/composables/useMcpMutation';
 
   // ========== 2. 组合式函数（Composables）调用 ==========
   const { setTheme } = useTheme();
+  const { data: config, isLoading: loading, isError, error } = useConfigQuery();
+  const configMutation = useMcpMutation();
 
   // ========== 3. 响应式状态声明 ==========
-  const config = ref<Config | null>(null);
-  const loading = ref(true);
-  const error = ref('');
   const activeSection = ref('general');
   const serverStatuses = ref<Record<string, ServerStatus>>({});
   const editingServer = ref<{ name: string; config: McpServerConfig; isNew?: boolean } | null>(
@@ -40,28 +39,17 @@
     { key: 'mcp', label: 'MCP 服务器', icon: '🔌' },
   ];
 
-  // ========== 5. 侦听器 ==========
-  const debouncedUpdateConfig = useDebounceFn(async (cfg: Config) => {
-    try {
-      await updateConfig(cfg);
-    } catch (e) {
-      await logMessage('error', `配置更新失败: ${e}`);
-    }
+  const debouncedUpdateConfig = useDebounceFn(async (cfg: typeof config.value) => {
+    if (!cfg) return;
+    configMutation.mutate(cfg);
   }, 500);
 
-  // ========== 6. 生命周期钩子 ==========
-  onMounted(async () => {
-    try {
-      config.value = await getConfig();
-    } catch (e) {
-      error.value = String(e);
-    } finally {
-      loading.value = false;
-    }
+  // ========== 5. 侦听器 ==========
+  watch(config, () => {
     refreshServerStatuses();
   });
 
-  // ========== 7. 普通方法与业务逻辑 ==========
+  // ========== 6. 普通方法与业务逻辑 ==========
   async function refreshServerStatuses() {
     if (!config.value) return;
     for (const name of Object.keys(config.value.mcp)) {
@@ -77,17 +65,18 @@
     if (!config.value) return;
     match(key)
       .with('log_level', () => {
-        config.value!.log_level = value as string;
+        config.value!.log_level = String(value);
       })
       .with('frontend.home', () => {
-        config.value!.frontend.home = value as string;
+        config.value!.frontend.home = String(value);
       })
       .with('frontend.mode', () => {
-        config.value!.frontend.mode = value as 'dark' | 'light';
-        setTheme(value as 'dark' | 'light');
+        const mode = FrontendConfigSchema.shape.mode.parse(value);
+        config.value!.frontend.mode = mode;
+        setTheme(mode);
       })
       .with('shell', () => {
-        config.value!.shell = value as ShellType;
+        config.value!.shell = ShellTypeSchema.parse(value);
       })
       .otherwise(() => {});
     debouncedUpdateConfig(config.value);
@@ -96,20 +85,10 @@
   function addServer(type: 'local' | 'remote') {
     if (!config.value) return;
     const name = 'MCP 服务器';
-    let newConfig: McpServerConfig;
-    if (type === 'local') {
-      newConfig = {
-        type: 'local',
-        command: [],
-        enabled: true,
-      };
-    } else {
-      newConfig = {
-        type: 'remote',
-        url: '',
-        enabled: true,
-      };
-    }
+    const newConfig = match(type)
+      .with('local', (): McpServerConfig => ({ type: 'local', command: [], enabled: true }))
+      .with('remote', (): McpServerConfig => ({ type: 'remote', url: '', enabled: true }))
+      .exhaustive();
     editingServer.value = { name, config: newConfig, isNew: true };
     isDirty.value = false;
   }
@@ -217,7 +196,7 @@
       </el-menu>
     </template>
 
-    <el-alert v-if="error" :title="error" type="error" show-icon class="error-alert" />
+    <el-alert v-if="isError" :title="String(error)" type="error" show-icon class="error-alert" />
 
     <template v-else-if="config">
       <GeneralSettings

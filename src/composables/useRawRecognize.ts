@@ -7,7 +7,7 @@ import { segmentImage } from '@/services/sam3';
 import { mcpStoreImageBytes, logMessage } from '@/services/cmd';
 import { useMaskRenderer } from '@/composables/useMaskRenderer';
 import { useCanvasToBytes } from '@/composables/useCanvasToBytes';
-import type { Annotation, PointAnnotation, BoxAnnotation } from '@/types/annotation';
+import type { Annotation, PointAnnotation, BoxAnnotation } from '@/schemas/annotation';
 import type { Keyframe } from '@/stores/label-raw';
 
 export interface UseRawRecognizeOpts {

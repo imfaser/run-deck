@@ -1,32 +1,28 @@
 <script setup lang="ts">
   // ========== 1. 第三方 / 内部模块引入 ==========
-  import { ref, computed, onMounted } from 'vue';
+  import { ref, computed, watch } from 'vue';
+  import { match, P } from 'ts-pattern';
   import {
-    getConfig,
-    mcpServerStatus,
     mcpListTools,
     mcpListPrompts,
     mcpListResources,
-    mcpServerInfo,
-    type Config,
     type McpServerConfig,
     type ServerStatus,
     type ToolInfo,
     type PromptInfo,
     type ResourceInfo,
-    type ServerInfo,
   } from '@/services/cmd';
   import PageLayout from '@/components/layout/PageLayout.vue';
+  import { useConfigQuery } from '@/composables/useConfigQuery';
+  import { useMcpServers } from '@/composables/useMcpServers';
+
+  // ========== 2. 组合式函数（Composables）调用 ==========
+  const { data: config, isLoading: loading, error } = useConfigQuery();
+  const { serverStatuses, serverInfos } = useMcpServers(() => config.value);
 
   // ========== 3. 响应式状态声明 ==========
-  const loading = ref(true);
-  const error = ref('');
-  const config = ref<Config | null>(null);
   const selectedServer = ref('');
   const activeTab = ref('tools');
-
-  const serverStatuses = ref<Record<string, ServerStatus>>({});
-  const serverInfos = ref<Record<string, ServerInfo | null>>({});
   const tools = ref<ToolInfo[]>([]);
   const prompts = ref<PromptInfo[]>([]);
   const resources = ref<ResourceInfo[]>([]);
@@ -37,7 +33,7 @@
     return Object.entries(config.value.mcp).map(([name, cfg]) => ({
       name,
       config: cfg,
-      status: serverStatuses.value[name] ?? ('Stopped' as ServerStatus),
+      status: serverStatuses.value[name] ?? 'Stopped',
       info: serverInfos.value[name] ?? null,
     }));
   });
@@ -57,48 +53,28 @@
   const selectedServerInfo = computed(() => serverInfos.value[selectedServer.value] ?? null);
 
   const isServerRunning = computed(() => {
-    const status = serverStatuses.value[selectedServer.value];
-    return status === 'Running';
+    return serverStatuses.value[selectedServer.value] === 'Running';
   });
 
-  // ========== 5. 生命周期钩子 ==========
-  onMounted(async () => {
-    try {
-      config.value = await getConfig();
-      if (config.value) {
-        const names = Object.keys(config.value.mcp);
-        await Promise.allSettled(names.map((name) => fetchServerData(name)));
+  // ========== 5. 侦听器 ==========
+  watch(
+    config,
+    (cfg) => {
+      if (cfg) {
+        const names = Object.keys(cfg.mcp);
         if (names.length > 0) {
-          await loadServerDetails(names[0]);
+          selectedServer.value = names[0];
+          loadServerDetails(names[0]);
         }
       }
-    } catch (e) {
-      error.value = String(e);
-    } finally {
-      loading.value = false;
-    }
-  });
+    },
+    { immediate: true }
+  );
 
   // ========== 6. 普通方法与业务逻辑 ==========
-  async function fetchServerData(name: string) {
-    try {
-      serverStatuses.value[name] = await mcpServerStatus(name);
-    } catch {
-      serverStatuses.value[name] = 'Stopped';
-    }
-
-    try {
-      serverInfos.value[name] = await mcpServerInfo(name);
-    } catch {
-      serverInfos.value[name] = null;
-    }
-  }
-
   async function loadServerDetails(name: string) {
     selectedServer.value = name;
     activeTab.value = 'tools';
-
-    await fetchServerData(name);
 
     if (!isServerRunning.value) return;
 
@@ -119,19 +95,24 @@
         resources.value = resourcesResult.value;
       }
     } catch (e) {
-      error.value = String(e);
+      console.error('[mcp-panel] loadServerDetails failed:', e);
     }
   }
 
   function getStatusType(status: ServerStatus): 'success' | 'warning' | 'info' | 'danger' {
-    if (status === 'Running') return 'success';
-    if (status === 'Starting') return 'warning';
-    return 'info';
+    return match(status)
+      .with('Running', () => 'success' as const)
+      .with('Starting', () => 'warning' as const)
+      .otherwise(() => 'info' as const);
   }
 
   function getStatusLabel(status: ServerStatus): string {
-    if (typeof status === 'object' && 'Failed' in status) return '失败';
-    return status;
+    return match(status)
+      .with(
+        P.when((s) => typeof s === 'object' && 'Failed' in s),
+        () => '失败'
+      )
+      .otherwise(() => status as string);
   }
 
   function getServerTypeLabel(cfg: McpServerConfig): string {
@@ -183,7 +164,7 @@
       </el-menu>
     </template>
 
-    <el-alert v-if="error" :title="error" type="error" show-icon class="error-alert" />
+    <el-alert v-if="error" :title="String(error)" type="error" show-icon class="error-alert" />
 
     <template v-else>
       <el-empty v-if="!selectedServer" description="请选择一个 MCP 服务器查看详情" />

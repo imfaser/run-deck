@@ -5,6 +5,7 @@ import { createPlugin } from '@tauri-store/pinia';
 import VueKonva from 'vue-konva';
 import { routes } from 'vue-router/auto-routes';
 import { ElMessage } from 'element-plus';
+import { installQuery } from './plugins/query';
 import App from './App.vue';
 import 'element-plus/theme-chalk/src/message.scss';
 import 'element-plus/theme-chalk/src/message-box.scss';
@@ -31,6 +32,7 @@ pinia.use(createPlugin());
 app.use(pinia);
 app.use(router);
 app.use(VueKonva);
+installQuery(app);
 
 // Global error handler — catches sync errors in renders, event handlers, lifecycle hooks, etc.
 app.config.errorHandler = (err) => {

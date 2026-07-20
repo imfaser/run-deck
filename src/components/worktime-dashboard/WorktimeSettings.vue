@@ -1,6 +1,7 @@
 <script setup lang="ts">
   import { computed } from 'vue';
   import dayjs from 'dayjs';
+  import { match } from 'ts-pattern';
   import { ElMessage } from 'element-plus';
   import { useWorktimeStore } from '@/stores/worktime';
 
@@ -17,8 +18,9 @@
   }
 
   function formatSyncTime(iso: string) {
-    if (!iso) return '从未同步';
-    return dayjs(iso).format('YYYY-MM-DD HH:mm:ss');
+    return match(iso)
+      .with('', () => '从未同步')
+      .otherwise(() => dayjs(iso).format('YYYY-MM-DD HH:mm:ss'));
   }
 </script>
 

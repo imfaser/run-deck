@@ -1,6 +1,7 @@
 <script setup lang="ts">
   import { computed } from 'vue';
   import dayjs from 'dayjs';
+  import { match, P } from 'ts-pattern';
   import { useWorktimeStore } from '@/stores/worktime';
 
   const store = useWorktimeStore();
@@ -35,9 +36,16 @@
   function formatDay(date: string) {
     const d = dayjs(date);
     const now = dayjs();
-    if (d.isSame(now, 'day')) return '今天';
-    if (d.isSame(now.subtract(1, 'day'), 'day')) return '昨天';
-    return d.format('MM-DD');
+    return match(true)
+      .with(
+        P.when(() => d.isSame(now, 'day')),
+        () => '今天'
+      )
+      .with(
+        P.when(() => d.isSame(now.subtract(1, 'day'), 'day')),
+        () => '昨天'
+      )
+      .otherwise(() => d.format('MM-DD'));
   }
 </script>
 

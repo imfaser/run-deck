@@ -1,7 +1,7 @@
 <script setup lang="ts">
   import { Aim, CircleClose, Crop } from '@element-plus/icons-vue';
   import type { Component } from 'vue';
-  import type { AnnotationType } from '@/types/annotation';
+  import type { AnnotationType } from '@/schemas/annotation';
 
   const props = defineProps<{
     mode: string;

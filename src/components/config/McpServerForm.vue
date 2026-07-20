@@ -1,7 +1,11 @@
 <script setup lang="ts">
   // ========== 1. 第三方 / 内部模块引入 ==========
-  import { ref, watch } from 'vue';
+  import { watch } from 'vue';
   import { ElMessageBox } from 'element-plus';
+  import { useForm, useField } from 'vee-validate';
+  import { toTypedSchema } from '@vee-validate/zod';
+  import { match } from 'ts-pattern';
+  import { McpServerFormSchema } from '@/schemas/mcp-server-form';
   import type { McpServerConfig } from '@/services/cmd';
 
   // ========== 2. Props / Emits 定义 ==========
@@ -21,21 +25,30 @@
     'dirty-change': [value: boolean];
   }>();
 
-  // ========== 3. 响应式状态声明 ==========
-  const localName = ref(props.name);
-  const nameError = ref('');
-  const formError = ref('');
+  // ========== 3. VeeValidate 表单 ==========
+  const formSchema = toTypedSchema(McpServerFormSchema);
+
+  const { meta, validate } = useForm({
+    validationSchema: formSchema,
+    initialValues: {
+      name: props.name,
+      config: props.config,
+      existingNames: props.existingNames,
+      originalName: props.name,
+    },
+  });
+
+  const { value: nameValue, errorMessage: nameError } = useField<string>('name');
 
   // ========== 4. 侦听器 ==========
   watch(
     () => props.name,
-    (v) => (localName.value = v)
+    (v) => (nameValue.value = v)
   );
 
   // ========== 5. 普通方法与业务逻辑 ==========
   function updateName(value: string) {
-    localName.value = value;
-    nameError.value = '';
+    nameValue.value = value;
     emit('update:name', value);
     emit('dirty-change', true);
   }
@@ -44,20 +57,22 @@
     const newConfig = { ...props.config, [key]: value } as McpServerConfig;
     emit('update:config', newConfig);
     emit('dirty-change', true);
-    formError.value = '';
   }
 
   function updateType(type: 'local' | 'remote') {
     if (type === props.config.type) return;
-    let newConfig: McpServerConfig;
-    if (type === 'local') {
-      newConfig = { type: 'local', command: [], enabled: props.config.enabled };
-    } else {
-      newConfig = { type: 'remote', url: '', enabled: props.config.enabled };
-    }
+    const newConfig = match(type)
+      .with(
+        'local',
+        (): McpServerConfig => ({ type: 'local', command: [], enabled: props.config.enabled })
+      )
+      .with(
+        'remote',
+        (): McpServerConfig => ({ type: 'remote', url: '', enabled: props.config.enabled })
+      )
+      .exhaustive();
     emit('update:config', newConfig);
     emit('dirty-change', true);
-    formError.value = '';
   }
 
   function updateCommand(text: string) {
@@ -96,36 +111,14 @@
       .join('\n');
   }
 
-  function validateAndSave() {
-    nameError.value = '';
-    formError.value = '';
-
-    if (!localName.value.trim()) {
-      nameError.value = '名称不能为空';
-      return;
-    }
-    if (props.existingNames.includes(localName.value) && localName.value !== props.name) {
-      nameError.value = '名称已存在';
-      return;
-    }
-
-    if (props.config.type === 'local') {
-      if (props.config.command.length === 0) {
-        formError.value = '启动命令不能为空';
-        return;
-      }
-    } else {
-      if (!props.config.url?.trim()) {
-        formError.value = 'URL 不能为空';
-        return;
-      }
-    }
-
+  async function validateAndSave() {
+    const { valid } = await validate();
+    if (!valid) return;
     emit('save');
   }
 
   async function handleBack() {
-    if (!props.isDirty) {
+    if (!meta.value.dirty) {
       emit('back');
       return;
     }
@@ -150,11 +143,9 @@
     </div>
 
     <el-form label-width="auto" class="form-card">
-      <div v-if="formError" class="form-error">{{ formError }}</div>
-
       <el-form-item label="名称" required>
         <el-input
-          :model-value="localName"
+          :model-value="nameValue"
           placeholder="MCP 服务器"
           :class="{ 'is-error': nameError }"
           @update:model-value="updateName"
@@ -263,15 +254,6 @@
     color: var(--el-color-danger);
     font-size: var(--el-font-size-small);
     margin-top: var(--spacing-rem-xs);
-  }
-
-  .form-error {
-    color: var(--el-color-danger);
-    font-size: var(--el-font-size-base);
-    margin-bottom: var(--spacing-rem-lg);
-    padding: var(--spacing-rem-sm) var(--spacing-rem-base);
-    background: var(--el-color-danger-light-9);
-    border-radius: var(--el-border-radius-base);
   }
 
   :deep(.el-input.is-error) {

@@ -1,6 +1,6 @@
 import { useEventListener } from '@vueuse/core';
 import { match } from 'ts-pattern';
-import type { LabelMode, AnnotationType } from '@/types/annotation';
+import type { LabelMode, AnnotationType } from '@/schemas/annotation';
 
 interface LabelKeyboardStore {
   selectedId: string | null;

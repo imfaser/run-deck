@@ -1,19 +1,15 @@
 <script setup lang="ts">
   // ========== 1. 第三方 / 内部模块引入 ==========
-  import { ref, onMounted } from 'vue';
   import { useRouter } from 'vue-router';
-  import { getConfig, type Config } from '@/services/cmd';
+  import { useConfigQuery } from '@/composables/useConfigQuery';
   import { useAppStore } from '@/stores/app';
 
   // ========== 2. 组合式函数（Composables）调用 ==========
   const router = useRouter();
   const store = useAppStore();
+  const { isLoading: loading } = useConfigQuery();
 
-  // ========== 3. 响应式状态声明 ==========
-  const config = ref<Config | null>(null);
-  const loading = ref(true);
-
-  // ========== 4. 常量 ==========
+  // ========== 3. 常量 ==========
   interface AppItem {
     id: string;
     name: string;
@@ -22,7 +18,7 @@
     route: string;
   }
 
-  const apps = ref<AppItem[]>([
+  const apps: AppItem[] = [
     { id: 'config', name: '配置', icon: '⚙', color: '#6366f1', route: '/config' },
     { id: 'mcp-panel', name: 'MCP 面板', icon: '🔌', color: '#10b981', route: '/mcp-panel' },
     { id: 'label', name: '标注', icon: '✏️', color: '#f59e0b', route: '/label' },
@@ -34,18 +30,9 @@
       color: '#8b5cf6',
       route: '/worktime-dashboard',
     },
-  ]);
+  ];
 
-  // ========== 5. 生命周期钩子 ==========
-  onMounted(async () => {
-    try {
-      config.value = await getConfig();
-    } finally {
-      loading.value = false;
-    }
-  });
-
-  // ========== 6. 普通方法与业务逻辑 ==========
+  // ========== 4. 普通方法与业务逻辑 ==========
   function handleAppClick(app: AppItem) {
     if (app.id === 'config') {
       store.setActiveTab('config');

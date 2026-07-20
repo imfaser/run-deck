@@ -1,4 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
+import { ConfigSchema } from '@/schemas/config';
+import type { Config, McpServerConfig, ShellType, FrontendConfig } from '@/schemas/config';
 
 export async function greet(): Promise<void> {
   return invoke<void>('greet');
@@ -10,40 +12,12 @@ export async function logMessage(level: LogLevel, message: string): Promise<void
   return invoke<void>('log_message', { level, message });
 }
 
-// Config types
-export interface FrontendConfig {
-  home: string;
-  mode: 'dark' | 'light';
-}
-
-export type ShellType = 'auto' | 'cmd' | 'powershell' | 'bash';
-
-export type McpServerConfig =
-  | {
-      type: 'local';
-      command: string[];
-      environment?: Record<string, string>;
-      enabled: boolean;
-      timeout?: number;
-    }
-  | {
-      type: 'remote';
-      url: string;
-      headers?: Record<string, string>;
-      enabled: boolean;
-      timeout?: number;
-    };
-
-export interface Config {
-  log_level: string;
-  shell: ShellType;
-  frontend: FrontendConfig;
-  mcp: Record<string, McpServerConfig>;
-}
+export type { Config, McpServerConfig, ShellType, FrontendConfig };
 
 // Config commands
 export async function getConfig(): Promise<Config> {
-  return invoke<Config>('get_config');
+  const data = await invoke<unknown>('get_config');
+  return ConfigSchema.parse(data);
 }
 
 export async function updateConfig(newConfig: Config): Promise<void> {

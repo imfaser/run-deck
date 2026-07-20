@@ -1,6 +1,7 @@
 <script setup lang="ts">
   import { ref, computed, watch } from 'vue';
   import dayjs from 'dayjs';
+  import { match } from 'ts-pattern';
   import { ElMessage } from 'element-plus';
   import { useWorktimeStore } from '@/stores/worktime';
 
@@ -18,31 +19,39 @@
   const clockIn = ref('09:00');
   const clockOut = ref('18:00');
 
-  const displayDate = computed(() => {
-    if (!props.date) return '';
-    return dayjs(props.date).format('YYYY年M月D日');
-  });
+  const displayDate = computed(() =>
+    match(props.date)
+      .with('', () => '')
+      .otherwise(() => dayjs(props.date).format('YYYY年M月D日'))
+  );
 
-  const existingRecord = computed(() => {
-    if (!props.date) return null;
-    return store.recordsByDate[props.date] ?? null;
-  });
+  const existingRecord = computed(() =>
+    match(props.date)
+      .with('', () => null)
+      .otherwise(() => store.recordsByDate[props.date] ?? null)
+  );
 
-  const isPredicted = computed(() => {
-    if (!props.date) return false;
-    return dayjs(props.date).isBefore(dayjs(), 'day');
-  });
+  const isPredicted = computed(() =>
+    match(props.date)
+      .with('', () => false)
+      .otherwise(() => dayjs(props.date).isBefore(dayjs(), 'day'))
+  );
 
   watch(
     () => props.visible,
     (val) => {
-      if (val && existingRecord.value) {
-        clockIn.value = existingRecord.value.clockIn;
-        clockOut.value = existingRecord.value.clockOut;
-      } else if (val) {
-        clockIn.value = '09:00';
-        clockOut.value = '18:00';
-      }
+      match(val)
+        .with(true, () => {
+          const existing = existingRecord.value;
+          if (existing) {
+            clockIn.value = existing.clockIn;
+            clockOut.value = existing.clockOut;
+          } else {
+            clockIn.value = '09:00';
+            clockOut.value = '18:00';
+          }
+        })
+        .otherwise(() => {});
     }
   );
 
@@ -52,15 +61,14 @@
     const inMinutes = inH * 60 + inM;
     const outMinutes = outH * 60 + outM;
 
-    if (inMinutes >= outMinutes) {
-      ElMessage.warning('上班时间必须早于下班时间');
-      return;
-    }
-
-    store.addRecord(props.date, clockIn.value, clockOut.value);
-    ElMessage.success('保存成功');
-    emit('update:visible', false);
-    emit('save');
+    match(inMinutes >= outMinutes)
+      .with(true, () => ElMessage.warning('上班时间必须早于下班时间'))
+      .with(false, () => {
+        store.addRecord(props.date, clockIn.value, clockOut.value);
+        ElMessage.success('保存成功');
+        emit('update:visible', false);
+        emit('save');
+      });
   }
 
   function handleCancel() {

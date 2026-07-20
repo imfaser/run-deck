@@ -4,6 +4,7 @@
   import { useRouter, useRoute } from 'vue-router';
   import { Window } from '@tauri-apps/api/window';
   import { House, Setting, Close, Sunny, Moon } from '@element-plus/icons-vue';
+  import { match, P } from 'ts-pattern';
   import { useAppStore } from '@/stores/app';
   import { useTheme } from '@/composables/useTheme';
 
@@ -47,11 +48,9 @@
 
     const targetId = store.activeTab;
     const targetTab = allTabs.value.find((t) => t.id === targetId);
-    if (targetTab) {
-      router.push(targetTab.route);
-    } else {
-      router.push('/overview');
-    }
+    match(targetTab)
+      .with(P.nonNullable, (t) => router.push(t.route))
+      .otherwise(() => router.push('/overview'));
   }
 
   function isActive(id: string): boolean {

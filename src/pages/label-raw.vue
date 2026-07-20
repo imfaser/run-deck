@@ -1,14 +1,16 @@
 <script setup lang="ts">
   import { ref } from 'vue';
   import { useLabelRawKeyboard } from '@/composables/useLabelRawKeyboard';
+  import { useLabelRawStore } from '@/stores/label-raw';
   import LabelRawToolbar from '@/components/label-raw/LabelRawToolbar.vue';
-  import LabelRawModePanel from '@/components/label-raw/LabelRawModePanel.vue';
-  import LabelRawToolPanel from '@/components/label-raw/LabelRawToolPanel.vue';
+  import LabelRawModePanel from '@/components/shared/LabelModePanel.vue';
+  import LabelRawToolPanel from '@/components/shared/LabelToolPanel.vue';
   import LabelRawCanvas from '@/components/label-raw/LabelRawCanvas.vue';
   import LabelRawSliceSlider from '@/components/label-raw/LabelRawSliceSlider.vue';
   import LabelRawKeyframePanel from '@/components/label-raw/LabelRawKeyframePanel.vue';
 
   useLabelRawKeyboard();
+  const store = useLabelRawStore();
 
   const canvasRef = ref<InstanceType<typeof LabelRawCanvas> | null>(null);
 
@@ -24,8 +26,12 @@
 
     <el-container class="label-raw-body">
       <el-aside width="64px" class="label-sidebar-left">
-        <LabelRawModePanel />
-        <LabelRawToolPanel />
+        <LabelRawModePanel :mode="store.mode" @set-mode="(m) => store.setMode(m)" />
+        <LabelRawToolPanel
+          :mode="store.mode"
+          :tool="store.tool"
+          @set-tool="(t) => store.setTool(t)"
+        />
       </el-aside>
 
       <el-main class="label-canvas-area">
