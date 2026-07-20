@@ -1,7 +1,7 @@
 <script setup lang="ts">
   import { ref } from 'vue';
   import { useLabelRawStore } from '@/stores/label-raw';
-  import type { PointAnnotation, BoxAnnotation } from '@/stores/label-raw';
+  import type { PointAnnotation, BoxAnnotation } from '@/types/annotation';
 
   const store = useLabelRawStore();
   const expandedIndex = ref<number | null>(null);

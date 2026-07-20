@@ -2,7 +2,7 @@
   import { ref, computed, watch } from 'vue';
   import dayjs from 'dayjs';
   import { ElMessage } from 'element-plus';
-import { useWorktimeStore } from '@/stores/worktime';
+  import { useWorktimeStore } from '@/stores/worktime';
 
   const props = defineProps<{
     visible: boolean;

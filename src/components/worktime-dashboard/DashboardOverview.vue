@@ -13,17 +13,17 @@
 
   const monthlyAverage = computed(() => {
     const avg = store.getMonthlyAverage(currentMonth.value);
-    return avg !== null ? avg.toFixed(1) : '-';
+    return avg !== null ? avg.toFixed(3) : '-';
   });
 
   const monthlyOvertime = computed(() => {
-    return store.getMonthlyOvertime(currentMonth.value).toFixed(1);
+    return store.getMonthlyOvertime(currentMonth.value).toFixed(3);
   });
 
   const isTargetMet = computed(() => store.isTargetMet(currentMonth.value));
 
   const targetDeficit = computed(() => {
-    return store.getTargetDeficit(currentMonth.value).toFixed(1);
+    return store.getTargetDeficit(currentMonth.value).toFixed(3);
   });
 
   const targetColor = computed(() => (isTargetMet.value ? '#22c55e' : '#ef4444'));

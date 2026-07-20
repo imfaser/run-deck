@@ -62,23 +62,19 @@
             'has-record': getRecordForDate(data.day),
             'target-met': isTargetMetForDate(data.day),
             'target-missed': getRecordForDate(data.day) && !isTargetMetForDate(data.day),
-            'predicted': getRecordForDate(data.day)?.isPredicted,
+            predicted: getRecordForDate(data.day)?.isPredicted,
           }"
           @click.stop="handleDateClick(data.day)"
         >
           <span class="date-number">{{ data.day.split('-')[2] }}</span>
           <span v-if="getRecordForDate(data.day)" class="work-hours">
-            {{ getRecordForDate(data.day)!.workHours.toFixed(1) }}h
+            {{ getRecordForDate(data.day)!.workHours.toFixed(3) }}h
           </span>
         </div>
       </template>
     </el-calendar>
 
-    <WorktimeEntryDialog
-      v-model:visible="showDialog"
-      :date="editingDate"
-      @save="handleSave"
-    />
+    <WorktimeEntryDialog v-model:visible="showDialog" :date="editingDate" @save="handleSave" />
   </div>
 </template>
 

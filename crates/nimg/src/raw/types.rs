@@ -1,5 +1,4 @@
 use std::fmt;
-use std::ops::Range;
 
 /// Volume dimensions in (z, y, x) order. Z is slowest, x is fastest (C-order).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -29,13 +28,7 @@ impl VolumeShape {
         self.z * self.y * self.x
     }
 
-    #[must_use]
-    pub fn total_bytes(&self, dtype: DType) -> usize {
-        self.total_voxels() * dtype.size()
-    }
-
     /// Dimensions perpendicular to the given axis, returned as `(height, width)`.
-    /// For `Axis::Z` → `(y, x)`, `Axis::Y` → `(z, x)`, `Axis::X` → `(z, y)`.
     #[must_use]
     pub fn perpendicular(&self, axis: Axis) -> (usize, usize) {
         match axis {
@@ -43,12 +36,6 @@ impl VolumeShape {
             Axis::Y => (self.z, self.x),
             Axis::X => (self.z, self.y),
         }
-    }
-}
-
-impl fmt::Display for Point3D {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({}, {}, {})", self.z, self.y, self.x)
     }
 }
 
@@ -72,7 +59,6 @@ impl Point3D {
         Self { z, y, x }
     }
 
-    /// Returns a point with each coordinate being the minimum of the two inputs.
     #[must_use]
     pub fn min_point(self, other: Self) -> Self {
         Self {
@@ -82,7 +68,6 @@ impl Point3D {
         }
     }
 
-    /// Returns a point with each coordinate being the maximum of the two inputs.
     #[must_use]
     pub fn max_point(self, other: Self) -> Self {
         Self {
@@ -93,29 +78,9 @@ impl Point3D {
     }
 }
 
-/// Voxel data type.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum DType {
-    U8,
-    U16,
-}
-
-impl DType {
-    #[must_use]
-    pub fn size(&self) -> usize {
-        match self {
-            DType::U8 => 1,
-            DType::U16 => 2,
-        }
-    }
-}
-
-impl fmt::Display for DType {
+impl fmt::Display for Point3D {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            DType::U8 => write!(f, "u8"),
-            DType::U16 => write!(f, "u16"),
-        }
+        write!(f, "({}, {}, {})", self.z, self.y, self.x)
     }
 }
 
@@ -155,16 +120,13 @@ impl fmt::Display for Axis {
 
 /// Trait for voxel element types. Implemented for `u8` and `u16`.
 pub trait Voxel: Copy + Sized {
-    const DTYPE: DType;
-
     fn from_le_bytes(bytes: &[u8]) -> Self;
     fn from_be_bytes(bytes: &[u8]) -> Self;
     fn to_ne_bytes(self) -> Vec<u8>;
+    fn byte_size() -> usize;
 }
 
 impl Voxel for u8 {
-    const DTYPE: DType = DType::U8;
-
     fn from_le_bytes(bytes: &[u8]) -> Self {
         bytes[0]
     }
@@ -176,11 +138,13 @@ impl Voxel for u8 {
     fn to_ne_bytes(self) -> Vec<u8> {
         vec![self]
     }
+
+    fn byte_size() -> usize {
+        1
+    }
 }
 
 impl Voxel for u16 {
-    const DTYPE: DType = DType::U16;
-
     fn from_le_bytes(bytes: &[u8]) -> Self {
         u16::from_le_bytes([bytes[0], bytes[1]])
     }
@@ -192,28 +156,10 @@ impl Voxel for u16 {
     fn to_ne_bytes(self) -> Vec<u8> {
         self.to_ne_bytes().to_vec()
     }
-}
 
-/// Byte offset into a C-order (z, y, x) volume.
-#[must_use]
-pub fn byte_offset(shape: &VolumeShape, dtype: DType, z: usize, y: usize, x: usize) -> usize {
-    (z * shape.y * shape.x + y * shape.x + x) * dtype.size()
-}
-
-/// Validate that a range is non-empty and within bounds.
-///
-/// # Errors
-///
-/// Returns an error if the range is empty or exceeds the dimension size.
-#[allow(dead_code)]
-pub fn validate_range(range: &Range<usize>, len: usize, label: &str) -> anyhow::Result<()> {
-    if range.start >= range.end {
-        anyhow::bail!("{label} range is empty: {range:?}");
+    fn byte_size() -> usize {
+        2
     }
-    if range.end > len {
-        anyhow::bail!("{label} range {range:?} exceeds dimension size {len}");
-    }
-    Ok(())
 }
 
 #[cfg(test)]
@@ -232,8 +178,6 @@ mod tests {
     fn volume_shape_total() {
         let s = VolumeShape::new(500, 500, 500);
         assert_eq!(s.total_voxels(), 125_000_000);
-        assert_eq!(s.total_bytes(DType::U8), 125_000_000);
-        assert_eq!(s.total_bytes(DType::U16), 250_000_000);
     }
 
     #[test]
@@ -253,18 +197,6 @@ mod tests {
     }
 
     #[test]
-    fn byte_offset_calculation() {
-        let shape = VolumeShape::new(500, 500, 500);
-        assert_eq!(byte_offset(&shape, DType::U8, 0, 0, 0), 0);
-        assert_eq!(byte_offset(&shape, DType::U8, 0, 0, 1), 1);
-        assert_eq!(byte_offset(&shape, DType::U8, 0, 1, 0), 500);
-        assert_eq!(byte_offset(&shape, DType::U8, 1, 0, 0), 250_000);
-        assert_eq!(byte_offset(&shape, DType::U16, 0, 0, 0), 0);
-        assert_eq!(byte_offset(&shape, DType::U16, 0, 0, 1), 2);
-        assert_eq!(byte_offset(&shape, DType::U16, 1, 0, 0), 500_000);
-    }
-
-    #[test]
     fn voxel_u8_roundtrip() {
         assert_eq!(<u8 as Voxel>::from_le_bytes(&[42]), 42);
         assert_eq!(<u8 as Voxel>::from_be_bytes(&[42]), 42);
@@ -277,21 +209,5 @@ mod tests {
         let be_bytes = [0x02u8, 0x01];
         assert_eq!(<u16 as Voxel>::from_le_bytes(&le_bytes), 0x0201);
         assert_eq!(<u16 as Voxel>::from_be_bytes(&be_bytes), 0x0201);
-    }
-
-    #[test]
-    fn validate_range_ok() {
-        assert!(validate_range(&(0..10), 10, "test").is_ok());
-        assert!(validate_range(&(5..10), 10, "test").is_ok());
-    }
-
-    #[test]
-    fn validate_range_empty() {
-        assert!(validate_range(&(5..5), 10, "test").is_err());
-    }
-
-    #[test]
-    fn validate_range_out_of_bounds() {
-        assert!(validate_range(&(0..11), 10, "test").is_err());
     }
 }

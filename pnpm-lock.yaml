@@ -44,6 +44,9 @@ importers:
       pinia:
         specifier: ^4.0.2
         version: 4.0.2(@vue/devtools-api@8.1.2)(typescript@6.0.3)(vue@3.5.40(typescript@6.0.3))
+      ts-pattern:
+        specifier: ^5.9.0
+        version: 5.9.0
       vue:
         specifier: ^3.5.40
         version: 3.5.40(typescript@6.0.3)
@@ -1690,6 +1693,9 @@ packages:
     engines: {node: '>=18.12'}
     peerDependencies:
       typescript: '>=4.8.4'
+
+  ts-pattern@5.9.0:
+    resolution: {integrity: sha512-6s5V71mX8qBUmlgbrfL33xDUwO0fq48rxAu2LBE11WBeGdpCPOsXksQbZJHvHwhrd3QjUusd3mAOM5Gg0mFBLg==}
 
   tslib@2.3.0:
     resolution: {integrity: sha512-N82ooyxVNm6h1riLCoyS9e3fuJ3AMG2zIZs2Gd1ATcSFjSA23Q0fzjjZeh0jbJvWVDZ0cJT8yaNNaaXHzueNjg==}
@@ -3442,6 +3448,8 @@ snapshots:
   ts-api-utils@2.5.0(typescript@6.0.3):
     dependencies:
       typescript: 6.0.3
+
+  ts-pattern@5.9.0: {}
 
   tslib@2.3.0: {}
 

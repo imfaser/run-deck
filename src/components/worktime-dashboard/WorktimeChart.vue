@@ -102,7 +102,7 @@
       },
       formatter: (params: Array<{ name: string; value: number }>) => {
         const p = params[0];
-        return `<div style="font-weight:500">${p.name}</div><div>工时: ${p.value.toFixed(1)}h</div>`;
+        return `<div style="font-weight:500">${p.name}</div><div>工时: ${p.value.toFixed(3)}h</div>`;
       },
     },
     grid: {

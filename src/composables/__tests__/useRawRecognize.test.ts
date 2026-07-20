@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ref } from 'vue';
-import type { Keyframe, Annotation } from '@/stores/label-raw';
+import type { Annotation } from '@/types/annotation';
+import type { Keyframe } from '@/stores/label-raw';
 
 vi.mock('@/services/raw3d', () => ({
   rawSlice: vi.fn().mockResolvedValue({

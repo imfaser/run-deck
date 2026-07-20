@@ -2,6 +2,11 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import dayjs from 'dayjs';
 
+const PRECISION = 1e8;
+function roundHours(hours: number): number {
+  return Math.round(hours * PRECISION) / PRECISION;
+}
+
 export interface WorkRecord {
   id: string;
   date: string;
@@ -43,11 +48,7 @@ function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
-function calculateWorkHours(
-  clockIn: string,
-  clockOut: string,
-  settings: WorktimeSettings
-): number {
+function calculateWorkHours(clockIn: string, clockOut: string, settings: WorktimeSettings): number {
   const [inH, inM] = clockIn.split(':').map(Number);
   const [outH, outM] = clockOut.split(':').map(Number);
   const inMinutes = inH * 60 + inM;
@@ -72,7 +73,7 @@ function calculateWorkHours(
   subtractBreak(settings.breakPeriod1Start, settings.breakPeriod1End);
   subtractBreak(settings.breakPeriod2Start, settings.breakPeriod2End);
 
-  return Math.round((totalMinutes / 60) * 1000) / 1000;
+  return roundHours(totalMinutes / 60);
 }
 
 function isPredictedWorkTime(date: string, _clockOut: string): boolean {
@@ -87,135 +88,137 @@ export const useWorktimeStore = defineStore(
     const records = ref<WorkRecord[]>([]);
     const settings = ref<WorktimeSettings>({ ...DEFAULT_SETTINGS });
 
-  const recordsByDate = computed(() => {
-    const map: Record<string, WorkRecord> = {};
-    for (const r of records.value) {
-      map[r.date] = r;
-    }
-    return map;
-  });
-
-  function hasRecord(date: string): boolean {
-    return date in recordsByDate.value;
-  }
-
-  function getRecord(date: string): WorkRecord | undefined {
-    return recordsByDate.value[date];
-  }
-
-  function getRecordsByMonth(yearMonth: string): WorkRecord[] {
-    const now = dayjs();
-    return records.value.filter((r) => {
-      if (!r.date.startsWith(yearMonth)) return false;
-      return dayjs(r.date).isBefore(now, 'day') || dayjs(r.date).isSame(now, 'day');
+    const recordsByDate = computed(() => {
+      const map: Record<string, WorkRecord> = {};
+      for (const r of records.value) {
+        map[r.date] = r;
+      }
+      return map;
     });
-  }
 
-  function getMonthlyAverage(yearMonth: string): number | null {
-    const monthRecords = getRecordsByMonth(yearMonth);
-    if (monthRecords.length === 0) return null;
-    const total = monthRecords.reduce((sum, r) => sum + r.workHours, 0);
-    return Math.round((total / monthRecords.length) * 1000) / 1000;
-  }
-
-  function getMonthlyOvertime(yearMonth: string): number {
-    const monthRecords = getRecordsByMonth(yearMonth);
-    return monthRecords.reduce((sum, r) => {
-      const overtime = r.workHours - 8;
-      return sum + (overtime > 0 ? overtime : 0);
-    }, 0);
-  }
-
-  function isTargetMet(yearMonth: string): boolean {
-    const avg = getMonthlyAverage(yearMonth);
-    if (avg === null) return false;
-    return avg >= settings.value.dailyTarget;
-  }
-
-  function getTargetDeficit(yearMonth: string): number {
-    const avg = getMonthlyAverage(yearMonth);
-    if (avg === null) return settings.value.dailyTarget;
-    const deficit = settings.value.dailyTarget - avg;
-    return deficit > 0 ? Math.round(deficit * 1000) / 1000 : 0;
-  }
-
-  function addRecord(date: string, clockIn: string, clockOut: string): WorkRecord {
-    const existing = recordsByDate.value[date];
-    if (existing) {
-      return updateRecord(existing.id, clockIn, clockOut);
+    function hasRecord(date: string): boolean {
+      return date in recordsByDate.value;
     }
 
-    const workHours = calculateWorkHours(clockIn, clockOut, settings.value);
-    const record: WorkRecord = {
-      id: generateId(),
-      date,
-      clockIn,
-      clockOut,
-      isPredicted: isPredictedWorkTime(date, clockOut),
-      workHours,
-    };
-    records.value.push(record);
-    return record;
-  }
+    function getRecord(date: string): WorkRecord | undefined {
+      return recordsByDate.value[date];
+    }
 
-  function updateRecord(id: string, clockIn: string, clockOut: string): WorkRecord {
-    const idx = records.value.findIndex((r) => r.id === id);
-    if (idx === -1) throw new Error(`Record ${id} not found`);
-    const existing = records.value[idx];
-    const workHours = calculateWorkHours(clockIn, clockOut, settings.value);
-    const updated: WorkRecord = {
-      ...existing,
-      clockIn,
-      clockOut,
-      workHours,
-      isPredicted: isPredictedWorkTime(existing.date, clockOut),
-    };
-    records.value[idx] = updated;
-    return updated;
-  }
+    function getRecordsByMonth(yearMonth: string): WorkRecord[] {
+      const now = dayjs();
+      return records.value.filter((r) => {
+        if (!r.date.startsWith(yearMonth)) return false;
+        return dayjs(r.date).isBefore(now, 'day') || dayjs(r.date).isSame(now, 'day');
+      });
+    }
 
-  function removeRecord(id: string) {
-    records.value = records.value.filter((r) => r.id !== id);
-  }
+    function getMonthlyAverage(yearMonth: string): number | null {
+      const monthRecords = getRecordsByMonth(yearMonth);
+      if (monthRecords.length === 0) return null;
+      const total = monthRecords.reduce((sum, r) => sum + r.workHours, 0);
+      return roundHours(total / monthRecords.length);
+    }
 
-  function setRecord(date: string, clockIn?: string, clockOut?: string): WorkRecord | null {
-    if (clockIn == null || clockOut == null) {
+    function getMonthlyOvertime(yearMonth: string): number {
+      const monthRecords = getRecordsByMonth(yearMonth);
+      return roundHours(
+        monthRecords.reduce((sum, r) => {
+          const overtime = r.workHours - settings.value.dailyTarget;
+          return sum + (overtime > 0 ? overtime : 0);
+        }, 0)
+      );
+    }
+
+    function isTargetMet(yearMonth: string): boolean {
+      const avg = getMonthlyAverage(yearMonth);
+      if (avg === null) return false;
+      return avg >= settings.value.dailyTarget;
+    }
+
+    function getTargetDeficit(yearMonth: string): number {
+      const avg = getMonthlyAverage(yearMonth);
+      if (avg === null) return settings.value.dailyTarget;
+      const deficit = settings.value.dailyTarget - avg;
+      return deficit > 0 ? roundHours(deficit) : 0;
+    }
+
+    function addRecord(date: string, clockIn: string, clockOut: string): WorkRecord {
       const existing = recordsByDate.value[date];
       if (existing) {
-        removeRecord(existing.id);
+        return updateRecord(existing.id, clockIn, clockOut);
       }
-      return null;
+
+      const workHours = calculateWorkHours(clockIn, clockOut, settings.value);
+      const record: WorkRecord = {
+        id: generateId(),
+        date,
+        clockIn,
+        clockOut,
+        isPredicted: isPredictedWorkTime(date, clockOut),
+        workHours,
+      };
+      records.value.push(record);
+      return record;
     }
 
-    const existing = recordsByDate.value[date];
-    if (existing) {
-      return updateRecord(existing.id, clockIn, clockOut);
+    function updateRecord(id: string, clockIn: string, clockOut: string): WorkRecord {
+      const idx = records.value.findIndex((r) => r.id === id);
+      if (idx === -1) throw new Error(`Record ${id} not found`);
+      const existing = records.value[idx];
+      const workHours = calculateWorkHours(clockIn, clockOut, settings.value);
+      const updated: WorkRecord = {
+        ...existing,
+        clockIn,
+        clockOut,
+        workHours,
+        isPredicted: isPredictedWorkTime(existing.date, clockOut),
+      };
+      records.value[idx] = updated;
+      return updated;
     }
 
-    const workHours = calculateWorkHours(clockIn, clockOut, settings.value);
-    const record: WorkRecord = {
-      id: generateId(),
-      date,
-      clockIn,
-      clockOut,
-      isPredicted: isPredictedWorkTime(date, clockOut),
-      workHours,
-    };
-    records.value.push(record);
-    return record;
-  }
+    function removeRecord(id: string) {
+      records.value = records.value.filter((r) => r.id !== id);
+    }
 
-  function updateSettings(updates: Partial<WorktimeSettings>) {
-    settings.value = { ...settings.value, ...updates };
-  }
+    function setRecord(date: string, clockIn?: string, clockOut?: string): WorkRecord | null {
+      if (clockIn == null || clockOut == null) {
+        const existing = recordsByDate.value[date];
+        if (existing) {
+          removeRecord(existing.id);
+        }
+        return null;
+      }
 
-  function resetSettings() {
-    settings.value = { ...DEFAULT_SETTINGS };
-  }
+      const existing = recordsByDate.value[date];
+      if (existing) {
+        return updateRecord(existing.id, clockIn, clockOut);
+      }
 
-  function triggerSync() {
-    settings.value.lastSyncTime = dayjs().toISOString();
-  }
+      const workHours = calculateWorkHours(clockIn, clockOut, settings.value);
+      const record: WorkRecord = {
+        id: generateId(),
+        date,
+        clockIn,
+        clockOut,
+        isPredicted: isPredictedWorkTime(date, clockOut),
+        workHours,
+      };
+      records.value.push(record);
+      return record;
+    }
+
+    function updateSettings(updates: Partial<WorktimeSettings>) {
+      settings.value = { ...settings.value, ...updates };
+    }
+
+    function resetSettings() {
+      settings.value = { ...DEFAULT_SETTINGS };
+    }
+
+    function triggerSync() {
+      settings.value.lastSyncTime = dayjs().toISOString();
+    }
 
     return {
       records,

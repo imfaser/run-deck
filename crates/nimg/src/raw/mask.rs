@@ -1,22 +1,22 @@
 use anyhow::bail;
-use bytes::Bytes;
+use ndarray::Array3;
 
 /// A grayscale mask (u8 per pixel) with spatial dimensions.
-/// Used for injecting mask data into voxel buffers.
+/// Backed by an `Array3<u8>` of shape `(layers, height, width)`.
 #[derive(Debug, Clone)]
 pub struct Mask {
-    pub data: Bytes,
-    pub height: usize,
-    pub width: usize,
+    inner: Array3<u8>,
 }
 
 impl Mask {
     /// Create a new mask from raw pixel data.
     ///
+    /// `data.len()` must be a positive multiple of `height * width`.
+    ///
     /// # Errors
     ///
-    /// Returns an error if `data.len()` is not a positive multiple of `height * width`.
-    pub fn new(data: Bytes, height: usize, width: usize) -> anyhow::Result<Self> {
+    /// Returns an error if dimensions are zero or data length is inconsistent.
+    pub fn new(data: Vec<u8>, height: usize, width: usize) -> anyhow::Result<Self> {
         let layer_size = height * width;
         if layer_size == 0 {
             bail!("mask dimensions must be non-zero");
@@ -27,16 +27,35 @@ impl Mask {
                 data.len(),
             );
         }
-        Ok(Self {
-            data,
-            height,
-            width,
-        })
+        let layers = data.len() / layer_size;
+        let inner = Array3::from_shape_vec((layers, height, width), data)
+            .map_err(|e| anyhow::anyhow!("failed to create mask array: {e}"))?;
+        Ok(Self { inner })
+    }
+
+    #[must_use]
+    pub fn height(&self) -> usize {
+        self.inner.shape()[1]
+    }
+
+    #[must_use]
+    pub fn width(&self) -> usize {
+        self.inner.shape()[2]
+    }
+
+    #[must_use]
+    pub fn layers(&self) -> usize {
+        self.inner.shape()[0]
     }
 
     #[must_use]
     pub fn area(&self) -> usize {
-        self.height * self.width
+        self.height() * self.width()
+    }
+
+    #[must_use]
+    pub fn inner(&self) -> &Array3<u8> {
+        &self.inner
     }
 }
 
@@ -46,21 +65,30 @@ mod tests {
 
     #[test]
     fn mask_new_valid() {
-        let data = Bytes::from(vec![0u8; 400]);
+        let data = vec![0u8; 400];
         let mask = Mask::new(data, 20, 20).unwrap();
         assert_eq!(mask.area(), 400);
+        assert_eq!(mask.layers(), 1);
     }
 
     #[test]
     fn mask_new_multi_layer() {
-        let data = Bytes::from(vec![0u8; 600]); // 3 layers of 10×20
+        let data = vec![0u8; 600]; // 3 layers of 10×20
         let mask = Mask::new(data, 10, 20).unwrap();
-        assert_eq!(mask.data.len(), 600);
+        assert_eq!(mask.layers(), 3);
+        assert_eq!(mask.height(), 10);
+        assert_eq!(mask.width(), 20);
     }
 
     #[test]
     fn mask_new_invalid_length() {
-        let data = Bytes::from(vec![0u8; 101]);
+        let data = vec![0u8; 101];
         assert!(Mask::new(data, 20, 20).is_err());
+    }
+
+    #[test]
+    fn mask_new_zero_dims() {
+        assert!(Mask::new(vec![0u8; 10], 0, 10).is_err());
+        assert!(Mask::new(vec![0u8; 10], 10, 0).is_err());
     }
 }

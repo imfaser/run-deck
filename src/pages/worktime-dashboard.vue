@@ -18,7 +18,11 @@
   <PageLayout>
     <template #aside>
       <div class="sidebar-title">工时仪表盘</div>
-      <el-menu :default-active="activeView" class="sidebar-nav" @select="(key: string) => (activeView = key)">
+      <el-menu
+        :default-active="activeView"
+        class="sidebar-nav"
+        @select="(key: string) => (activeView = key)"
+      >
         <el-menu-item v-for="section in sections" :key="section.key" :index="section.key">
           {{ section.label }}
         </el-menu-item>

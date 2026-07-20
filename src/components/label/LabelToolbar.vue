@@ -77,8 +77,12 @@
 
       const imgBlock = result.content.find((b) => b.type === 'image');
       if (imgBlock && 'data' in imgBlock) {
-        store.rawMaskPath = imgBlock.data;
-        const maskUrl = await renderMask(imgBlock.data, store.confidenceThreshold, store.maskColor);
+        store.rawMaskPath = convertFileSrc(imgBlock.data, 'mcp');
+        const maskUrl = await renderMask(
+          store.rawMaskPath,
+          store.confidenceThreshold,
+          store.maskColor
+        );
         store.maskUrl = maskUrl;
       }
     } finally {

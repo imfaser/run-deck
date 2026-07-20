@@ -3,6 +3,7 @@
   import { ref, onMounted } from 'vue';
   import { useDebounceFn } from '@vueuse/core';
   import { ElMessage, ElMessageBox } from 'element-plus';
+  import { match } from 'ts-pattern';
   import {
     getConfig,
     updateConfig,
@@ -74,16 +75,21 @@
 
   async function handleConfigUpdate(key: string, value: unknown) {
     if (!config.value) return;
-    if (key === 'log_level') {
-      config.value.log_level = value as string;
-    } else if (key === 'frontend.home') {
-      config.value.frontend.home = value as string;
-    } else if (key === 'frontend.mode') {
-      config.value.frontend.mode = value as 'dark' | 'light';
-      setTheme(value as 'dark' | 'light');
-    } else if (key === 'shell') {
-      config.value.shell = value as ShellType;
-    }
+    match(key)
+      .with('log_level', () => {
+        config.value!.log_level = value as string;
+      })
+      .with('frontend.home', () => {
+        config.value!.frontend.home = value as string;
+      })
+      .with('frontend.mode', () => {
+        config.value!.frontend.mode = value as 'dark' | 'light';
+        setTheme(value as 'dark' | 'light');
+      })
+      .with('shell', () => {
+        config.value!.shell = value as ShellType;
+      })
+      .otherwise(() => {});
     debouncedUpdateConfig(config.value);
   }
 

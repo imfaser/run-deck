@@ -61,11 +61,8 @@
             <span class="no-record">未打卡</span>
           </template>
         </div>
-        <div
-          class="record-hours"
-          :class="{ 'has-data': record.workHours > 0 }"
-        >
-          {{ record.workHours > 0 ? `${record.workHours.toFixed(1)}h` : '-' }}
+        <div class="record-hours" :class="{ 'has-data': record.workHours > 0 }">
+          {{ record.workHours > 0 ? `${record.workHours.toFixed(3)}h` : '-' }}
         </div>
       </div>
     </div>

@@ -1,12 +1,14 @@
 import { ref, type Ref } from 'vue';
 import { cloneDeep } from 'es-toolkit';
+import { match, P } from 'ts-pattern';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { rawSlice } from '@/services/raw3d';
 import { segmentImage } from '@/services/sam3';
 import { mcpStoreImageBytes, logMessage } from '@/services/cmd';
 import { useMaskRenderer } from '@/composables/useMaskRenderer';
 import { useCanvasToBytes } from '@/composables/useCanvasToBytes';
-import type { Keyframe, Annotation, PointAnnotation, BoxAnnotation } from '@/stores/label-raw';
+import type { Annotation, PointAnnotation, BoxAnnotation } from '@/types/annotation';
+import type { Keyframe } from '@/stores/label-raw';
 
 export interface UseRawRecognizeOpts {
   volumeId: Ref<string | null>;
@@ -112,37 +114,41 @@ export function useRawRecognize(opts: UseRawRecognizeOpts) {
     );
 
     const imgBlock = result.content.find((b) => b.type === 'image');
-    if (imgBlock && 'data' in imgBlock) {
-      kf.rawMaskHash = convertFileSrc(imgBlock.data, 'mcp');
-      const { renderMask } = useMaskRenderer();
-      const maskUrl = await renderMask(
-        kf.rawMaskHash,
-        opts.confidenceThreshold.value,
-        opts.maskColor.value
-      );
-      kf.maskUrl = maskUrl;
-      if (sliceIndex === opts.currentIndex.value) {
-        opts.currentMaskUrl.value = maskUrl;
-      }
-      await logMessage(
-        'debug',
-        `[recognize] slice=${sliceIndex} done, maskHash=${imgBlock.data.slice(0, 16)}...`
-      );
-      return true;
-    }
-    // Log what SAM3 actually returned for debugging
-    const contentSummary = result.content.map((b) => b.type).join(', ');
-    await logMessage(
-      'warn',
-      `[recognize] slice=${sliceIndex} no image in SAM3 result, got: [${contentSummary}]`
-    );
-    if (result.isError) {
-      await logMessage(
-        'error',
-        `[recognize] slice=${sliceIndex} SAM3 error: ${result.content.find((b) => b.type === 'text')?.text ?? 'unknown'}`
-      );
-    }
-    return false;
+    const textBlock = result.content.find((b) => b.type === 'text');
+
+    return match(imgBlock)
+      .with({ type: 'image', data: P.select() }, async (hash) => {
+        kf.rawMaskHash = convertFileSrc(hash, 'mcp');
+        const { renderMask } = useMaskRenderer();
+        const maskUrl = await renderMask(
+          kf.rawMaskHash,
+          opts.confidenceThreshold.value,
+          opts.maskColor.value
+        );
+        kf.maskUrl = maskUrl;
+        if (sliceIndex === opts.currentIndex.value) {
+          opts.currentMaskUrl.value = maskUrl;
+        }
+        await logMessage(
+          'debug',
+          `[recognize] slice=${sliceIndex} done, maskHash=${hash.slice(0, 16)}...`
+        );
+        return true;
+      })
+      .otherwise(async () => {
+        const contentSummary = result.content.map((b) => b.type).join(', ');
+        await logMessage(
+          'warn',
+          `[recognize] slice=${sliceIndex} no image in SAM3 result, got: [${contentSummary}]`
+        );
+        if (result.isError) {
+          await logMessage(
+            'error',
+            `[recognize] slice=${sliceIndex} SAM3 error: ${textBlock && 'text' in textBlock ? textBlock.text : 'unknown'}`
+          );
+        }
+        return false;
+      });
   }
 
   async function recognizeCurrentSlice() {

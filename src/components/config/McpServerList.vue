@@ -2,6 +2,7 @@
   // ========== 1. 第三方 / 内部模块引入 ==========
   import { ref, computed } from 'vue';
   import { Delete, Setting } from '@element-plus/icons-vue';
+  import { match } from 'ts-pattern';
   import type { McpServerConfig, ServerStatus } from '@/services/cmd';
 
   // ========== 2. Props / Emits 定义 ==========
@@ -36,14 +37,18 @@
 
   // ========== 5. 普通方法与业务逻辑 ==========
   function getStatusType(status: ServerStatus): 'success' | 'warning' | 'info' | 'danger' {
-    if (status === 'Running') return 'success';
-    if (status === 'Starting') return 'warning';
-    return 'info';
+    return match(status)
+      .with('Running', () => 'success' as const)
+      .with('Starting', () => 'warning' as const)
+      .otherwise(() => 'info' as const);
   }
 
   function getStatusLabel(status: ServerStatus): string {
-    if (typeof status === 'object' && 'Failed' in status) return '失败';
-    return status;
+    return match(status)
+      .with('Running', () => '运行中')
+      .with('Starting', () => '启动中')
+      .with('Stopped', () => '已停止')
+      .otherwise(() => '失败');
   }
 
   function openAddDialog() {

@@ -1,26 +1,13 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-
-export type AnnotationType = 'p_point' | 'n_point' | 'box';
-export type LabelMode = 'select' | 'create' | 'delete';
-
-export interface PointAnnotation {
-  id: string;
-  type: 'p_point' | 'n_point';
-  x: number;
-  y: number;
-}
-
-export interface BoxAnnotation {
-  id: string;
-  type: 'box';
-  x1: number;
-  y1: number;
-  x2: number;
-  y2: number;
-}
-
-export type Annotation = PointAnnotation | BoxAnnotation;
+import { isMatching } from 'ts-pattern';
+import type {
+  AnnotationType,
+  LabelMode,
+  PointAnnotation,
+  BoxAnnotation,
+  Annotation,
+} from '@/types/annotation';
 
 export const useLabelStore = defineStore('label', () => {
   // Image
@@ -51,6 +38,10 @@ export const useLabelStore = defineStore('label', () => {
   const cursorImagePos = ref<{ x: number; y: number } | null>(null);
 
   // Computed
+  const isPoint = (a: Annotation): a is PointAnnotation =>
+    a.type === 'p_point' || a.type === 'n_point';
+  const isBox = (a: Annotation): a is BoxAnnotation => a.type === 'box';
+
   const positivePoints = computed(() =>
     annotations.value.filter((a): a is PointAnnotation => a.type === 'p_point')
   );
@@ -59,9 +50,7 @@ export const useLabelStore = defineStore('label', () => {
     annotations.value.filter((a): a is PointAnnotation => a.type === 'n_point')
   );
 
-  const boxes = computed(() =>
-    annotations.value.filter((a): a is BoxAnnotation => a.type === 'box')
-  );
+  const boxes = computed(() => annotations.value.filter(isBox));
 
   const selectedAnnotation = computed(
     () => annotations.value.find((a) => a.id === selectedId.value) ?? null

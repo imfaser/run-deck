@@ -3,7 +3,7 @@ use std::sync::{LazyLock, Mutex};
 
 use nimg::raw::export_raw;
 use nimg::raw::Mask;
-use nimg::raw::{Axis, DType, Endian, VolumeShape};
+use nimg::raw::{Axis, Endian, VolumeShape};
 use nimg::raw::RawVolume;
 use nimg::raw::VoxBuf;
 use serde::{Deserialize, Serialize};
@@ -18,14 +18,14 @@ use super::{CmdResult, StringifyErr};
 struct VolumeStore {
     volumes: HashMap<String, RawVolume>,
     axis: HashMap<String, Axis>,
-    endian: HashMap<String, Endian>,
+    voxel_size: HashMap<String, usize>,
 }
 
 static VOLUME_STORE: LazyLock<Mutex<VolumeStore>> = LazyLock::new(|| {
     Mutex::new(VolumeStore {
         volumes: HashMap::new(),
         axis: HashMap::new(),
-        endian: HashMap::new(),
+        voxel_size: HashMap::new(),
     })
 });
 
@@ -83,9 +83,9 @@ pub struct MaskEntry {
 #[tauri::command]
 pub fn raw_open(req: OpenRequest) -> CmdResult<OpenResponse> {
     let shape = VolumeShape::new(req.z, req.y, req.x);
-    let dtype = match req.dtype.as_str() {
-        "u8" | "uint8" => DType::U8,
-        "u16" | "uint16" => DType::U16,
+    let (voxel_size, _dtype_name) = match req.dtype.as_str() {
+        "u8" | "uint8" => (1usize, "u8"),
+        "u16" | "uint16" => (2usize, "u16"),
         other => return Err(format!("unsupported dtype: {other}")),
     };
     let endian = match req.endian.as_str() {
@@ -100,7 +100,7 @@ pub fn raw_open(req: OpenRequest) -> CmdResult<OpenResponse> {
         other => return Err(format!("unsupported axis: {other}")),
     };
 
-    let vol = RawVolume::open(&req.path, shape, dtype, endian).stringify_err()?;
+    let vol = RawVolume::open(&req.path, shape, voxel_size, endian).stringify_err()?;
 
     let total_slices = shape.dim(axis);
     let (slice_h, slice_w) = shape.perpendicular(axis);
@@ -109,7 +109,7 @@ pub fn raw_open(req: OpenRequest) -> CmdResult<OpenResponse> {
     let mut store = VOLUME_STORE.lock().map_err(|e| e.to_string())?;
     store.volumes.insert(id.clone(), vol);
     store.axis.insert(id.clone(), axis);
-    store.endian.insert(id.clone(), endian);
+    store.voxel_size.insert(id.clone(), voxel_size);
 
     Ok(OpenResponse {
         volume_id: id,
@@ -121,41 +121,32 @@ pub fn raw_open(req: OpenRequest) -> CmdResult<OpenResponse> {
 
 #[tauri::command]
 pub fn raw_slice(volume_id: String, index: usize) -> CmdResult<SliceResponse> {
-    let (data_bytes, width, height, dtype, endian) = {
-        let store = VOLUME_STORE.lock().map_err(|e| e.to_string())?;
-        let vol = store
-            .volumes
-            .get(&volume_id)
-            .ok_or("volume not found")?;
-        let axis = store.axis.get(&volume_id).copied().unwrap_or(Axis::Z);
-        let endian = store.endian.get(&volume_id).copied().unwrap_or(Endian::Little);
+    let store = VOLUME_STORE.lock().map_err(|e| e.to_string())?;
+    let vol = store
+        .volumes
+        .get(&volume_id)
+        .ok_or("volume not found")?;
+    let axis = store.axis.get(&volume_id).copied().unwrap_or(Axis::Z);
+    let voxel_size = store.voxel_size.get(&volume_id).copied().unwrap_or(1);
+    let (h, w) = vol.shape().perpendicular(axis);
 
-        let slice = vol.slice_at(axis, index).stringify_err()?;
-        let (h, w) = slice.shape().perpendicular(axis);
-        let dtype = slice.dtype();
-        (slice.data().to_vec(), w, h, dtype, endian)
-    };
-
-    match dtype {
-        DType::U8 => {
-            let min = data_bytes.iter().copied().min().unwrap_or(0) as f64;
-            let max = data_bytes.iter().copied().max().unwrap_or(255) as f64;
+    match voxel_size {
+        1 => {
+            let slice: VoxBuf<u8> = vol.slice_at(axis, index).stringify_err()?;
+            let data = slice.as_slice();
+            let min = data.iter().copied().min().unwrap_or(0) as f64;
+            let max = data.iter().copied().max().unwrap_or(255) as f64;
             Ok(SliceResponse {
-                data: data_bytes,
-                width,
-                height,
+                data: data.to_vec(),
+                width: w,
+                height: h,
                 min,
                 max,
             })
         }
-        DType::U16 => {
-            let values: Vec<u16> = data_bytes
-                .chunks_exact(2)
-                .map(|c| match endian {
-                    Endian::Little => u16::from_le_bytes([c[0], c[1]]),
-                    Endian::Big => u16::from_be_bytes([c[0], c[1]]),
-                })
-                .collect();
+        2 => {
+            let slice: VoxBuf<u16> = vol.slice_at(axis, index).stringify_err()?;
+            let values = slice.as_slice();
             let min = values.iter().copied().min().unwrap_or(0) as f64;
             let max = values.iter().copied().max().unwrap_or(65535) as f64;
             let range = if max > min { max - min } else { 1.0 };
@@ -165,12 +156,13 @@ pub fn raw_slice(volume_id: String, index: usize) -> CmdResult<SliceResponse> {
                 .collect();
             Ok(SliceResponse {
                 data: normalized,
-                width,
-                height,
+                width: w,
+                height: h,
                 min,
                 max,
             })
         }
+        _ => Err("unsupported voxel size".into()),
     }
 }
 
@@ -213,7 +205,7 @@ pub fn raw_export_masks(
         let (w, h) = gray.dimensions();
         let pixels: Vec<u8> = gray.into_raw();
 
-        let mask = Mask::new(pixels.into(), h as usize, w as usize).stringify_err()?;
+        let mask = Mask::new(pixels, h as usize, w as usize).stringify_err()?;
 
         let store = VOLUME_STORE.lock().map_err(|e| e.to_string())?;
         let axis = store.axis.get(&volume_id).copied().unwrap_or(Axis::Z);
@@ -233,6 +225,6 @@ pub fn raw_close(volume_id: String) -> CmdResult {
     let mut store = VOLUME_STORE.lock().map_err(|e| e.to_string())?;
     store.volumes.remove(&volume_id);
     store.axis.remove(&volume_id);
-    store.endian.remove(&volume_id);
+    store.voxel_size.remove(&volume_id);
     Ok(())
 }

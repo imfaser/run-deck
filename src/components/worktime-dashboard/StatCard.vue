@@ -18,7 +18,8 @@
       <div class="stat-info">
         <div class="stat-title">{{ title }}</div>
         <div class="stat-value">
-          {{ value }}<span v-if="unit" class="stat-unit">{{ unit }}</span>
+          {{ value }}
+          <span v-if="unit" class="stat-unit">{{ unit }}</span>
         </div>
       </div>
     </div>

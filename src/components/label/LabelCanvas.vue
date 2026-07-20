@@ -4,6 +4,7 @@
   import { useImage } from 'vue-konva';
   import { useResizeObserver, useEventListener } from '@vueuse/core';
   import Konva from 'konva';
+  import { match } from 'ts-pattern';
   import { useLabelStore } from '@/stores/label';
   import { getPointerImagePos } from '@/utils/coordTransform';
   import { getPointConfig, getBoxConfig } from '@/utils/annotationConfig';
@@ -62,9 +63,10 @@
 
   const cursorStyle = computed(() => {
     if (isSpaceDown.value || isPanning.value) return 'grab';
-    if (store.mode === 'create') return 'crosshair';
-    if (store.mode === 'delete') return 'not-allowed';
-    return 'default';
+    return match(store.mode)
+      .with('create', () => 'crosshair')
+      .with('delete', () => 'not-allowed')
+      .otherwise(() => 'default');
   });
 
   // ========== 5. 侦听器 ==========
@@ -284,10 +286,12 @@
     }
 
     // Clicked on stage background
-    if (store.mode === 'select') {
-      store.clearSelection();
-      if (transformer) transformer.nodes([]);
-    }
+    match(store.mode)
+      .with('select', () => {
+        store.clearSelection();
+        if (transformer) transformer.nodes([]);
+      })
+      .otherwise(() => {});
   }
 
   // --- Annotation click ---
@@ -300,15 +304,17 @@
       store.selectAnnotation(ann.id);
 
       // Only attach Transformer for boxes (points just highlight, no resize)
-      if (ann.type === 'box') {
-        const stage = getStage();
-        const transformer = getTransformer();
-        if (!stage || !transformer) return;
-        const node = stage.findOne('.' + ann.id);
-        if (node) {
-          transformer.nodes([node]);
-        }
-      }
+      match(ann.type)
+        .with('box', () => {
+          const stage = getStage();
+          const transformer = getTransformer();
+          if (!stage || !transformer) return;
+          const node = stage.findOne('.' + ann.id);
+          if (node) {
+            transformer.nodes([node]);
+          }
+        })
+        .otherwise(() => {});
     } else if (store.mode === 'delete') {
       e.cancelBubble = true;
       store.removeAnnotation(ann.id);
@@ -321,21 +327,24 @@
   function handleDragEnd(ann: { id: string; type: string }, e: Konva.KonvaEventObject<DragEvent>) {
     const node = e.target;
 
-    if (ann.type === 'p_point' || ann.type === 'n_point') {
-      store.updateAnnotation(ann.id, {
-        x: Math.round(node.x()),
-        y: Math.round(node.y()),
-      });
-    } else if (ann.type === 'box') {
-      const width = node.width() * node.scaleX();
-      const height = node.height() * node.scaleY();
-      store.updateAnnotation(ann.id, {
-        x1: Math.round(node.x()),
-        y1: Math.round(node.y()),
-        x2: Math.round(node.x() + width),
-        y2: Math.round(node.y() + height),
-      });
-    }
+    match(ann.type)
+      .with('p_point', 'n_point', () => {
+        store.updateAnnotation(ann.id, {
+          x: Math.round(node.x()),
+          y: Math.round(node.y()),
+        });
+      })
+      .with('box', () => {
+        const width = node.width() * node.scaleX();
+        const height = node.height() * node.scaleY();
+        store.updateAnnotation(ann.id, {
+          x1: Math.round(node.x()),
+          y1: Math.round(node.y()),
+          x2: Math.round(node.x() + width),
+          y2: Math.round(node.y() + height),
+        });
+      })
+      .otherwise(() => {});
   }
 
   // --- Transformer transform end ---
@@ -344,18 +353,20 @@
     const ann = store.annotations.find((a) => a.id === node.name());
     if (!ann) return;
 
-    if (ann.type === 'box') {
-      const width = node.width() * node.scaleX();
-      const height = node.height() * node.scaleY();
-      store.updateAnnotation(ann.id, {
-        x1: Math.round(node.x()),
-        y1: Math.round(node.y()),
-        x2: Math.round(node.x() + width),
-        y2: Math.round(node.y() + height),
-      });
-      node.scaleX(1);
-      node.scaleY(1);
-    }
+    match(ann.type)
+      .with('box', () => {
+        const width = node.width() * node.scaleX();
+        const height = node.height() * node.scaleY();
+        store.updateAnnotation(ann.id, {
+          x1: Math.round(node.x()),
+          y1: Math.round(node.y()),
+          x2: Math.round(node.x() + width),
+          y2: Math.round(node.y() + height),
+        });
+        node.scaleX(1);
+        node.scaleY(1);
+      })
+      .otherwise(() => {});
   }
 
   // --- Keyboard ---

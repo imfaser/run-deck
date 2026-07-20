@@ -53,9 +53,7 @@
     const now = dayjs();
     const currentMonth = now.format('YYYY-MM');
     return store.records
-      .filter(
-        (r) => r.date.startsWith(currentMonth) && dayjs(r.date).isAfter(now, 'day')
-      )
+      .filter((r) => r.date.startsWith(currentMonth) && dayjs(r.date).isAfter(now, 'day'))
       .sort((a, b) => a.date.localeCompare(b.date))
       .map((r) => ({
         date: r.date,
@@ -80,7 +78,7 @@
       </div>
       <div class="summary-item">
         <span class="summary-label">预测平均</span>
-        <span class="summary-value accent">{{ predictedAverage.toFixed(1) }}h/天</span>
+        <span class="summary-value accent">{{ predictedAverage.toFixed(3) }}h/天</span>
       </div>
       <div class="summary-item">
         <span class="summary-label">已记录</span>
@@ -94,9 +92,7 @@
           <span class="date-num">{{ item.dateFormatted }}</span>
           <span class="day-of-week">{{ item.dayOfWeek }}</span>
         </div>
-        <div class="predicted-hours recorded">
-          {{ item.workHours.toFixed(1) }}h
-        </div>
+        <div class="predicted-hours recorded">{{ item.workHours.toFixed(3) }}h</div>
       </div>
     </div>
 

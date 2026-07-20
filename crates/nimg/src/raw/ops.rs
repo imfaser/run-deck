@@ -1,6 +1,7 @@
 use std::ops::Range;
 
 use anyhow::bail;
+use ndarray::{Zip, s};
 
 use crate::raw::mask::Mask;
 use crate::raw::types::{Axis, Voxel};
@@ -13,12 +14,8 @@ impl<T: Voxel> VoxBuf<T> {
     where
         T: PartialOrd,
     {
-        let data: Vec<u8> = self
-            .data
-            .iter()
-            .map(|&v| if v >= lower && v <= upper { fill } else { 0 })
-            .collect();
-        VoxBuf::new(self.shape, data)
+        let inner = self.inner.mapv(|v| if v >= lower && v <= upper { fill } else { 0 });
+        VoxBuf::from_array(self.shape, inner)
     }
 
     /// Element-wise AND of multiple same-shape buffers.
@@ -45,16 +42,20 @@ impl<T: Voxel> VoxBuf<T> {
             }
         }
 
-        let len = others[0].data.len();
         let default = T::default();
-        let mut data = Vec::with_capacity(len);
+        let mut result = ndarray::Array3::from_elem((shape.z, shape.y, shape.x), fill);
 
-        for i in 0..len {
-            let all_nonzero = others.iter().all(|buf| buf.data[i] != default);
-            data.push(if all_nonzero { fill } else { 0 });
+        for other in others {
+            Zip::from(&mut result)
+                .and(&other.inner)
+                .for_each(|r, &v| {
+                    if v == default {
+                        *r = 0;
+                    }
+                });
         }
 
-        Ok(VoxBuf::new(shape, data))
+        Ok(VoxBuf::from_array(shape, result))
     }
 }
 
@@ -77,51 +78,36 @@ impl VoxBuf<u8> {
         }
 
         let (expected_h, expected_w) = self.shape.perpendicular(axis);
-        if mask.height != expected_h || mask.width != expected_w {
+        if mask.height() != expected_h || mask.width() != expected_w {
             bail!(
                 "mask dimensions {}×{} do not match perpendicular axes {expected_h}×{expected_w}",
-                mask.height,
-                mask.width,
+                mask.height(),
+                mask.width(),
             );
         }
 
-        let layer_size = expected_h * expected_w;
-        let expected_data_len = range.len() * layer_size;
-        if mask.data.len() != expected_data_len {
+        let expected_layers = range.len();
+        if mask.layers() != expected_layers {
             bail!(
-                "mask data length {} does not match range length {} × area {layer_size} = {expected_data_len}",
-                mask.data.len(),
-                range.len(),
+                "mask layers {} does not match range length {expected_layers}",
+                mask.layers(),
             );
         }
 
         for (i, idx) in range.enumerate() {
-            let src_offset = i * layer_size;
-            let src = &mask.data[src_offset..src_offset + layer_size];
-
+            let source = mask.inner().slice(s![i, .., ..]);
             match axis {
                 Axis::Z => {
-                    let dst_offset = idx * self.shape.y * self.shape.x;
-                    self.data[dst_offset..dst_offset + layer_size].copy_from_slice(src);
+                    let mut target = self.inner.slice_mut(s![idx, .., ..]);
+                    target.assign(&source);
                 }
                 Axis::Y => {
-                    for row in 0..self.shape.z {
-                        for col in 0..self.shape.x {
-                            let mask_val = src[row * self.shape.x + col];
-                            let dst_idx =
-                                row * self.shape.y * self.shape.x + idx * self.shape.x + col;
-                            self.data[dst_idx] = mask_val;
-                        }
-                    }
+                    let mut target = self.inner.slice_mut(s![.., idx, ..]);
+                    target.assign(&source);
                 }
                 Axis::X => {
-                    for z in 0..self.shape.z {
-                        for y in 0..self.shape.y {
-                            let mask_val = src[z * self.shape.y + y];
-                            let dst_idx = z * self.shape.y * self.shape.x + y * self.shape.x + idx;
-                            self.data[dst_idx] = mask_val;
-                        }
-                    }
+                    let mut target = self.inner.slice_mut(s![.., .., idx]);
+                    target.assign(&source);
                 }
             }
         }
@@ -134,7 +120,6 @@ impl VoxBuf<u8> {
 mod tests {
     use super::*;
     use crate::raw::types::VolumeShape;
-    use bytes::Bytes;
 
     fn make_buf_u8(data: Vec<u8>, z: usize, y: usize, x: usize) -> VoxBuf<u8> {
         VoxBuf::new(VolumeShape::new(z, y, x), data)
@@ -148,21 +133,21 @@ mod tests {
     fn threshold_u8() {
         let buf = make_buf_u8(vec![0, 50, 100, 200, 255], 1, 1, 5);
         let result = buf.threshold(100, 200, 1);
-        assert_eq!(result.data, vec![0, 0, 1, 1, 0]);
+        assert_eq!(result.as_slice(), &[0, 0, 1, 1, 0]);
     }
 
     #[test]
     fn threshold_u16() {
         let buf = make_buf_u16(vec![0, 300, 500, 1000, 2000], 1, 1, 5);
         let result = buf.threshold(100u16, 1000, 255);
-        assert_eq!(result.data, vec![0, 255, 255, 255, 0]);
+        assert_eq!(result.as_slice(), &[0, 255, 255, 255, 0]);
     }
 
     #[test]
     fn threshold_custom_fill() {
         let buf = make_buf_u8(vec![0, 50, 150], 1, 1, 3);
         let result = buf.threshold(100, 200, 128);
-        assert_eq!(result.data, vec![0, 0, 128]);
+        assert_eq!(result.as_slice(), &[0, 0, 128]);
     }
 
     #[test]
@@ -171,7 +156,7 @@ mod tests {
         let b = make_buf_u8(vec![1, 1, 1, 0], 1, 1, 4);
         let c = make_buf_u8(vec![1, 1, 0, 1], 1, 1, 4);
         let result = VoxBuf::intersect(&[&a, &b, &c], 1).unwrap();
-        assert_eq!(result.data, vec![1, 0, 0, 0]);
+        assert_eq!(result.as_slice(), &[1, 0, 0, 0]);
     }
 
     #[test]
@@ -179,7 +164,7 @@ mod tests {
         let a = make_buf_u8(vec![1, 0, 1], 1, 1, 3);
         let b = make_buf_u8(vec![1, 1, 0], 1, 1, 3);
         let result = VoxBuf::intersect(&[&a, &b], 255).unwrap();
-        assert_eq!(result.data, vec![255, 0, 0]);
+        assert_eq!(result.as_slice(), &[255, 0, 0]);
     }
 
     #[test]
@@ -197,27 +182,60 @@ mod tests {
     #[test]
     fn inject_z_axis() {
         let mut buf = make_buf_u8(vec![0u8; 27], 3, 3, 3);
-        let mask_data = Bytes::from(vec![1u8; 18]);
-        let mask = Mask::new(mask_data, 3, 3).unwrap();
+        let mask = Mask::new(vec![1u8; 18], 3, 3).unwrap();
         buf.inject(&mask, Axis::Z, 1..3).unwrap();
 
-        assert_eq!(&buf.data[0..9], &[0u8; 9]);
-        assert_eq!(&buf.data[9..27], &[1u8; 18]);
+        assert_eq!(&buf.as_slice()[0..9], &[0u8; 9]);
+        assert_eq!(&buf.as_slice()[9..27], &[1u8; 18]);
+    }
+
+    #[test]
+    fn inject_y_axis() {
+        let mut buf = make_buf_u8(vec![0u8; 27], 3, 3, 3);
+        // Y axis: mask height=z=3, width=x=3, 2 layers
+        let mask = Mask::new(vec![1u8; 18], 3, 3).unwrap();
+        buf.inject(&mask, Axis::Y, 0..2).unwrap();
+
+        // For each z: y=0 and y=1 should be 1, y=2 should be 0
+        for z in 0..3 {
+            for y in 0..2 {
+                for x in 0..3 {
+                    assert_eq!(buf.get(z, y, x), 1, "expected 1 at ({z},{y},{x})");
+                }
+            }
+            for x in 0..3 {
+                assert_eq!(buf.get(z, 2, x), 0, "expected 0 at ({z},2,{x})");
+            }
+        }
+    }
+
+    #[test]
+    fn inject_x_axis() {
+        let mut buf = make_buf_u8(vec![0u8; 27], 3, 3, 3);
+        // X axis: mask height=z=3, width=y=3, 1 layer
+        let mask = Mask::new(vec![1u8; 9], 3, 3).unwrap();
+        buf.inject(&mask, Axis::X, 1..2).unwrap();
+
+        for z in 0..3 {
+            for y in 0..3 {
+                assert_eq!(buf.get(z, y, 0), 0);
+                assert_eq!(buf.get(z, y, 1), 1);
+                assert_eq!(buf.get(z, y, 2), 0);
+            }
+        }
     }
 
     #[test]
     fn inject_dimension_mismatch() {
         let mut buf = make_buf_u8(vec![0u8; 27], 3, 3, 3);
-        let mask_data = Bytes::from(vec![1u8; 4]);
-        let mask = Mask::new(mask_data, 2, 2).unwrap();
+        let mask = Mask::new(vec![1u8; 4], 2, 2).unwrap();
         assert!(buf.inject(&mask, Axis::Z, 0..1).is_err());
     }
 
     #[test]
     fn inject_out_of_bounds() {
         let mut buf = make_buf_u8(vec![0u8; 27], 3, 3, 3);
-        let mask_data = Bytes::from(vec![1u8; 9]);
-        let mask = Mask::new(mask_data, 3, 3).unwrap();
+        let mask = Mask::new(vec![1u8; 9], 3, 3).unwrap();
         assert!(buf.inject(&mask, Axis::Z, 2..5).is_err());
     }
 }

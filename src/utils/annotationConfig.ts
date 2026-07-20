@@ -1,4 +1,4 @@
-import type { Annotation } from '@/stores/label';
+import type { Annotation } from '@/types/annotation';
 
 export function getPointConfig(
   ann: Annotation & { type: 'p_point' | 'n_point' },

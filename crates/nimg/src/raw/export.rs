@@ -14,7 +14,7 @@ pub fn export_raw<T: Voxel + bytemuck::Pod>(
     path: impl AsRef<Path>,
     buf: &VoxBuf<T>,
 ) -> anyhow::Result<()> {
-    let bytes: &[u8] = cast_slice(&buf.data);
+    let bytes: &[u8] = cast_slice(buf.as_slice());
     std::fs::write(path.as_ref(), bytes)?;
     Ok(())
 }
@@ -40,13 +40,11 @@ mod tests {
         let path = dir.path().join("export_u8.raw");
         export_raw(&path, &buf).unwrap();
 
-        let vol =
-            RawVolume::open(&path, VolumeShape::new(3, 3, 3), DType::U8, Endian::Little).unwrap();
-        let roi = vol
+        let vol = RawVolume::open(&path, VolumeShape::new(3, 3, 3), 1, Endian::Little).unwrap();
+        let roundtrip: VoxBuf<u8> = vol
             .roi(Point3D::new(0, 0, 0), Point3D::new(3, 3, 3))
             .unwrap();
-        let roundtrip: VoxBuf<u8> = roi.as_voxbuf().unwrap();
-        assert_eq!(roundtrip.data, data);
+        assert_eq!(roundtrip.as_slice(), &data[..]);
     }
 
     #[test]
@@ -63,12 +61,10 @@ mod tests {
         let path = dir.path().join("export_u16.raw");
         export_raw(&path, &buf).unwrap();
 
-        let vol =
-            RawVolume::open(&path, VolumeShape::new(3, 3, 3), DType::U16, Endian::Little).unwrap();
-        let roi = vol
+        let vol = RawVolume::open(&path, VolumeShape::new(3, 3, 3), 2, Endian::Little).unwrap();
+        let roundtrip: VoxBuf<u16> = vol
             .roi(Point3D::new(0, 0, 0), Point3D::new(3, 3, 3))
             .unwrap();
-        let roundtrip: VoxBuf<u16> = roi.as_voxbuf().unwrap();
-        assert_eq!(roundtrip.data, data);
+        assert_eq!(roundtrip.as_slice(), &data[..]);
     }
 }
