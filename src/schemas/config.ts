@@ -19,7 +19,7 @@ export const McpLocalServerConfigSchema = z.object({
 
 export const McpRemoteServerConfigSchema = z.object({
   type: z.literal('remote'),
-  url: z.string().url('URL 格式不正确'),
+  url: z.string().refine((v) => !v || /^https?:\/\/.+/.test(v), 'URL 格式不正确'),
   headers: z.record(z.string(), z.string()).optional(),
   enabled: z.boolean(),
   timeout: z.number().optional(),

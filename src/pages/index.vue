@@ -7,7 +7,7 @@
 
   const router = useRouter();
   const store = useAppStore();
-  const { data: config, isSuccess } = useConfigQuery();
+  const { data: config, isSuccess, isError } = useConfigQuery();
 
   const fixedRoutes = ['/overview', '/config'];
 
@@ -17,11 +17,15 @@
   };
 
   watch(
-    isSuccess,
-    async (ready) => {
+    [isSuccess, isError],
+    ([ready, failed]) => {
+      if (failed) {
+        router.push('/overview');
+        return;
+      }
       if (!ready || !config.value) return;
       const target = `/${config.value.frontend.home}`;
-      await logMessage('info', `首页跳转: ${target}`);
+      logMessage('info', `首页跳转: ${target}`);
 
       if (!fixedRoutes.includes(target)) {
         store.addTab({
