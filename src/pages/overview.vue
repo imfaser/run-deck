@@ -116,7 +116,7 @@
 
   .icon-text {
     font-size: var(--text-2xl);
-    color: #fff;
+    color: var(--text-inverse);
     font-weight: var(--font-medium);
   }
 

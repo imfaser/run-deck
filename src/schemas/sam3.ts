@@ -17,6 +17,6 @@ export const SegmentOptionsSchema = z
       (opts.n_point && opts.n_point.length > 0) ||
       (opts.boxes && opts.boxes.length > 0) ||
       !!opts.prev_mask,
-    { message: '至少需要一种提示：p_point, n_point, boxes, 或 prev_mask' }
+    { error: '至少需要一种提示：p_point, n_point, boxes, 或 prev_mask' }
   );
 export type SegmentOptions = z.infer<typeof SegmentOptionsSchema>;

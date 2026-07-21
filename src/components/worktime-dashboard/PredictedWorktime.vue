@@ -210,8 +210,8 @@
     color: var(--accent);
 
     &.recorded {
-      color: #22c55e;
-      border: 1px solid #22c55e;
+      color: var(--status-success);
+      border: 1px solid var(--status-success);
       padding: 2px 8px;
       border-radius: var(--radius-sm);
     }

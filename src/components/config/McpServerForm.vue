@@ -1,87 +1,94 @@
 <script setup lang="ts">
-  // ========== 1. 第三方 / 内部模块引入 ==========
-  import { watch } from 'vue';
-  import { ElMessageBox } from 'element-plus';
-  import { useForm, useField } from 'vee-validate';
-  import { toTypedSchema } from '@vee-validate/zod';
+  import { ref, computed, watch } from 'vue';
   import { match } from 'ts-pattern';
-  import { McpServerFormSchema } from '@/schemas/mcp-server-form';
+  import { McpServerConfigSchema } from '@/schemas/config';
   import type { McpServerConfig } from '@/services/cmd';
+  import type { FormInstance, FormRules } from 'element-plus';
+  import { useConfigStore } from '@/stores/config';
 
-  // ========== 2. Props / Emits 定义 ==========
-  const props = defineProps<{
-    name: string;
-    config: McpServerConfig;
-    existingNames: string[];
-    isDirty: boolean;
-    isNew?: boolean;
-  }>();
+  const store = useConfigStore();
+  const formRef = ref<FormInstance>();
 
-  const emit = defineEmits<{
-    back: [];
-    save: [];
-    'update:name': [value: string];
-    'update:config': [value: McpServerConfig];
-    'dirty-change': [value: boolean];
-  }>();
+  const isLocal = computed(() => store.editingServer?.config.type === 'local');
+  const isNew = computed(() => store.editingServer?.isNew ?? false);
 
-  // ========== 3. VeeValidate 表单 ==========
-  const formSchema = toTypedSchema(McpServerFormSchema);
-
-  const { meta, validate } = useForm({
-    validationSchema: formSchema,
-    initialValues: {
-      name: props.name,
-      config: props.config,
-      existingNames: props.existingNames,
-      originalName: props.name,
-    },
+  const existingNames = computed(() => {
+    if (!store.config) return [];
+    return Object.keys(store.config.mcp);
   });
 
-  const { value: nameValue, errorMessage: nameError } = useField<string>('name');
+  const originalName = ref('');
 
-  // ========== 4. 侦听器 ==========
   watch(
-    () => props.name,
-    (v) => (nameValue.value = v)
+    () => store.editingServer,
+    (srv) => {
+      if (srv) originalName.value = srv.name;
+    },
+    { immediate: true }
   );
 
-  // ========== 5. 普通方法与业务逻辑 ==========
-  function updateName(value: string) {
-    nameValue.value = value;
-    emit('update:name', value);
-    emit('dirty-change', true);
+  const rules = computed<FormRules>(() => ({
+    name: [
+      { required: true, message: '名称不能为空', trigger: 'blur' },
+      {
+        validator: (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+          if (value !== originalName.value && existingNames.value.includes(value)) {
+            callback(new Error('名称已存在'));
+          } else {
+            callback();
+          }
+        },
+        trigger: 'blur',
+      },
+    ],
+    url: [
+      { required: true, message: 'URL 不能为空', trigger: 'blur' },
+      {
+        pattern: /^https?:\/\/.+/,
+        message: 'URL 格式不正确',
+        trigger: 'blur',
+      },
+    ],
+    command: [
+      {
+        validator: (_rule: unknown, _value: unknown, callback: (error?: Error) => void) => {
+          if (isLocal.value && store.editingServer?.config.type === 'local') {
+            if (store.editingServer.config.command.length === 0) {
+              callback(new Error('启动命令不能为空'));
+              return;
+            }
+          }
+          callback();
+        },
+        trigger: 'blur',
+      },
+    ],
+  }));
+
+  function getCommandText(): string {
+    if (store.editingServer?.config.type === 'local') {
+      return store.editingServer.config.command.join('\n');
+    }
+    return '';
   }
 
-  function updateField(key: string, value: unknown) {
-    const newConfig = { ...props.config, [key]: value } as McpServerConfig;
-    emit('update:config', newConfig);
-    emit('dirty-change', true);
-  }
-
-  function updateType(type: 'local' | 'remote') {
-    if (type === props.config.type) return;
-    const newConfig = match(type)
-      .with(
-        'local',
-        (): McpServerConfig => ({ type: 'local', command: [], enabled: props.config.enabled })
-      )
-      .with(
-        'remote',
-        (): McpServerConfig => ({ type: 'remote', url: '', enabled: props.config.enabled })
-      )
-      .exhaustive();
-    emit('update:config', newConfig);
-    emit('dirty-change', true);
+  function getEnvText(): string {
+    const cfg = store.editingServer?.config;
+    if (!cfg) return '';
+    const obj = cfg.type === 'local' ? cfg.environment : cfg.headers;
+    if (!obj) return '';
+    return Object.entries(obj)
+      .map(([k, v]) => `${k}=${v}`)
+      .join('\n');
   }
 
   function updateCommand(text: string) {
-    if (props.config.type !== 'local') return;
+    if (store.editingServer?.config.type !== 'local') return;
     const command = text
       .split('\n')
       .map((l) => l.trim())
       .filter(Boolean);
-    updateField('command', command);
+    store.updateServerConfig({ ...store.editingServer.config, command });
   }
 
   function updateEnv(text: string) {
@@ -94,70 +101,86 @@
         obj[trimmed.slice(0, idx)] = trimmed.slice(idx + 1);
       }
     }
-    const key = props.config.type === 'local' ? 'environment' : 'headers';
-    updateField(key, Object.keys(obj).length > 0 ? obj : undefined);
+    const newObj = Object.keys(obj).length > 0 ? obj : undefined;
+    if (store.editingServer?.config.type === 'local') {
+      store.updateServerConfig({ ...store.editingServer.config, environment: newObj });
+    } else if (store.editingServer?.config.type === 'remote') {
+      store.updateServerConfig({ ...store.editingServer.config, headers: newObj });
+    }
   }
 
-  function getCommandText(): string {
-    if (props.config.type === 'local') return props.config.command.join('\n');
-    return '';
-  }
-
-  function getEnvText(): string {
-    const obj = props.config.type === 'local' ? props.config.environment : props.config.headers;
-    if (!obj) return '';
-    return Object.entries(obj)
-      .map(([k, v]) => `${k}=${v}`)
-      .join('\n');
+  function updateType(type: 'local' | 'remote') {
+    if (!store.editingServer || type === store.editingServer.config.type) return;
+    const newConfig = match(type)
+      .with(
+        'local',
+        (): McpServerConfig => ({
+          type: 'local',
+          command: [],
+          enabled: store.editingServer!.config.enabled,
+        })
+      )
+      .with(
+        'remote',
+        (): McpServerConfig => ({
+          type: 'remote',
+          url: '',
+          enabled: store.editingServer!.config.enabled,
+        })
+      )
+      .exhaustive();
+    store.updateServerConfig(newConfig);
   }
 
   async function validateAndSave() {
-    const { valid } = await validate();
-    if (!valid) return;
-    emit('save');
+    if (!formRef.value) return;
+    await formRef.value.validate((valid) => {
+      if (!valid) return;
+      // Zod 兜底校验
+      if (store.editingServer?.config) {
+        const result = McpServerConfigSchema.safeParse(store.editingServer.config);
+        if (!result.success) return;
+      }
+      store.saveServer();
+    });
   }
 
   async function handleBack() {
-    if (!meta.value.dirty) {
-      emit('back');
-      return;
-    }
-    try {
-      await ElMessageBox.confirm('有未保存的修改，确定离开吗？', '未保存的修改', {
-        confirmButtonText: '确定离开',
-        cancelButtonText: '取消',
-        type: 'warning',
-      });
-      emit('back');
-    } catch {
-      // cancelled
-    }
+    store.backToList();
   }
 </script>
 
 <template>
-  <div class="mcp-server-form">
+  <div v-if="store.editingServer" class="mcp-server-form">
     <div class="section-header">
       <el-button text @click="handleBack">← 返回</el-button>
       <h2 class="section-title">编辑服务器</h2>
     </div>
 
-    <el-form label-width="auto" class="form-card">
-      <el-form-item label="名称" required>
+    <el-form
+      ref="formRef"
+      :model="{
+        name: store.editingServer.name,
+        url: store.editingServer.config.type === 'remote' ? store.editingServer.config.url : '',
+        command: getCommandText(),
+      }"
+      :rules="rules"
+      label-width="auto"
+      class="form-card"
+    >
+      <el-form-item label="名称" prop="name" required>
         <el-input
-          :model-value="nameValue"
+          :model-value="store.editingServer.name"
           placeholder="MCP 服务器"
-          :class="{ 'is-error': nameError }"
-          @update:model-value="updateName"
+          @update:model-value="(v: string) => store.updateServerName(v)"
         />
-        <div v-if="nameError" class="field-error">{{ nameError }}</div>
       </el-form-item>
 
       <el-form-item label="类型">
         <el-select
-          :model-value="config.type"
+          :model-value="store.editingServer.config.type"
           style="width: 100%"
-          :disabled="!props.isNew"
+          :disabled="!isNew"
           @update:model-value="(v: 'local' | 'remote') => updateType(v)"
         >
           <el-option label="标准输入 / 输出 (stdio)" value="local" />
@@ -165,8 +188,8 @@
         </el-select>
       </el-form-item>
 
-      <template v-if="config.type === 'local'">
-        <el-form-item label="启动命令">
+      <template v-if="isLocal">
+        <el-form-item label="启动命令" prop="command">
           <el-input
             :model-value="getCommandText()"
             type="textarea"
@@ -188,11 +211,16 @@
       </template>
 
       <template v-else>
-        <el-form-item label="URL" required>
+        <el-form-item label="URL" prop="url" required>
           <el-input
-            :model-value="config.url"
+            :model-value="
+              store.editingServer.config.type === 'remote' ? store.editingServer.config.url : ''
+            "
             placeholder="https://example.com/mcp"
-            @update:model-value="(v: string) => updateField('url', v)"
+            @update:model-value="
+              (v: string) =>
+                store.updateServerConfig({ ...(store.editingServer!.config as any), url: v })
+            "
           />
         </el-form-item>
 
@@ -209,18 +237,27 @@
 
       <el-form-item label="超时（毫秒）">
         <el-input-number
-          :model-value="config.timeout"
+          :model-value="store.editingServer.config.timeout"
           :min="0"
           :step="1000"
           controls-position="right"
-          @update:model-value="(v: number | undefined) => updateField('timeout', v)"
+          @update:model-value="
+            (v: number | undefined) =>
+              store.updateServerConfig({ ...store.editingServer!.config, timeout: v } as any)
+          "
         />
       </el-form-item>
 
       <el-form-item label="启用">
         <el-switch
-          :model-value="config.enabled"
-          @update:model-value="(v: boolean | string | number) => updateField('enabled', Boolean(v))"
+          :model-value="store.editingServer.config.enabled"
+          @update:model-value="
+            (v: boolean | string | number) =>
+              store.updateServerConfig({
+                ...store.editingServer!.config,
+                enabled: Boolean(v),
+              } as any)
+          "
         />
       </el-form-item>
 
@@ -248,15 +285,5 @@
   .form-card {
     @include card;
     padding: var(--spacing-rem-lg);
-  }
-
-  .field-error {
-    color: var(--el-color-danger);
-    font-size: var(--el-font-size-small);
-    margin-top: var(--spacing-rem-xs);
-  }
-
-  :deep(.el-input.is-error) {
-    --el-input-border-color: var(--el-color-danger);
   }
 </style>

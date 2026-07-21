@@ -1,24 +1,12 @@
 <script setup lang="ts">
-  // ========== 1. 第三方 / 内部模块引入 ==========
   import { ref, computed } from 'vue';
   import { Delete, Setting } from '@element-plus/icons-vue';
-  import { match } from 'ts-pattern';
-  import type { McpServerConfig, ServerStatus } from '@/services/cmd';
+  import type { ServerStatus } from '@/services/cmd';
+  import { useConfigStore } from '@/stores/config';
+  import { getStatusType, getStatusLabel } from '@/composables/useMcpHelpers';
 
-  // ========== 2. Props / Emits 定义 ==========
-  const props = defineProps<{
-    servers: Record<string, McpServerConfig>;
-    statuses: Record<string, ServerStatus>;
-  }>();
+  const store = useConfigStore();
 
-  const emit = defineEmits<{
-    add: [type: 'local' | 'remote'];
-    edit: [name: string];
-    remove: [name: string];
-    toggle: [name: string];
-  }>();
-
-  // ========== 3. 响应式状态声明 ==========
   const showTypeDialog = ref(false);
   const selectedType = ref<'local' | 'remote'>('local');
   const typeOptions = [
@@ -26,30 +14,14 @@
     { label: 'http (远程)', value: 'remote' },
   ];
 
-  // ========== 4. 计算属性 ==========
-  const serverList = computed(() =>
-    Object.entries(props.servers).map(([name, cfg]) => ({
+  const serverList = computed(() => {
+    if (!store.config) return [];
+    return Object.entries(store.config.mcp).map(([name, cfg]) => ({
       name,
       config: cfg,
-      status: props.statuses[name] ?? ('Stopped' as ServerStatus),
-    }))
-  );
-
-  // ========== 5. 普通方法与业务逻辑 ==========
-  function getStatusType(status: ServerStatus): 'success' | 'warning' | 'info' | 'danger' {
-    return match(status)
-      .with('Running', () => 'success' as const)
-      .with('Starting', () => 'warning' as const)
-      .otherwise(() => 'info' as const);
-  }
-
-  function getStatusLabel(status: ServerStatus): string {
-    return match(status)
-      .with('Running', () => '运行中')
-      .with('Starting', () => '启动中')
-      .with('Stopped', () => '已停止')
-      .otherwise(() => '失败');
-  }
+      status: store.serverStatuses[name] ?? ('Stopped' as ServerStatus),
+    }));
+  });
 
   function openAddDialog() {
     selectedType.value = 'local';
@@ -58,7 +30,7 @@
 
   function confirmAdd() {
     showTypeDialog.value = false;
-    emit('add', selectedType.value);
+    store.addServer(selectedType.value);
   }
 </script>
 
@@ -75,7 +47,7 @@
 
     <div v-else class="server-list">
       <div v-for="server in serverList" :key="server.name" class="server-card">
-        <div class="server-main" @click="emit('edit', server.name)">
+        <div class="server-main" @click="store.editServer(server.name)">
           <div class="server-info">
             <div class="server-name">{{ server.name }}</div>
             <div class="server-meta">
@@ -91,11 +63,11 @@
         <div class="server-actions">
           <el-switch
             :model-value="server.config.enabled"
-            @update:model-value="() => emit('toggle', server.name)"
+            @update:model-value="() => store.toggleServer(server.name)"
             @click.stop
           />
-          <el-button :icon="Delete" circle @click.stop="emit('remove', server.name)" />
-          <el-button :icon="Setting" circle @click.stop="emit('edit', server.name)" />
+          <el-button :icon="Delete" circle @click.stop="store.removeServer(server.name)" />
+          <el-button :icon="Setting" circle @click.stop="store.editServer(server.name)" />
         </div>
       </div>
     </div>

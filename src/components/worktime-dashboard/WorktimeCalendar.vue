@@ -123,11 +123,11 @@
     }
 
     &.target-met .work-hours {
-      color: #22c55e;
+      color: var(--status-success);
     }
 
     &.target-missed .work-hours {
-      color: #ef4444;
+      color: var(--status-error);
     }
 
     &.predicted .work-hours {

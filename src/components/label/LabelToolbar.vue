@@ -1,16 +1,30 @@
 <script setup lang="ts">
   // ========== 1. 第三方 / 内部模块引入 ==========
-  import { ref, computed, watch } from 'vue';
-  import { useDebounceFn } from '@vueuse/core';
+  import { ref, computed } from 'vue';
   import { open } from '@tauri-apps/plugin-dialog';
   import { convertFileSrc } from '@tauri-apps/api/core';
   import { useLabelStore } from '@/stores/label';
   import { segmentImage } from '@/services/sam3';
   import { useMaskRenderer } from '@/composables/useMaskRenderer';
+  import { useMaskRenderOnChange } from '@/composables/useMaskRenderOnChange';
 
   // ========== 2. 组合式函数（Composables）调用 ==========
   const store = useLabelStore();
   const { renderMask } = useMaskRenderer();
+
+  useMaskRenderOnChange({
+    store,
+    hasMask: () => !!store.rawMaskPath,
+    renderFn: async () => {
+      if (!store.rawMaskPath) return;
+      const maskUrl = await renderMask(
+        store.rawMaskPath,
+        store.confidenceThreshold,
+        store.maskColor
+      );
+      store.maskUrl = maskUrl;
+    },
+  });
 
   // ========== 3. Props / Emits 定义 ==========
   const emit = defineEmits<{
@@ -25,22 +39,6 @@
     if (!store.cursorImagePos) return '坐标: -, -';
     return `坐标: ${store.cursorImagePos.x}, ${store.cursorImagePos.y}`;
   });
-
-  // ========== 6. 侦听器 ==========
-  const debouncedRerender = useDebounceFn(async () => {
-    if (!store.rawMaskPath) return;
-    const maskUrl = await renderMask(store.rawMaskPath, store.confidenceThreshold, store.maskColor);
-    store.maskUrl = maskUrl;
-  }, 300);
-
-  watch(
-    () => [store.maskColor, store.confidenceThreshold],
-    () => {
-      if (store.rawMaskPath) {
-        debouncedRerender();
-      }
-    }
-  );
 
   // ========== 7. 普通方法与业务逻辑 ==========
   async function handleOpenImage() {
@@ -145,53 +143,9 @@
 </template>
 
 <style scoped lang="scss">
+  @use '@/styles/abstracts/mixins' as *;
+
   .label-toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: var(--spacing-2) var(--spacing-4);
-    background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border-default);
-    gap: var(--spacing-4);
-    flex-shrink: 0;
-  }
-
-  .toolbar-left,
-  .toolbar-right {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-3);
-  }
-
-  .mask-color-picker {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-2);
-  }
-
-  .confidence-slider {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-2);
-  }
-
-  .slider-label {
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
-    white-space: nowrap;
-  }
-
-  .slider-value {
-    font-size: var(--text-sm);
-    color: var(--text-primary);
-    min-width: 30px;
-    text-align: right;
-  }
-
-  .cursor-pos {
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
-    font-family: monospace;
-    white-space: nowrap;
+    @include annotation-toolbar;
   }
 </style>

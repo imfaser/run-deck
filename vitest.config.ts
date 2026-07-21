@@ -44,6 +44,9 @@ export default defineConfig({
       provider: 'v8',
       include: ['src/**/*.{ts,vue}'],
       exclude: ['src/**/*.d.ts', 'src/**/__tests__/**'],
+      thresholds: {
+        statements: 50,
+      },
     },
   },
 });

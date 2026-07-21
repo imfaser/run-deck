@@ -102,12 +102,6 @@ export function useCanvasInteraction(store: CanvasStore, refs?: CanvasRefs) {
 
   function handleStageMouseUp() {
     send({ type: 'MOUSE_UP' });
-    match(refs)
-      .with(P.nonNullable, (r) => {
-        const stage = r.getStage();
-        if (stage) stage.container().style.cursor = 'default';
-      })
-      .otherwise(() => {});
   }
 
   function handleKeyDown(e: KeyboardEvent) {

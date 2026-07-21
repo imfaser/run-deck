@@ -93,6 +93,9 @@ $colors-dark: (
 
   @include generate-theme-vars($colors-light, 0.1, 0.05);
 
+  --accent: var(--accent-primary);
+  --fill-color-light: #{map.get($colors-light, bg-tertiary)};
+
   // Element Plus overrides
   --el-color-primary: #{map.get($colors-light, accent-primary)};
   --el-button-text-color: #{map.get($colors-light, text-primary)};
@@ -101,6 +104,9 @@ $colors-dark: (
 
 [data-theme='dark'] {
   @include generate-theme-vars($colors-dark, 0.15, 0.08);
+
+  --accent: var(--accent-primary);
+  --fill-color-light: #{map.get($colors-dark, bg-secondary)};
 
   // Element Plus overrides
   --el-color-primary: #{map.get($colors-dark, accent-primary)};

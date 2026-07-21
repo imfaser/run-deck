@@ -1,12 +1,23 @@
 <script setup lang="ts">
-  import { ref, computed, watch } from 'vue';
-  import { useDebounceFn } from '@vueuse/core';
+  import { ref, computed } from 'vue';
   import { open } from '@tauri-apps/plugin-dialog';
   import { useLabelRawStore } from '@/stores/label-raw';
   import { useMaskRenderer } from '@/composables/useMaskRenderer';
+  import { useMaskRenderOnChange } from '@/composables/useMaskRenderOnChange';
 
   const store = useLabelRawStore();
   const { renderMask } = useMaskRenderer();
+
+  useMaskRenderOnChange({
+    store,
+    hasMask: () => !!store.currentKeyframe?.rawMaskHash,
+    renderFn: async () => {
+      const kf = store.currentKeyframe;
+      if (!kf?.rawMaskHash) return;
+      const maskUrl = await renderMask(kf.rawMaskHash, store.confidenceThreshold, store.maskColor);
+      kf.maskUrl = maskUrl;
+    },
+  });
 
   const emit = defineEmits<{
     fitImage: [];
@@ -27,22 +38,6 @@
     if (!store.cursorImagePos) return '坐标: -, -';
     return `坐标: ${store.cursorImagePos.x}, ${store.cursorImagePos.y}`;
   });
-
-  const debouncedRerender = useDebounceFn(async () => {
-    const kf = store.currentKeyframe;
-    if (!kf?.rawMaskHash) return;
-    const maskUrl = await renderMask(kf.rawMaskHash, store.confidenceThreshold, store.maskColor);
-    kf.maskUrl = maskUrl;
-  }, 300);
-
-  watch(
-    () => [store.maskColor, store.confidenceThreshold],
-    () => {
-      if (store.currentKeyframe?.rawMaskHash) {
-        debouncedRerender();
-      }
-    }
-  );
 
   async function handleOpenRaw() {
     const selected = await open({
@@ -284,53 +279,9 @@
 </template>
 
 <style scoped lang="scss">
+  @use '@/styles/abstracts/mixins' as *;
+
   .label-raw-toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: var(--spacing-2) var(--spacing-4);
-    background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border-default);
-    gap: var(--spacing-4);
-    flex-shrink: 0;
-  }
-
-  .toolbar-left,
-  .toolbar-right {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-3);
-  }
-
-  .mask-color-picker {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-2);
-  }
-
-  .confidence-slider {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-2);
-  }
-
-  .slider-label {
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
-    white-space: nowrap;
-  }
-
-  .slider-value {
-    font-size: var(--text-sm);
-    color: var(--text-primary);
-    min-width: 30px;
-    text-align: right;
-  }
-
-  .cursor-pos {
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
-    font-family: monospace;
-    white-space: nowrap;
+    @include annotation-toolbar;
   }
 </style>

@@ -12,17 +12,17 @@ export type FrontendConfig = z.infer<typeof FrontendConfigSchema>;
 export const McpLocalServerConfigSchema = z.object({
   type: z.literal('local'),
   command: z.array(z.string()),
-  environment: z.record(z.string(), z.string()).optional(),
+  environment: z.record(z.string(), z.string()).nullish(),
   enabled: z.boolean(),
-  timeout: z.number().optional(),
+  timeout: z.number().nullish(),
 });
 
 export const McpRemoteServerConfigSchema = z.object({
   type: z.literal('remote'),
-  url: z.string().refine((v) => !v || /^https?:\/\/.+/.test(v), 'URL 格式不正确'),
-  headers: z.record(z.string(), z.string()).optional(),
+  url: z.string().refine((v) => !v || /^https?:\/\/.+/.test(v), { error: 'URL 格式不正确' }),
+  headers: z.record(z.string(), z.string()).nullish(),
   enabled: z.boolean(),
-  timeout: z.number().optional(),
+  timeout: z.number().nullish(),
 });
 
 export type McpServerConfig =

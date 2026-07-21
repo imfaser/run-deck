@@ -4,11 +4,11 @@
   import { useResizeObserver, useEventListener } from '@vueuse/core';
   import Konva from 'konva';
   import { clamp } from 'es-toolkit';
-  import { match } from 'ts-pattern';
   import { useLabelRawStore } from '@/stores/label-raw';
   import { getPointerImagePos } from '@/utils/coordTransform';
   import { getPointConfig, getBoxConfig } from '@/utils/annotationConfig';
   import { useCanvasInteraction } from '@/composables/useCanvasInteraction';
+  import { useCanvasAnnotations } from '@/composables/useCanvasAnnotations';
 
   const store = useLabelRawStore();
   const {
@@ -44,6 +44,38 @@
   });
   const [maskImage] = useImage(computed(() => store.currentMaskUrl ?? ''));
 
+  function clampToImage(x: number, y: number) {
+    return {
+      x: clamp(x, 0, imageWidth.value),
+      y: clamp(y, 0, imageHeight.value),
+    };
+  }
+
+  const {
+    handleWheel,
+    handleStageClick,
+    handleAnnotationClick,
+    handleDragEnd,
+    handleTransformEnd,
+    fitToImage,
+  } = useCanvasAnnotations({
+    store,
+    refs: {
+      getStage: () => getStage() as unknown as Konva.Stage | undefined,
+      getGroup: () => getGroup() as unknown as Konva.Group | undefined,
+      getTransformer: () => getTransformer() as unknown as Konva.Transformer | undefined,
+      getPointerImagePos: (s, g) =>
+        getPointerImagePos(s as Konva.Stage, g as Konva.Group) as {
+          x: number;
+          y: number;
+        },
+    },
+    dims: { imageWidth, imageHeight, stageWidth, stageHeight },
+    maxScale: 5,
+    clampPosition: clampToImage,
+    canCreate: () => store.hasVolume,
+  });
+
   const groupConfig = computed(() => ({
     name: 'annotation-group',
     x: store.stagePos.x,
@@ -60,7 +92,7 @@
       y: box.y,
       width: box.w,
       height: box.h,
-      stroke: '#eab308',
+      stroke: 'var(--color-warning)',
       strokeWidth: 2,
       strokeScaleEnabled: false,
       fill: 'transparent',
@@ -122,47 +154,6 @@
     getLayer()?.batchDraw();
   });
 
-  function handleWheel(e: Konva.KonvaEventObject<WheelEvent>) {
-    e.evt.preventDefault();
-    const stage = getStage();
-    const group = getGroup();
-    if (!stage || !group) return;
-
-    const oldScale = store.stageScale;
-    const pointer = stage.getPointerPosition();
-    if (!pointer) return;
-
-    const mousePointTo = {
-      x: (pointer.x - group.x()) / oldScale,
-      y: (pointer.y - group.y()) / oldScale,
-    };
-
-    const direction = e.evt.deltaY > 0 ? -1 : 1;
-    const factor = 1.1;
-    const newScale = direction > 0 ? oldScale * factor : oldScale / factor;
-    const clampedScale = Math.max(0.1, Math.min(10, newScale));
-
-    store.stageScale = clampedScale;
-    store.stagePos = {
-      x: pointer.x - mousePointTo.x * clampedScale,
-      y: pointer.y - mousePointTo.y * clampedScale,
-    };
-  }
-
-  function isOnAnnotation(target: Konva.Node): boolean {
-    if (target.getParent()?.getClassName() === 'Transformer') return true;
-    const name = target.name();
-    if (name && store.annotations.some((a) => a.id === name)) return true;
-    return false;
-  }
-
-  function clampToImage(x: number, y: number) {
-    return {
-      x: clamp(x, 0, imageWidth.value),
-      y: clamp(y, 0, imageHeight.value),
-    };
-  }
-
   function handleStageMouseDown(e: Konva.KonvaEventObject<MouseEvent>) {
     machineMouseDown({ evt: e.evt });
   }
@@ -173,118 +164,6 @@
 
   function handleStageMouseUp() {
     machineMouseUp();
-  }
-
-  function handleStageClick(e: Konva.KonvaEventObject<MouseEvent>) {
-    const stage = getStage();
-    const transformer = getTransformer();
-    if (!stage) return;
-    if (!store.hasVolume) return;
-    if (e.target.getParent()?.getClassName() === 'Transformer') return;
-
-    if (store.mode === 'create') {
-      if (store.tool === 'p_point' || store.tool === 'n_point') {
-        const group = getGroup();
-        if (!group) return;
-        const pos = getPointerImagePos(stage, group);
-        if (!pos) return;
-        const clamped = clampToImage(pos.x, pos.y);
-        store.addAnnotation({
-          id: crypto.randomUUID(),
-          type: store.tool,
-          x: clamped.x,
-          y: clamped.y,
-        });
-      }
-      return;
-    }
-
-    if (isOnAnnotation(e.target)) return;
-
-    match(store.mode)
-      .with('select', () => {
-        store.clearSelection();
-        if (transformer) transformer.nodes([]);
-      })
-      .otherwise(() => {});
-  }
-
-  function handleAnnotationClick(
-    ann: { id: string; type: string },
-    e: Konva.KonvaEventObject<MouseEvent>
-  ) {
-    if (store.mode === 'select') {
-      e.cancelBubble = true;
-      store.selectAnnotation(ann.id);
-      match(ann.type)
-        .with('box', () => {
-          const stage = getStage();
-          const transformer = getTransformer();
-          if (!stage || !transformer) return;
-          const node = stage.findOne('.' + ann.id);
-          if (node) transformer.nodes([node]);
-        })
-        .otherwise(() => {});
-    } else if (store.mode === 'delete') {
-      e.cancelBubble = true;
-      store.removeAnnotation(ann.id);
-      const transformer = getTransformer();
-      if (transformer) transformer.nodes([]);
-    }
-  }
-
-  function handleDragEnd(ann: { id: string; type: string }, e: Konva.KonvaEventObject<DragEvent>) {
-    const node = e.target;
-    match(ann.type)
-      .with('p_point', 'n_point', () => {
-        store.updateAnnotation(ann.id, { x: Math.round(node.x()), y: Math.round(node.y()) });
-      })
-      .with('box', () => {
-        const width = node.width() * node.scaleX();
-        const height = node.height() * node.scaleY();
-        store.updateAnnotation(ann.id, {
-          x1: Math.round(node.x()),
-          y1: Math.round(node.y()),
-          x2: Math.round(node.x() + width),
-          y2: Math.round(node.y() + height),
-        });
-      })
-      .otherwise(() => {});
-  }
-
-  function handleTransformEnd(e: Konva.KonvaEventObject<Event>) {
-    const node = e.target;
-    const ann = store.annotations.find((a) => a.id === node.name());
-    if (!ann) return;
-    match(ann.type)
-      .with('box', () => {
-        const width = node.width() * node.scaleX();
-        const height = node.height() * node.scaleY();
-        store.updateAnnotation(ann.id, {
-          x1: Math.round(node.x()),
-          y1: Math.round(node.y()),
-          x2: Math.round(node.x() + width),
-          y2: Math.round(node.y() + height),
-        });
-        node.scaleX(1);
-        node.scaleY(1);
-      })
-      .otherwise(() => {});
-  }
-
-  function fitToImage() {
-    if (!imageWidth.value || !imageHeight.value) return;
-    const padding = 40;
-    const availW = stageWidth.value - padding * 2;
-    const availH = stageHeight.value - padding * 2;
-    const scaleX = availW / imageWidth.value;
-    const scaleY = availH / imageHeight.value;
-    const scale = Math.min(scaleX, scaleY, 5);
-    store.stageScale = scale;
-    store.stagePos = {
-      x: (stageWidth.value - imageWidth.value * scale) / 2,
-      y: (stageHeight.value - imageHeight.value * scale) / 2,
-    };
   }
 
   defineExpose({ fitToImage });
