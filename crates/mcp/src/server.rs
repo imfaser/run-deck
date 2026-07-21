@@ -256,9 +256,15 @@ impl McpServer {
         let mut params = rmcp::model::CallToolRequestParams::new(tool_name.to_string());
         params.arguments = arguments;
 
-        service
-            .call_tool(params)
+        let timeout_ms = self.config.timeout_ms().unwrap_or(30_000);
+        let duration = std::time::Duration::from_millis(timeout_ms);
+
+        tokio::time::timeout(duration, service.call_tool(params))
             .await
+            .map_err(|_| McpError::CallTimeout {
+                server: self.name.clone(),
+                tool: tool_name.to_string(),
+            })?
             .map_err(|e| McpError::CallToolFailed {
                 server: self.name.clone(),
                 tool: tool_name.to_string(),

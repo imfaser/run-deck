@@ -27,6 +27,9 @@ pub enum McpError {
     #[error("timed out starting server '{name}'")]
     Timeout { name: String },
 
+    #[error("timed out calling tool '{tool}' on server '{server}'")]
+    CallTimeout { server: String, tool: String },
+
     #[error("failed to start server '{name}': {error}")]
     StartupFailed { name: String, error: String },
 
