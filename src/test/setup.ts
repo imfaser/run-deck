@@ -1,4 +1,4 @@
-import { randomFillSync } from 'crypto';
+import { randomFillSync, randomUUID } from 'crypto';
 import { afterEach } from 'vitest';
 import { clearMocks } from '@tauri-apps/api/mocks';
 
@@ -6,6 +6,7 @@ import { clearMocks } from '@tauri-apps/api/mocks';
 Object.defineProperty(window, 'crypto', {
   value: {
     getRandomValues: (buffer: Buffer) => randomFillSync(buffer),
+    randomUUID: () => randomUUID(),
   },
 });
 

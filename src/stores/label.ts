@@ -8,6 +8,7 @@ import type {
   Annotation,
 } from '@/schemas/annotation';
 import { createAnnotationActions } from '@/stores/shared/annotation-actions';
+import type { MaskSettings } from '@/stores/label-raw';
 
 export const useLabelStore = defineStore('label', () => {
   // Image
@@ -29,10 +30,11 @@ export const useLabelStore = defineStore('label', () => {
   // Mask
   const maskUrl = ref<string | null>(null);
   const maskVisible = ref(true);
-  const confidenceThreshold = ref(128);
-  const maskColor = ref('#0096ff');
-  const maskOpacity = ref(0.6);
+  const maskSettings = ref<MaskSettings>({ color: '#0096ff', opacity: 0.6, threshold: 128 });
   const rawMaskPath = ref<string | null>(null);
+
+  // Fit image trigger
+  const fitImageTrigger = ref(0);
 
   // Cursor
   const cursorImagePos = ref<{ x: number; y: number } | null>(null);
@@ -76,10 +78,9 @@ export const useLabelStore = defineStore('label', () => {
     stagePos,
     maskUrl,
     maskVisible,
-    confidenceThreshold,
-    maskColor,
-    maskOpacity,
+    maskSettings,
     rawMaskPath,
+    fitImageTrigger,
     cursorImagePos,
 
     // Computed

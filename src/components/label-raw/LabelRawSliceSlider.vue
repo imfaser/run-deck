@@ -20,29 +20,29 @@
 
   function handleInput(val: number | undefined) {
     if (val === undefined || val === null) return;
-    const idx = Math.max(1, Math.min(val, store.totalSlices)) - 1;
+    const idx = Math.max(1, Math.min(val, store.volumeInfo.totalSlices)) - 1;
     store.loadSlice(idx);
   }
 </script>
 
 <template>
   <div v-if="store.hasVolume" class="slice-slider">
-    <span class="axis-badge">{{ store.axis }}</span>
+    <span class="axis-badge">{{ store.volumeConfig.axis }}</span>
     <el-input-number
       :model-value="displayIndex"
       :min="1"
-      :max="store.totalSlices"
+      :max="store.volumeInfo.totalSlices"
       :step="1"
       size="small"
       controls-position="right"
       :disabled="store.isRecognizing"
       @change="handleInput"
     />
-    <span class="slice-total">/ {{ store.totalSlices }}</span>
+    <span class="slice-total">/ {{ store.volumeInfo.totalSlices }}</span>
     <el-slider
       v-model="sliderModel"
       :min="0"
-      :max="Math.max(0, store.totalSlices - 1)"
+      :max="Math.max(0, store.volumeInfo.totalSlices - 1)"
       :step="1"
       :show-tooltip="false"
       :disabled="store.isRecognizing"

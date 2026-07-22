@@ -21,7 +21,6 @@ export const useConfigStore = defineStore('config', () => {
   const configMutation = useMcpMutation();
   const { setTheme } = useTheme();
 
-  const activeSection = ref('general');
   const editingServer = ref<{ name: string; config: McpServerConfig; isNew?: boolean } | null>(
     null
   );
@@ -140,16 +139,11 @@ export const useConfigStore = defineStore('config', () => {
     editingServer.value.config = newConfig;
   }
 
-  async function handleMenuSelect(key: string) {
-    activeSection.value = key;
-  }
-
   return {
     config,
     loading,
     isError,
     error,
-    activeSection,
     editingServer,
     serverStatuses,
     refreshServerStatuses,
@@ -162,6 +156,5 @@ export const useConfigStore = defineStore('config', () => {
     toggleServer,
     updateServerName,
     updateServerConfig,
-    handleMenuSelect,
   };
 });

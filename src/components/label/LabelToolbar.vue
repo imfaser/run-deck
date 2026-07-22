@@ -19,17 +19,12 @@
       if (!store.rawMaskPath) return;
       const maskUrl = await renderMask(
         store.rawMaskPath,
-        store.confidenceThreshold,
-        store.maskColor
+        store.maskSettings.threshold,
+        store.maskSettings.color
       );
       store.maskUrl = maskUrl;
     },
   });
-
-  // ========== 3. Props / Emits 定义 ==========
-  const emit = defineEmits<{
-    fitImage: [];
-  }>();
 
   // ========== 4. 响应式状态声明 ==========
   const isLoadingMask = ref(false);
@@ -78,14 +73,18 @@
         store.rawMaskPath = convertFileSrc(imgBlock.data, 'mcp');
         const maskUrl = await renderMask(
           store.rawMaskPath,
-          store.confidenceThreshold,
-          store.maskColor
+          store.maskSettings.threshold,
+          store.maskSettings.color
         );
         store.maskUrl = maskUrl;
       }
     } finally {
       isLoadingMask.value = false;
     }
+  }
+
+  function handleFitImage() {
+    store.fitImageTrigger++;
   }
 </script>
 
@@ -109,7 +108,7 @@
         </template>
         AI 识别
       </el-button>
-      <el-button :disabled="!store.imageUrl" @click="emit('fitImage')">
+      <el-button :disabled="!store.imageUrl" @click="handleFitImage">
         <template #icon>
           <span>⊞</span>
         </template>
@@ -121,21 +120,21 @@
       <div class="mask-color-picker">
         <span class="slider-label">Mask 颜色:</span>
         <el-color-picker
-          v-model="store.maskColor"
+          v-model="store.maskSettings.color"
           :predefine="['#0096ff', '#22c55e', '#ef4444', '#eab308', '#a855f7']"
         />
       </div>
       <div class="confidence-slider">
         <span class="slider-label">置信度阈值:</span>
         <el-slider
-          v-model="store.confidenceThreshold"
+          v-model="store.maskSettings.threshold"
           :min="0"
           :max="255"
           :step="1"
           :show-tooltip="false"
           style="width: 120px"
         />
-        <span class="slider-value">{{ store.confidenceThreshold }}</span>
+        <span class="slider-value">{{ store.maskSettings.threshold }}</span>
       </div>
       <span class="cursor-pos">{{ cursorDisplay }}</span>
     </div>

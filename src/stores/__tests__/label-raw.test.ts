@@ -35,7 +35,7 @@ describe('label-raw store', () => {
 
     expect(store.filePath).toBeNull();
     expect(store.volumeId).toBeNull();
-    expect(store.totalSlices).toBe(0);
+    expect(store.volumeInfo.totalSlices).toBe(0);
     expect(store.currentIndex).toBe(0);
     expect(store.keyframes.size).toBe(0);
     expect(store.annotations).toHaveLength(0);

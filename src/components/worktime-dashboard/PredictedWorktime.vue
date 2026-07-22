@@ -103,11 +103,12 @@
       </div>
     </div>
 
-    <div v-else class="empty-state">
-      <span class="empty-icon">📝</span>
-      <span class="empty-text">暂无未来工时安排</span>
-      <span class="empty-hint">在日历中点击未来日期录入工时</span>
-    </div>
+    <el-empty v-else description="暂无未来工时安排">
+      <template #description>
+        <span>暂无未来工时安排</span>
+        <span class="empty-hint">在日历中点击未来日期录入工时</span>
+      </template>
+    </el-empty>
   </div>
 </template>
 
@@ -217,28 +218,11 @@
     }
   }
 
-  .empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--spacing-rem-sm);
-    padding: var(--spacing-rem-xl);
-    text-align: center;
-  }
-
-  .empty-icon {
-    font-size: 32px;
-    opacity: 0.5;
-  }
-
-  .empty-text {
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
-  }
-
   .empty-hint {
+    display: block;
     font-size: var(--text-xs);
     color: var(--text-secondary);
     opacity: 0.7;
+    margin-top: 4px;
   }
 </style>

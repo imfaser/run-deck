@@ -1,6 +1,5 @@
 <script setup lang="ts">
   // ========== 1. 第三方 / 内部模块引入 ==========
-  import { ref } from 'vue';
   import { useLabelKeyboard } from '@/composables/useLabelKeyboard';
   import LabelToolbar from '@/components/label/LabelToolbar.vue';
   import LabelModePanel from '@/components/shared/LabelModePanel.vue';
@@ -12,28 +11,20 @@
   // ========== 2. 组合式函数（Composables）调用 ==========
   useLabelKeyboard();
   const store = useLabelStore();
-
-  // ========== 3. 响应式状态声明 ==========
-  const canvasRef = ref<InstanceType<typeof LabelCanvas> | null>(null);
-
-  // ========== 4. 普通方法与业务逻辑 ==========
-  function handleFitImage() {
-    canvasRef.value?.fitToImage();
-  }
 </script>
 
 <template>
   <el-container direction="vertical" class="label-page">
-    <LabelToolbar @fit-image="handleFitImage" />
+    <LabelToolbar />
 
     <el-container class="label-body">
       <el-aside width="64px" class="label-sidebar-left">
-        <LabelModePanel :mode="store.mode" @set-mode="(m) => store.setMode(m)" />
-        <LabelToolPanel :mode="store.mode" :tool="store.tool" @set-tool="(t) => store.setTool(t)" />
+        <LabelModePanel :mode="store.mode" store-type="label" />
+        <LabelToolPanel :mode="store.mode" :tool="store.tool" store-type="label" />
       </el-aside>
 
       <el-main class="label-canvas-area">
-        <LabelCanvas ref="canvasRef" />
+        <LabelCanvas />
       </el-main>
 
       <el-aside width="220px" class="label-sidebar-right">

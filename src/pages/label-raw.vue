@@ -1,5 +1,4 @@
 <script setup lang="ts">
-  import { ref } from 'vue';
   import { useLabelRawKeyboard } from '@/composables/useLabelRawKeyboard';
   import { useLabelRawStore } from '@/stores/label-raw';
   import LabelRawToolbar from '@/components/label-raw/LabelRawToolbar.vue';
@@ -11,31 +10,21 @@
 
   useLabelRawKeyboard();
   const store = useLabelRawStore();
-
-  const canvasRef = ref<InstanceType<typeof LabelRawCanvas> | null>(null);
-
-  function handleFitImage() {
-    canvasRef.value?.fitToImage();
-  }
 </script>
 
 <template>
   <el-container direction="vertical" class="label-raw-page">
-    <LabelRawToolbar @fit-image="handleFitImage" />
+    <LabelRawToolbar />
     <LabelRawSliceSlider />
 
     <el-container class="label-raw-body">
       <el-aside width="64px" class="label-sidebar-left">
-        <LabelRawModePanel :mode="store.mode" @set-mode="(m) => store.setMode(m)" />
-        <LabelRawToolPanel
-          :mode="store.mode"
-          :tool="store.tool"
-          @set-tool="(t) => store.setTool(t)"
-        />
+        <LabelRawModePanel :mode="store.mode" store-type="raw" />
+        <LabelRawToolPanel :mode="store.mode" :tool="store.tool" store-type="raw" />
       </el-aside>
 
       <el-main class="label-canvas-area">
-        <LabelRawCanvas ref="canvasRef" />
+        <LabelRawCanvas />
       </el-main>
 
       <el-aside width="220px" class="label-sidebar-right">

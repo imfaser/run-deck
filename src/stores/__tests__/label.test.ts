@@ -19,7 +19,7 @@ describe('label store', () => {
     expect(store.stageScale).toBe(1);
     expect(store.stagePos).toEqual({ x: 0, y: 0 });
     expect(store.maskVisible).toBe(true);
-    expect(store.maskOpacity).toBe(0.6);
+    expect(store.maskSettings.opacity).toBe(0.6);
   });
 
   it('addAnnotation adds to annotations', async () => {
@@ -165,9 +165,9 @@ describe('label store', () => {
 
     expect(store.maskUrl).toBeNull();
     expect(store.maskVisible).toBe(true);
-    expect(store.maskOpacity).toBe(0.6);
-    expect(store.maskColor).toBe('#0096ff');
-    expect(store.confidenceThreshold).toBe(128);
+    expect(store.maskSettings.opacity).toBe(0.6);
+    expect(store.maskSettings.color).toBe('#0096ff');
+    expect(store.maskSettings.threshold).toBe(128);
     expect(store.rawMaskPath).toBeNull();
   });
 });

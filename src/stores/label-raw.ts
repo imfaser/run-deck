@@ -17,6 +17,27 @@ export type VolumeDtype = 'u8' | 'u16';
 export type VolumeEndian = 'little' | 'big';
 export type VolumeAxis = 'x' | 'y' | 'z';
 
+export interface VolumeConfig {
+  x: number;
+  y: number;
+  z: number;
+  dtype: VolumeDtype;
+  endian: VolumeEndian;
+  axis: VolumeAxis;
+}
+
+export interface VolumeInfo {
+  totalSlices: number;
+  sliceWidth: number;
+  sliceHeight: number;
+}
+
+export interface MaskSettings {
+  color: string;
+  opacity: number;
+  threshold: number;
+}
+
 export interface Keyframe {
   annotations: Annotation[];
   maskUrl: string | null;
@@ -28,18 +49,18 @@ export interface Keyframe {
 export const useLabelRawStore = defineStore('label-raw', () => {
   // ─── Volume config ─────────────────────────────────
   const filePath = ref<string | null>(null);
-  const volumeX = ref(100);
-  const volumeY = ref(100);
-  const volumeZ = ref(100);
-  const dtype = ref<VolumeDtype>('u16');
-  const endian = ref<VolumeEndian>('little');
-  const axis = ref<VolumeAxis>('z');
+  const volumeConfig = ref<VolumeConfig>({
+    x: 100,
+    y: 100,
+    z: 100,
+    dtype: 'u16',
+    endian: 'little',
+    axis: 'z',
+  });
 
   // ─── Volume handle ─────────────────────────────────
   const volumeId = ref<string | null>(null);
-  const totalSlices = ref(0);
-  const sliceWidth = ref(0);
-  const sliceHeight = ref(0);
+  const volumeInfo = ref<VolumeInfo>({ totalSlices: 0, sliceWidth: 0, sliceHeight: 0 });
 
   // ─── Current view ──────────────────────────────────
   const currentIndex = ref(0);
@@ -65,10 +86,11 @@ export const useLabelRawStore = defineStore('label-raw', () => {
   const stagePos = ref({ x: 0, y: 0 });
 
   // ─── Mask settings ─────────────────────────────────
-  const maskColor = ref('#0096ff');
-  const maskOpacity = ref(0.6);
-  const confidenceThreshold = ref(128);
+  const maskSettings = ref<MaskSettings>({ color: '#0096ff', opacity: 0.6, threshold: 128 });
   const cursorImagePos = ref<{ x: number; y: number } | null>(null);
+
+  // ─── Fit image trigger ─────────────────────────────
+  const fitImageTrigger = ref(0);
 
   // ─── Recognition composable ────────────────────────
   const recognize = useRawRecognize({
@@ -76,10 +98,10 @@ export const useLabelRawStore = defineStore('label-raw', () => {
     keyframes,
     annotations,
     currentIndex,
-    totalSlices,
+    totalSlices: computed(() => volumeInfo.value.totalSlices),
     currentMaskUrl,
-    confidenceThreshold,
-    maskColor,
+    confidenceThreshold: computed(() => maskSettings.value.threshold),
+    maskColor: computed(() => maskSettings.value.color),
     cloneKeyframes,
   });
 
@@ -171,24 +193,24 @@ export const useLabelRawStore = defineStore('label-raw', () => {
   async function openVolume() {
     if (!filePath.value) return;
 
-    await logMessage(
-      'info',
-      `[volume] open ${filePath.value} shape=${volumeX.value}x${volumeY.value}x${volumeZ.value} dtype=${dtype.value}`
-    );
+    const { x, y, z, dtype, endian, axis } = volumeConfig.value;
+    await logMessage('info', `[volume] open ${filePath.value} shape=${x}x${y}x${z} dtype=${dtype}`);
     const resp: RawOpenResponse = await rawOpen({
       path: filePath.value,
-      x: volumeX.value,
-      y: volumeY.value,
-      z: volumeZ.value,
-      dtype: dtype.value,
-      endian: endian.value,
-      axis: axis.value,
+      x,
+      y,
+      z,
+      dtype,
+      endian,
+      axis,
     });
 
     volumeId.value = resp.volumeId;
-    totalSlices.value = resp.totalSlices;
-    sliceWidth.value = resp.sliceWidth;
-    sliceHeight.value = resp.sliceHeight;
+    volumeInfo.value = {
+      totalSlices: resp.totalSlices,
+      sliceWidth: resp.sliceWidth,
+      sliceHeight: resp.sliceHeight,
+    };
     currentIndex.value = 0;
     keyframes.value.clear();
     annotations.value = [];
@@ -204,7 +226,7 @@ export const useLabelRawStore = defineStore('label-raw', () => {
 
   async function loadSlice(index: number) {
     if (!volumeId.value) return;
-    if (index < 0 || index >= totalSlices.value) return;
+    if (index < 0 || index >= volumeInfo.value.totalSlices) return;
 
     // Save current annotations before navigating away
     saveCurrentAnnotations();
@@ -362,17 +384,10 @@ export const useLabelRawStore = defineStore('label-raw', () => {
   return {
     // Volume config
     filePath,
-    volumeX,
-    volumeY,
-    volumeZ,
-    dtype,
-    endian,
-    axis,
+    volumeConfig,
     // Volume handle
     volumeId,
-    totalSlices,
-    sliceWidth,
-    sliceHeight,
+    volumeInfo,
     // Current view
     currentIndex,
     sliceImageUrl,
@@ -396,10 +411,10 @@ export const useLabelRawStore = defineStore('label-raw', () => {
     stageScale,
     stagePos,
     // Mask settings
-    maskColor,
-    maskOpacity,
-    confidenceThreshold,
+    maskSettings,
     cursorImagePos,
+    // Fit image trigger
+    fitImageTrigger,
     // Computed
     positivePoints,
     negativePoints,

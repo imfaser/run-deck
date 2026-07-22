@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import { onMounted } from 'vue';
+  import { useRouteQuery } from '@vueuse/router';
   import GeneralSettings from '@/components/config/GeneralSettings.vue';
   import McpServerList from '@/components/config/McpServerList.vue';
   import McpServerForm from '@/components/config/McpServerForm.vue';
@@ -7,6 +8,7 @@
   import { useConfigStore } from '@/stores/config';
 
   const store = useConfigStore();
+  const activeSection = useRouteQuery<string>('section', 'general');
 
   const sections = [
     { key: 'general', label: '通用', icon: '⚙' },
@@ -23,9 +25,9 @@
     <template #aside>
       <div class="sidebar-title">设置</div>
       <el-menu
-        :default-active="store.activeSection"
+        :default-active="activeSection"
         class="sidebar-nav"
-        @select="(key: string) => store.handleMenuSelect(key)"
+        @select="(key: string) => (activeSection = key)"
       >
         <el-menu-item v-for="section in sections" :key="section.key" :index="section.key">
           {{ section.label }}
@@ -42,9 +44,9 @@
     />
 
     <template v-else-if="store.config">
-      <GeneralSettings v-if="store.activeSection === 'general'" />
+      <GeneralSettings v-if="activeSection === 'general'" />
 
-      <template v-if="store.activeSection === 'mcp'">
+      <template v-if="activeSection === 'mcp'">
         <McpServerForm v-if="store.editingServer" />
         <McpServerList v-else />
       </template>

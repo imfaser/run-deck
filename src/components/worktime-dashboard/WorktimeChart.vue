@@ -6,6 +6,7 @@
   import { LineChart } from 'echarts/charts';
   import { GridComponent, TooltipComponent } from 'echarts/components';
   import { CanvasRenderer } from 'echarts/renderers';
+  import { useEventListener } from '@vueuse/core';
   import { useWorktimeStore } from '@/stores/worktime';
 
   echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer]);
@@ -182,11 +183,11 @@
 
   onMounted(() => {
     initChart();
-    window.addEventListener('resize', handleResize);
   });
 
+  useEventListener(window, 'resize', handleResize);
+
   onBeforeUnmount(() => {
-    window.removeEventListener('resize', handleResize);
     chart.value?.dispose();
   });
 </script>
@@ -195,17 +196,7 @@
   <div class="worktime-chart">
     <div class="chart-header">
       <span class="chart-title">工时趋势</span>
-      <div class="view-tabs">
-        <button
-          v-for="opt in viewOptions"
-          :key="opt.value"
-          class="view-tab"
-          :class="{ active: activeView === opt.value }"
-          @click="activeView = opt.value"
-        >
-          {{ opt.label }}
-        </button>
-      </div>
+      <el-segmented v-model="activeView" :options="viewOptions" size="small" />
     </div>
     <div ref="chartRef" class="chart-container" />
   </div>
@@ -230,32 +221,6 @@
     font-size: var(--text-lg);
     font-weight: var(--font-semibold);
     color: var(--text-primary);
-  }
-
-  .view-tabs {
-    display: flex;
-    gap: var(--spacing-rem-lg);
-  }
-
-  .view-tab {
-    background: none;
-    border: none;
-    padding: var(--spacing-rem-sm) 0;
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    transition: all var(--transition-base);
-
-    &:hover {
-      color: var(--text-primary);
-    }
-
-    &.active {
-      color: var(--accent);
-      border-bottom-color: var(--accent);
-      font-weight: var(--font-medium);
-    }
   }
 
   .chart-container {

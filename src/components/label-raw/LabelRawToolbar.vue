@@ -1,7 +1,7 @@
 <script setup lang="ts">
   import { ref, computed } from 'vue';
   import { open } from '@tauri-apps/plugin-dialog';
-  import { useLabelRawStore } from '@/stores/label-raw';
+  import { useLabelRawStore, type VolumeConfig } from '@/stores/label-raw';
   import { useMaskRenderer } from '@/composables/useMaskRenderer';
   import { useMaskRenderOnChange } from '@/composables/useMaskRenderOnChange';
 
@@ -14,25 +14,27 @@
     renderFn: async () => {
       const kf = store.currentKeyframe;
       if (!kf?.rawMaskHash) return;
-      const maskUrl = await renderMask(kf.rawMaskHash, store.confidenceThreshold, store.maskColor);
+      const maskUrl = await renderMask(
+        kf.rawMaskHash,
+        store.maskSettings.threshold,
+        store.maskSettings.color
+      );
       kf.maskUrl = maskUrl;
     },
   });
-
-  const emit = defineEmits<{
-    fitImage: [];
-  }>();
 
   const isLoadingMask = ref(false);
   const showConfigDialog = ref(false);
 
   // Config dialog state
-  const configX = ref(100);
-  const configY = ref(100);
-  const configZ = ref(100);
-  const configDtype = ref('u16');
-  const configEndian = ref('little');
-  const configAxis = ref('z');
+  const configForm = ref<VolumeConfig>({
+    x: 100,
+    y: 100,
+    z: 100,
+    dtype: 'u16',
+    endian: 'little',
+    axis: 'z',
+  });
 
   const cursorDisplay = computed(() => {
     if (!store.cursorImagePos) return '坐标: -, -';
@@ -51,12 +53,7 @@
   }
 
   async function handleConfirmConfig() {
-    store.volumeX = configX.value;
-    store.volumeY = configY.value;
-    store.volumeZ = configZ.value;
-    store.dtype = configDtype.value as 'u8' | 'u16';
-    store.endian = configEndian.value as 'little' | 'big';
-    store.axis = configAxis.value as 'x' | 'y' | 'z';
+    store.volumeConfig = { ...configForm.value };
     showConfigDialog.value = false;
     await store.openVolume();
   }
@@ -89,14 +86,14 @@
       const result = await ElMessageBox.prompt('识别全部：指定结束 slice 编号', '识别全部', {
         confirmButtonText: '开始识别',
         cancelButtonText: '取消',
-        inputPlaceholder: `默认 ${store.totalSlices}`,
+        inputPlaceholder: `默认 ${store.volumeInfo.totalSlices}`,
         inputType: 'number',
-        inputValue: String(store.totalSlices),
+        inputValue: String(store.volumeInfo.totalSlices),
         inputValidator: (val: string) => {
           if (val === '') return true;
           const n = Number(val);
-          if (Number.isNaN(n) || n < 1 || n > store.totalSlices) {
-            return `请输入 1 ~ ${store.totalSlices} 之间的数字`;
+          if (Number.isNaN(n) || n < 1 || n > store.volumeInfo.totalSlices) {
+            return `请输入 1 ~ ${store.volumeInfo.totalSlices} 之间的数字`;
           }
           return true;
         },
@@ -116,6 +113,10 @@
     if (!store.isRecognizing) return '';
     return `${store.recognitionProgress.current + 1}/${store.recognitionProgress.total}`;
   });
+
+  function handleFitImage() {
+    store.fitImageTrigger++;
+  }
 </script>
 
 <template>
@@ -162,7 +163,7 @@
         </template>
         识别全部
       </el-button>
-      <el-button :disabled="!store.sliceImageUrl" @click="emit('fitImage')">
+      <el-button :disabled="!store.sliceImageUrl" @click="handleFitImage">
         <template #icon>
           <span>⊞</span>
         </template>
@@ -174,21 +175,21 @@
       <div class="mask-color-picker">
         <span class="slider-label">Mask 颜色:</span>
         <el-color-picker
-          v-model="store.maskColor"
+          v-model="store.maskSettings.color"
           :predefine="['#0096ff', '#22c55e', '#ef4444', '#eab308', '#a855f7']"
         />
       </div>
       <div class="confidence-slider">
         <span class="slider-label">置信度阈值:</span>
         <el-slider
-          v-model="store.confidenceThreshold"
+          v-model="store.maskSettings.threshold"
           :min="0"
           :max="255"
           :step="1"
           :show-tooltip="false"
           style="width: 120px"
         />
-        <span class="slider-value">{{ store.confidenceThreshold }}</span>
+        <span class="slider-value">{{ store.maskSettings.threshold }}</span>
       </div>
       <el-button :disabled="!store.hasVolume" @click="store.exportMaskVolume()">
         <template #icon>
@@ -208,28 +209,28 @@
     >
       <el-form label-width="80px">
         <el-form-item label="X">
-          <el-input-number v-model="configX" :min="1" :max="10000" />
+          <el-input-number v-model="configForm.x" :min="1" :max="10000" />
         </el-form-item>
         <el-form-item label="Y">
-          <el-input-number v-model="configY" :min="1" :max="10000" />
+          <el-input-number v-model="configForm.y" :min="1" :max="10000" />
         </el-form-item>
         <el-form-item label="Z">
-          <el-input-number v-model="configZ" :min="1" :max="10000" />
+          <el-input-number v-model="configForm.z" :min="1" :max="10000" />
         </el-form-item>
         <el-form-item label="Dtype">
-          <el-select v-model="configDtype">
+          <el-select v-model="configForm.dtype">
             <el-option label="uint8" value="u8" />
             <el-option label="uint16" value="u16" />
           </el-select>
         </el-form-item>
         <el-form-item label="Endian">
-          <el-select v-model="configEndian">
+          <el-select v-model="configForm.endian">
             <el-option label="Little" value="little" />
             <el-option label="Big" value="big" />
           </el-select>
         </el-form-item>
         <el-form-item label="Axis">
-          <el-select v-model="configAxis">
+          <el-select v-model="configForm.axis">
             <el-option label="Z (Axial)" value="z" />
             <el-option label="Y (Coronal)" value="y" />
             <el-option label="X (Sagittal)" value="x" />
@@ -255,7 +256,7 @@
       <div style="text-align: center; padding: 16px 0">
         <el-progress
           :percentage="
-            store.totalSlices > 0
+            store.volumeInfo.totalSlices > 0
               ? Math.round(
                   (store.recognitionProgress.current / store.recognitionProgress.total) * 100
                 )

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import dayjs from 'dayjs';
+import { keyBy } from 'es-toolkit';
 import type { WorkRecord, WorktimeSettings } from '@/schemas/worktime';
 
 export type { WorkRecord, WorktimeSettings };
@@ -25,7 +26,7 @@ const DEFAULT_SETTINGS: WorktimeSettings = {
 };
 
 function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  return crypto.randomUUID();
 }
 
 function calculateWorkHours(clockIn: string, clockOut: string, settings: WorktimeSettings): number {
@@ -68,13 +69,7 @@ export const useWorktimeStore = defineStore(
     const records = ref<WorkRecord[]>([]);
     const settings = ref<WorktimeSettings>({ ...DEFAULT_SETTINGS });
 
-    const recordsByDate = computed(() => {
-      const map: Record<string, WorkRecord> = {};
-      for (const r of records.value) {
-        map[r.date] = r;
-      }
-      return map;
-    });
+    const recordsByDate = computed(() => keyBy(records.value, (r) => r.date));
 
     function hasRecord(date: string): boolean {
       return date in recordsByDate.value;

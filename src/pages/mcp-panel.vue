@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { ref, watchEffect } from 'vue';
+  import { ref, nextTick, watch } from 'vue';
   import PageLayout from '@/components/layout/PageLayout.vue';
   import McpServerSidebar from '@/components/mcp-panel/McpServerSidebar.vue';
   import McpServerDetail from '@/components/mcp-panel/McpServerDetail.vue';
@@ -10,22 +10,22 @@
   const selectedServer = ref('');
   const detailRef = ref<InstanceType<typeof McpServerDetail> | null>(null);
 
-  let initialized = false;
-  watchEffect(() => {
-    if (initialized) return;
-    const cfg = config.value;
+  watch(config, (cfg) => {
     if (!cfg) return;
-    initialized = true;
     const names = Object.keys(cfg.mcp);
-    if (names.length > 0) {
+    if (names.length > 0 && !selectedServer.value) {
       selectedServer.value = names[0];
-      detailRef.value?.loadDetails();
     }
+  });
+
+  watch(selectedServer, async (name) => {
+    if (!name) return;
+    await nextTick();
+    detailRef.value?.loadDetails();
   });
 
   function handleSelect(name: string) {
     selectedServer.value = name;
-    detailRef.value?.loadDetails();
   }
 </script>
 

@@ -1,3 +1,4 @@
+import { pickBy } from 'es-toolkit';
 import { mcpCallTool, mcpStoreContent, type CallToolResult } from './cmd';
 import { SegmentOptionsSchema, type SegmentOptions } from '@/schemas/sam3';
 
@@ -16,14 +17,15 @@ export async function segmentImage(
 
   const args: Record<string, unknown> = {
     image: mcpUrl,
-    ...Object.fromEntries(
-      Object.entries({
+    ...pickBy(
+      {
         p_point: p_point && p_point.length > 0 ? p_point : undefined,
         n_point: n_point && n_point.length > 0 ? n_point : undefined,
         boxes: boxes && boxes.length > 0 ? boxes : undefined,
         prev_mask,
         multimask_output,
-      }).filter(([, v]) => v !== undefined)
+      },
+      (_v, _k) => _v !== undefined
     ),
   };
 

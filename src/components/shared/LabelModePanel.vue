@@ -2,42 +2,49 @@
   import { Pointer, Edit, Delete } from '@element-plus/icons-vue';
   import type { Component } from 'vue';
   import type { LabelMode } from '@/schemas/annotation';
+  import { useLabelRawStore } from '@/stores/label-raw';
+  import { useLabelStore } from '@/stores/label';
 
   const props = defineProps<{
     mode: LabelMode;
+    storeType: 'raw' | 'label';
   }>();
 
-  const emit = defineEmits<{
-    setMode: [mode: LabelMode];
-  }>();
+  const rawStore = useLabelRawStore();
+  const labelStore = useLabelStore();
 
-  const modes: { key: LabelMode; label: string; icon: Component }[] = [
-    { key: 'select', label: '选择', icon: Pointer },
-    { key: 'create', label: '创建', icon: Edit },
-    { key: 'delete', label: '删除', icon: Delete },
+  const modes: { value: LabelMode; label: string; icon: Component }[] = [
+    { value: 'select', label: '选择', icon: Pointer },
+    { value: 'create', label: '创建', icon: Edit },
+    { value: 'delete', label: '删除', icon: Delete },
   ];
 
-  function handleModeClick(mode: LabelMode) {
-    emit('setMode', mode);
+  function handleModeChange(mode: LabelMode) {
+    if (props.storeType === 'raw') {
+      rawStore.setMode(mode);
+    } else {
+      labelStore.setMode(mode);
+    }
   }
 </script>
 
 <template>
   <div class="label-mode-panel">
     <div class="panel-title">模式</div>
-    <div class="mode-buttons">
-      <button
-        v-for="m in modes"
-        :key="m.key"
-        class="mode-btn"
-        :class="{ active: props.mode === m.key }"
-        :title="m.label"
-        @click="handleModeClick(m.key)"
-      >
-        <el-icon :size="18"><component :is="m.icon" /></el-icon>
-        <span class="mode-label">{{ m.label }}</span>
-      </button>
-    </div>
+    <el-segmented
+      :model-value="props.mode"
+      :options="modes"
+      direction="vertical"
+      size="small"
+      @update:model-value="(val: LabelMode) => handleModeChange(val)"
+    >
+      <template #default="{ item }">
+        <div class="segmented-option">
+          <el-icon :size="16"><component :is="item.icon" /></el-icon>
+          <span class="option-label">{{ item.label }}</span>
+        </div>
+      </template>
+    </el-segmented>
   </div>
 </template>
 
@@ -56,36 +63,20 @@
     margin-bottom: var(--spacing-1);
   }
 
-  .mode-buttons {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-1);
-  }
-
-  .mode-btn {
+  .segmented-option {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
-    padding: var(--spacing-2) var(--spacing-1);
-    border: none;
-    border-radius: var(--radius-md);
-    background: transparent;
-    cursor: pointer;
-    transition: background var(--transition-fast);
-    color: var(--text-regular);
-
-    &:hover {
-      background: var(--surface-hover);
-    }
-
-    &.active {
-      background: var(--accent-primary);
-      color: var(--text-inverse);
-    }
+    gap: 2px;
+    padding: 2px 0;
   }
 
-  .mode-label {
+  .option-label {
     font-size: var(--text-xs);
+  }
+
+  :deep(.el-segmented) {
+    --el-segmented-item-selected-bg-color: var(--accent-primary);
+    --el-segmented-item-selected-color: var(--text-inverse);
   }
 </style>

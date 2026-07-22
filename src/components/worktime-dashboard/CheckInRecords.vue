@@ -55,25 +55,29 @@
       <span class="section-icon">📋</span>
       <span class="section-title">打卡记录</span>
     </div>
-    <div class="records-list">
-      <div v-for="record in recentRecords" :key="record.date" class="record-item">
-        <div class="record-date">
-          <span class="day-label">{{ formatDay(record.date) }}</span>
-          <span class="day-of-week">{{ record.dayOfWeek }}</span>
-        </div>
-        <div class="record-time">
-          <template v-if="record.clockIn !== '-'">
-            {{ record.clockIn }} - {{ record.clockOut }}
-          </template>
-          <template v-else>
-            <span class="no-record">未打卡</span>
-          </template>
-        </div>
-        <div class="record-hours" :class="{ 'has-data': record.workHours > 0 }">
-          {{ record.workHours > 0 ? `${record.workHours.toFixed(3)}h` : '-' }}
-        </div>
-      </div>
-    </div>
+    <el-table :data="recentRecords" stripe size="small">
+      <el-table-column label="日期" width="100">
+        <template #default="{ row }">
+          <div class="record-date">
+            <span class="day-label">{{ formatDay(row.date) }}</span>
+            <span class="day-of-week">{{ row.dayOfWeek }}</span>
+          </div>
+        </template>
+      </el-table-column>
+      <el-table-column label="时间">
+        <template #default="{ row }">
+          <template v-if="row.clockIn !== '-'">{{ row.clockIn }} - {{ row.clockOut }}</template>
+          <span v-else class="no-record">未打卡</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="工时" width="100" align="right">
+        <template #default="{ row }">
+          <span :class="{ 'has-data': row.workHours > 0 }">
+            {{ row.workHours > 0 ? `${row.workHours.toFixed(3)}h` : '-' }}
+          </span>
+        </template>
+      </el-table-column>
+    </el-table>
   </div>
 </template>
 
@@ -102,25 +106,6 @@
     color: var(--text-primary);
   }
 
-  .records-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-rem-sm);
-  }
-
-  .record-item {
-    display: grid;
-    grid-template-columns: 80px 1fr auto;
-    align-items: center;
-    padding: var(--spacing-rem-sm) var(--spacing-rem-md);
-    border-radius: var(--radius-md);
-    transition: background var(--transition-base);
-
-    &:hover {
-      background: var(--fill-color-light);
-    }
-  }
-
   .record-date {
     display: flex;
     flex-direction: column;
@@ -138,25 +123,13 @@
     color: var(--text-secondary);
   }
 
-  .record-time {
-    font-size: var(--text-sm);
-    color: var(--text-regular);
-  }
-
   .no-record {
     color: var(--text-secondary);
     font-style: italic;
   }
 
-  .record-hours {
-    font-size: var(--text-sm);
+  .has-data {
+    color: var(--accent);
     font-weight: var(--font-medium);
-    color: var(--text-secondary);
-    min-width: 50px;
-    text-align: right;
-
-    &.has-data {
-      color: var(--accent);
-    }
   }
 </style>

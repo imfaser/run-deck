@@ -116,6 +116,11 @@
   useEventListener(window, 'keydown', handleKeyDown);
   useEventListener(window, 'keyup', handleKeyUp);
 
+  watch(
+    () => store.fitImageTrigger,
+    () => fitToImage()
+  );
+
   onUnmounted(() => {
     const stage = getStage();
     if (stage) {
@@ -193,7 +198,7 @@
               image: maskImage,
               width: maskWidth,
               height: maskHeight,
-              opacity: store.maskOpacity,
+              opacity: store.maskSettings.opacity,
             }"
           />
           <v-circle
