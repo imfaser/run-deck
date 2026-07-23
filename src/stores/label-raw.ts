@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
-import { cloneDeep, sortBy } from 'es-toolkit';
+import { ref, computed, watch } from 'vue';
+import { cloneDeep, sortBy, debounce } from 'es-toolkit';
 import { useExtractedObservable } from '@vueuse/rxjs';
 import { liveQuery } from 'dexie';
 import { from } from 'rxjs';
@@ -349,7 +349,7 @@ export const useLabelRawStore = defineStore('label-raw', () => {
     if (!volumeId.value) return;
     if (index < 0 || index >= volumeInfo.value.totalSlices) return;
 
-    await saveCurrentObjects();
+    await flushPendingSave();
 
     isLoadingSlice.value = true;
     try {
@@ -426,23 +426,57 @@ export const useLabelRawStore = defineStore('label-raw', () => {
   }
 
   // ─── Actions: Keyframes ────────────────────────────
-  async function saveCurrentObjects() {
-    if (objects.value.length === 0) return;
-    const annCount = objects.value.reduce((sum, o) => sum + o.points.length + o.boxes.length, 0);
-    if (annCount === 0) return;
-
+  async function saveObjectsToIdb(sliceIndex: number) {
     const volId = volumeId.value;
     if (!volId) return;
 
+    const annCount = objects.value.reduce((sum, o) => sum + o.points.length + o.boxes.length, 0);
+
     try {
-      await putKeyframe(volId, currentIndex.value, {
-        objects: cloneDeep(objects.value),
-      });
-    } catch (e) {
+      if (objects.value.length === 0 || annCount === 0) {
+        const kf = await getKeyframe(volId, sliceIndex);
+        if (kf?.id) {
+          await db.keyframes.delete(kf.id);
+          await logMessage('debug', `[keyframe-db] removed slice=${sliceIndex}`);
+        }
+      } else {
+        await putKeyframe(volId, sliceIndex, {
+          objects: cloneDeep(objects.value),
+        });
+      }
       await logMessage(
-        'error',
-        `[keyframe-db] saveCurrentObjects failed slice=${currentIndex.value}: ${e}`
+        'debug',
+        `[keyframe-db] saved slice=${sliceIndex} objects=${objects.value.length} annCount=${annCount}`
       );
+    } catch (e) {
+      await logMessage('error', `[keyframe-db] saveObjectsToIdb failed slice=${sliceIndex}: ${e}`);
+    }
+  }
+
+  let pendingSliceIndex: number | null = null;
+  const debouncedSave = debounce(async () => {
+    if (pendingSliceIndex === null) return;
+    const idx = pendingSliceIndex;
+    pendingSliceIndex = null;
+    await saveObjectsToIdb(idx);
+  }, 500);
+
+  watch(
+    objects,
+    () => {
+      if (isLoadingSlice.value) return;
+      pendingSliceIndex = currentIndex.value;
+      debouncedSave();
+    },
+    { deep: true }
+  );
+
+  async function flushPendingSave() {
+    debouncedSave.cancel();
+    if (pendingSliceIndex !== null) {
+      const idx = pendingSliceIndex;
+      pendingSliceIndex = null;
+      await saveObjectsToIdb(idx);
     }
   }
 
@@ -466,7 +500,7 @@ export const useLabelRawStore = defineStore('label-raw', () => {
   }
 
   async function jumpToKeyframe(index: number) {
-    await saveCurrentObjects();
+    await flushPendingSave();
     await loadSlice(index);
   }
 
