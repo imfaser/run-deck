@@ -1,22 +1,28 @@
 import { match } from 'ts-pattern';
 import type { PointAnnotation, BoxAnnotation } from '@/schemas/annotation';
 
-export function getPointConfig(ann: PointAnnotation, isSelected: boolean, objectColor: string) {
+const POSITIVE_COLOR = '#22c55e';
+const NEGATIVE_COLOR = '#ef4444';
+
+export function getPointConfig(ann: PointAnnotation, isSelected: boolean, _objectColor: string) {
+  const labelColor = ann.label === 1 ? POSITIVE_COLOR : NEGATIVE_COLOR;
   return {
     x: ann.x,
     y: ann.y,
     radius: match(isSelected)
       .with(true, () => 8)
       .otherwise(() => 6),
-    fill: objectColor,
+    fill: match(isSelected)
+      .with(true, () => labelColor)
+      .otherwise(() => (ann.label === 1 ? labelColor : 'transparent')),
     stroke: match(isSelected)
       .with(true, () => '#ffffff')
-      .otherwise(() => objectColor),
+      .otherwise(() => labelColor),
     strokeWidth: match(isSelected)
       .with(true, () => 3)
       .otherwise(() => 2),
     shadowColor: match(isSelected)
-      .with(true, () => objectColor)
+      .with(true, () => labelColor)
       .otherwise(() => undefined),
     shadowBlur: match(isSelected)
       .with(true, () => 12)

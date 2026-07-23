@@ -15,6 +15,51 @@ vi.mock('@/services/cmd', () => ({
   mcpStoreImageBytes: vi.fn(),
 }));
 
+vi.mock('@/db/label-raw-db', () => {
+  const mockKeyframes = {
+    where: vi.fn().mockReturnValue({
+      equals: vi.fn().mockReturnValue({
+        toArray: vi.fn().mockResolvedValue([]),
+        first: vi.fn().mockResolvedValue(undefined),
+        delete: vi.fn().mockResolvedValue(undefined),
+      }),
+    }),
+    put: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
+    update: vi.fn().mockResolvedValue(undefined),
+  };
+  return { db: { keyframes: mockKeyframes } };
+});
+
+vi.mock('dexie', () => ({
+  Dexie: class {},
+  liveQuery: vi.fn().mockReturnValue({
+    subscribe: (observer: { next: (v: unknown) => void }) => {
+      observer.next([]);
+      return { unsubscribe: vi.fn() };
+    },
+  }),
+}));
+
+vi.mock('@vueuse/rxjs', () => ({
+  useExtractedObservable: vi.fn().mockReturnValue(ref([])),
+}));
+
+vi.mock('rxjs', () => ({
+  from: vi.fn().mockReturnValue({
+    pipe: vi.fn().mockReturnValue({
+      subscribe: (observer: { next: (v: unknown) => void }) => {
+        observer.next([]);
+        return { unsubscribe: vi.fn() };
+      },
+    }),
+  }),
+}));
+
+vi.mock('rxjs/operators', () => ({
+  startWith: vi.fn().mockReturnValue((source: unknown) => source),
+}));
+
 vi.mock('@/composables/useRawRecognize', () => ({
   useRawRecognize: () => ({
     isRecognizing: ref(false),
@@ -38,7 +83,7 @@ describe('label-raw store', () => {
     expect(store.volumeId).toBeNull();
     expect(store.volumeInfo.totalSlices).toBe(0);
     expect(store.currentIndex).toBe(0);
-    expect(store.keyframes.size).toBe(0);
+    expect(store.sliceSummaries).toHaveLength(0);
     expect(store.objects).toHaveLength(0);
     expect(store.mode).toBe('create');
     expect(store.tool).toBe('p_point');
@@ -180,7 +225,6 @@ describe('label-raw store', () => {
     store.addPointToObject(obj.id, { id: 'p1', x: 1, y: 2, label: 1 });
     store.addBoxToObject(obj.id, { id: 'b1', x1: 0, y1: 0, x2: 10, y2: 10 });
 
-    // Adding an annotation auto-selects it
     expect(store.selectedAnnotation?.id).toBe('b1');
 
     store.selectAnnotation('p1');

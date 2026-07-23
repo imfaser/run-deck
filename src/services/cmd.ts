@@ -20,7 +20,7 @@ const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
   error: 4,
 };
 
-let _currentLogLevel: LogLevel = 'info';
+let _currentLogLevel: LogLevel = 'trace';
 
 export function setLogLevelFilter(level: LogLevel) {
   _currentLogLevel = level;

@@ -66,16 +66,6 @@ export function useCanvasInteraction(store: CanvasStore, refs?: CanvasRefs) {
       imageX: imgPos?.x,
       imageY: imgPos?.y,
     });
-    match(refs)
-      .with(P.nonNullable, (r) => {
-        const stage = r.getStage();
-        match({ state: snapshot.value.value, stage })
-          .with({ state: P.union('panning', 'spaceHeld'), stage: P.nonNullable }, ({ stage }) => {
-            stage.container().style.cursor = 'grabbing';
-          })
-          .otherwise(() => {});
-      })
-      .otherwise(() => {});
   }
 
   function handleStageMouseMove(e: { evt: { clientX: number; clientY: number } }) {
@@ -88,17 +78,6 @@ export function useCanvasInteraction(store: CanvasStore, refs?: CanvasRefs) {
       imageX: imgPos?.x,
       imageY: imgPos?.y,
     });
-    match(snapshot.value.value)
-      .with('panning', () => {
-        const ctx = snapshot.value.context;
-        const dx = e.evt.clientX - ctx.panStart.x;
-        const dy = e.evt.clientY - ctx.panStart.y;
-        store.stagePos = {
-          x: ctx.groupStart.x + dx,
-          y: ctx.groupStart.y + dy,
-        };
-      })
-      .otherwise(() => {});
   }
 
   function handleStageMouseUp() {

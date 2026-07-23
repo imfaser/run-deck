@@ -112,21 +112,19 @@ impl McpContentStore {
             .into_iter()
             .map(|block| match block {
                 ContentBlock::Image(img) => {
-                    match self.store_base64(&img.data, &img.mime_type) {
-                        Ok(hash) => {
-                            modified = true;
-                            ContentBlock::Image(ImageContent::new(hash, img.mime_type))
-                        }
-                        Err(_) => ContentBlock::Image(img),
+                    if let Ok(mcp_url) = self.cache_base64(&img.data, &img.mime_type) {
+                        modified = true;
+                        ContentBlock::Image(ImageContent::new(mcp_url, img.mime_type))
+                    } else {
+                        ContentBlock::Image(img)
                     }
                 }
                 ContentBlock::Audio(audio) => {
-                    match self.store_base64(&audio.data, &audio.mime_type) {
-                        Ok(hash) => {
-                            modified = true;
-                            ContentBlock::Audio(AudioContent::new(hash, audio.mime_type))
-                        }
-                        Err(_) => ContentBlock::Audio(audio),
+                    if let Ok(mcp_url) = self.cache_base64(&audio.data, &audio.mime_type) {
+                        modified = true;
+                        ContentBlock::Audio(AudioContent::new(mcp_url, audio.mime_type))
+                    } else {
+                        ContentBlock::Audio(audio)
                     }
                 }
                 other => other,
@@ -144,10 +142,12 @@ impl McpContentStore {
         value
     }
 
-    fn store_base64(&self, data: &str, mime_type: &str) -> Result<String, ()> {
+    /// Decode base64 image/audio data, store raw bytes in moka cache,
+    /// return `{MCP_PREFIX}{sha256}` URL for frontend to load directly.
+    fn cache_base64(&self, data: &str, mime_type: &str) -> Result<String, ()> {
         let decoded = STANDARD.decode(data).map_err(|e| {
-                logging!(warn, Type::Cmd, "Failed to decode base64: {e}");
-            })?;
+            logging!(warn, Type::Cmd, "Failed to decode base64: {e}");
+        })?;
 
         let hash = {
             let mut hasher = Sha256::new();
@@ -156,7 +156,7 @@ impl McpContentStore {
         };
 
         self.insert(hash.clone(), (mime_type.to_string(), decoded));
-        Ok(hash)
+        Ok(format!("{MCP_PREFIX}{hash}"))
     }
 }
 

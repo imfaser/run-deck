@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ref } from 'vue';
 import type { AnnotationObject } from '@/schemas/annotation';
-import type { Keyframe } from '@/stores/label-raw';
+import type { KeyframeRecord } from '@/db/label-raw-db';
 
 vi.mock('@/services/raw3d', () => ({
   rawSlice: vi.fn().mockResolvedValue({
@@ -15,7 +15,13 @@ vi.mock('@/services/raw3d', () => ({
 
 vi.mock('@/services/sam3', () => ({
   segmentImage: vi.fn().mockResolvedValue({
-    content: [{ type: 'image', data: 'mock-hash-abc', mimeType: 'image/png' }],
+    content: [
+      {
+        type: 'image',
+        data: 'http://mcp.localhost/mock-hash-abc',
+        mimeType: 'image/png',
+      },
+    ],
   }),
 }));
 
@@ -30,10 +36,6 @@ vi.mock('@/composables/useMaskRenderer', () => ({
   useMaskRenderer: () => ({
     renderMask: vi.fn().mockResolvedValue('data:image/png;base64,mock'),
   }),
-}));
-
-vi.mock('@tauri-apps/api/core', () => ({
-  convertFileSrc: (hash: string, _protocol?: string) => `mcp://localhost/${hash}`,
 }));
 
 vi.mock('@/composables/useCanvasToBytes', () => ({
@@ -53,16 +55,40 @@ function createTestObject(id = 'obj-1', name = 'car'): AnnotationObject {
 }
 
 function createOpts() {
+  const store = new Map<string, KeyframeRecord>();
+
+  function makeKey(volId: string, idx: number) {
+    return `${volId}::${idx}`;
+  }
+
   return {
     volumeId: ref<string | null>('vol-1'),
-    keyframes: ref<Map<number, Keyframe>>(new Map()),
+    getKeyframe: vi.fn(async (volId: string, idx: number) => {
+      return store.get(makeKey(volId, idx));
+    }),
+    putKeyframe: vi.fn(async (volId: string, sliceIndex: number, data: Partial<KeyframeRecord>) => {
+      const key = makeKey(volId, sliceIndex);
+      const existing = store.get(key);
+      if (existing) {
+        Object.assign(existing, data);
+      } else {
+        store.set(key, {
+          volumeId: volId,
+          sliceIndex,
+          objects: data.objects ?? [],
+          maskUrl: data.maskUrl ?? null,
+          maskVisible: data.maskVisible ?? true,
+          rawMaskHash: data.rawMaskHash ?? null,
+          ...data,
+        });
+      }
+    }),
     objects: ref<AnnotationObject[]>([]),
     currentIndex: ref(0),
     totalSlices: ref(10),
     currentMaskUrl: ref<string | null>(null),
     confidenceThreshold: ref(128),
     maskColor: ref('#0096ff'),
-    cloneKeyframes: vi.fn(),
   };
 }
 
@@ -82,12 +108,17 @@ describe('useRawRecognize', () => {
 
     await recognizeCurrentSlice();
 
-    expect(opts.keyframes.value.has(0)).toBe(true);
-    const kf = opts.keyframes.value.get(0)!;
-    expect(kf.objects).toHaveLength(1);
-    expect(kf.objects[0].points).toHaveLength(1);
-    expect(kf.rawMaskHash).toBe('mcp://localhost/mock-hash-abc');
-    expect(kf.maskUrl).toBe('data:image/png;base64,mock');
+    expect(opts.putKeyframe).toHaveBeenCalled();
+    const putCalls = (opts.putKeyframe as ReturnType<typeof vi.fn>).mock.calls;
+    // First call creates the keyframe with objects
+    expect(putCalls[0][0]).toBe('vol-1');
+    expect(putCalls[0][1]).toBe(0);
+    expect(putCalls[0][2].objects).toHaveLength(1);
+    // Second call writes recognition results (mask)
+    expect(putCalls.length).toBeGreaterThanOrEqual(2);
+    const lastCall = putCalls[putCalls.length - 1];
+    expect(lastCall[2].rawMaskHash).toBe('http://mcp.localhost/mock-hash-abc');
+    expect(lastCall[2].maskUrl).toBe('data:image/png;base64,mock');
     expect(opts.currentMaskUrl.value).toBe('data:image/png;base64,mock');
   });
 
@@ -100,7 +131,7 @@ describe('useRawRecognize', () => {
 
     await recognizeCurrentSlice();
 
-    expect(opts.keyframes.value.size).toBe(0);
+    expect(opts.putKeyframe).not.toHaveBeenCalled();
   });
 
   it('recognizeCurrentSlice uses existing keyframe', async () => {
@@ -109,39 +140,32 @@ describe('useRawRecognize', () => {
     obj.points.push({ id: 'p1', x: 10, y: 20, label: 1 });
     opts.objects.value = [obj];
 
-    const existingKf: Keyframe = {
+    // Pre-populate the store
+    await opts.putKeyframe('vol-1', 0, {
       objects: [{ ...obj }],
       maskUrl: null,
       maskVisible: true,
       rawMaskHash: null,
-    };
-    opts.keyframes.value.set(0, existingKf);
+    });
 
     const { useRawRecognize } = await import('../useRawRecognize');
     const { recognizeCurrentSlice } = useRawRecognize(opts);
 
     await recognizeCurrentSlice();
 
-    expect(opts.keyframes.value.size).toBe(1);
-    expect(existingKf.rawMaskHash).toBe('mcp://localhost/mock-hash-abc');
+    // putKeyframe should be called for recognition result
+    const putCalls = (opts.putKeyframe as ReturnType<typeof vi.fn>).mock.calls;
+    const lastCall = putCalls[putCalls.length - 1];
+    expect(lastCall[2].rawMaskHash).toBe('http://mcp.localhost/mock-hash-abc');
   });
 
   it('batchRecognize skips slices with mask', async () => {
     const opts = createOpts();
     const obj1 = createTestObject('obj-1', 'car');
     obj1.points.push({ id: 'p1', x: 10, y: 20, label: 1 });
-    opts.keyframes.value.set(0, {
-      objects: [obj1],
-      maskUrl: null,
-      maskVisible: true,
-      rawMaskHash: null,
-    });
-    opts.keyframes.value.set(3, {
-      objects: [],
-      maskUrl: null,
-      maskVisible: true,
-      rawMaskHash: 'existing-hash',
-    });
+
+    await opts.putKeyframe('vol-1', 0, { objects: [obj1] });
+    await opts.putKeyframe('vol-1', 3, { rawMaskHash: 'existing-hash' });
 
     const { useRawRecognize } = await import('../useRawRecognize');
     const { batchRecognize } = useRawRecognize(opts);
@@ -168,10 +192,9 @@ describe('useRawRecognize', () => {
     const opts = createOpts();
     const obj = createTestObject();
     obj.points.push({ id: 'p1', x: 10, y: 20, label: 1 });
-    opts.keyframes.value.set(2, {
+
+    await opts.putKeyframe('vol-1', 2, {
       objects: [obj],
-      maskUrl: null,
-      maskVisible: true,
       rawMaskHash: 'mcp://localhost/seed-hash',
     });
 

@@ -1,5 +1,6 @@
 import { ref } from 'vue';
 import { match, P } from 'ts-pattern';
+import { logMessage } from '@/services/cmd';
 
 function parseColor(color: string): { r: number; g: number; b: number } {
   return match(color)
@@ -33,22 +34,31 @@ export function useMaskRenderer() {
   ): Promise<string | null> {
     isRendering.value = true;
     try {
+      await logMessage('debug', `[mask-render] loading: ${grayImageUrl.slice(0, 100)}`);
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.src = grayImageUrl;
       await img.decode();
+      await logMessage(
+        'debug',
+        `[mask-render] decoded: ${img.naturalWidth}x${img.naturalHeight}, threshold=${threshold}`
+      );
 
       const canvas = document.createElement('canvas');
       canvas.width = img.naturalWidth;
       canvas.height = img.naturalHeight;
       const ctx = canvas.getContext('2d');
-      if (!ctx) return null;
+      if (!ctx) {
+        await logMessage('warn', '[mask-render] failed to get 2d context');
+        return null;
+      }
 
       ctx.drawImage(img, 0, 0);
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imageData.data;
       const rgb = parseColor(color);
 
+      let aboveThreshold = 0;
       for (let i = 0; i < data.length; i += 4) {
         const gray = data[i];
         const confidence = gray / 255;
@@ -57,6 +67,7 @@ export function useMaskRenderer() {
           data[i + 1] = rgb.g;
           data[i + 2] = rgb.b;
           data[i + 3] = Math.round(confidence * 180);
+          aboveThreshold++;
         } else {
           data[i + 3] = 0;
         }
@@ -65,7 +76,14 @@ export function useMaskRenderer() {
       ctx.putImageData(imageData, 0, 0);
       const result = canvas.toDataURL();
       renderedMaskUrl.value = result;
+      await logMessage(
+        'debug',
+        `[mask-render] done: ${aboveThreshold}/${data.length / 4} pixels above threshold`
+      );
       return result;
+    } catch (e) {
+      await logMessage('error', `[mask-render] failed: ${e}`);
+      return null;
     } finally {
       isRendering.value = false;
     }

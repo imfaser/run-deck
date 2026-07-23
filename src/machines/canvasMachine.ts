@@ -73,6 +73,16 @@ export const canvasMachine = setup({
         groupStart: { ...context.store.stagePos },
       };
     }),
+    updatePan: assign(({ context, event }) => {
+      const evt = event as { clientX: number; clientY: number };
+      const dx = evt.clientX - context.panStart.x;
+      const dy = evt.clientY - context.panStart.y;
+      context.store.stagePos = {
+        x: context.groupStart.x + dx,
+        y: context.groupStart.y + dy,
+      };
+      return {};
+    }),
     startBox: assign(({ event, context }) => {
       const evt = event as { imageX?: number; imageY?: number };
       if (evt.imageX == null || evt.imageY == null) return {};
@@ -177,10 +187,23 @@ export const canvasMachine = setup({
           target: 'panning',
           actions: 'startPan',
         },
+        MOUSE_MOVE: {
+          target: 'panning',
+          actions: 'startPan',
+        },
       },
     },
     panning: {
       on: {
+        SPACE_UP: {
+          actions: 'setSpaceUp',
+        },
+        SPACE_DOWN: {
+          actions: 'setSpaceDown',
+        },
+        MOUSE_MOVE: {
+          actions: 'updatePan',
+        },
         MOUSE_UP: {
           target: 'idle',
         },
@@ -188,6 +211,12 @@ export const canvasMachine = setup({
     },
     drawingBox: {
       on: {
+        SPACE_UP: {
+          actions: 'setSpaceUp',
+        },
+        SPACE_DOWN: {
+          actions: 'setSpaceDown',
+        },
         MOUSE_MOVE: {
           target: 'boxDrawn',
           actions: 'updateBox',
@@ -200,6 +229,12 @@ export const canvasMachine = setup({
     },
     boxDrawn: {
       on: {
+        SPACE_UP: {
+          actions: 'setSpaceUp',
+        },
+        SPACE_DOWN: {
+          actions: 'setSpaceDown',
+        },
         MOUSE_MOVE: {
           actions: 'updateBox',
         },

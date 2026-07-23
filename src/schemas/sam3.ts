@@ -21,12 +21,16 @@ export const MCPObjectSchema = z
     error: '每个 object 至少需要一个提示（points 或 box）',
   });
 
-export const MCPRequestSchema = z.object({
-  image: z.string(),
-  objects: z.array(MCPObjectSchema).min(1),
-  prev_mask: z.string().optional(),
-  multimask_output: z.boolean().optional(),
-});
+export const MCPRequestSchema = z
+  .object({
+    image: z.string(),
+    objects: z.array(MCPObjectSchema),
+    prev_mask: z.string().optional(),
+    multimask_output: z.boolean().optional(),
+  })
+  .refine((req) => req.objects.length > 0 || !!req.prev_mask, {
+    error: '至少需要 objects 或 prev_mask 之一',
+  });
 
 export type MCPPointPrompt = z.infer<typeof MCPPointPromptSchema>;
 export type MCPBoundingBox = z.infer<typeof MCPBoundingBoxSchema>;

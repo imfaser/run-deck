@@ -1,25 +1,24 @@
 import { ref, type Ref } from 'vue';
 import { cloneDeep } from 'es-toolkit';
 import { match, P } from 'ts-pattern';
-import { convertFileSrc } from '@tauri-apps/api/core';
 import { rawSlice } from '@/services/raw3d';
 import { segmentImage } from '@/services/sam3';
 import { mcpStoreImageBytes, logMessage } from '@/services/cmd';
 import { useMaskRenderer } from '@/composables/useMaskRenderer';
 import { useCanvasToBytes } from '@/composables/useCanvasToBytes';
 import type { AnnotationObject } from '@/schemas/annotation';
-import type { Keyframe } from '@/stores/label-raw';
+import type { KeyframeRecord } from '@/db/label-raw-db';
 
 export interface UseRawRecognizeOpts {
   volumeId: Ref<string | null>;
-  keyframes: Ref<Map<number, Keyframe>>;
+  getKeyframe: (volId: string, idx: number) => Promise<KeyframeRecord | undefined>;
+  putKeyframe: (volId: string, sliceIndex: number, data: Partial<KeyframeRecord>) => Promise<void>;
   objects: Ref<AnnotationObject[]>;
   currentIndex: Ref<number>;
   totalSlices: Ref<number>;
   currentMaskUrl: Ref<string | null>;
   confidenceThreshold: Ref<number>;
   maskColor: Ref<string>;
-  cloneKeyframes: () => void;
 }
 
 export function useRawRecognize(opts: UseRawRecognizeOpts) {
@@ -32,198 +31,225 @@ export function useRawRecognize(opts: UseRawRecognizeOpts) {
 
   async function doRecognize(
     sliceIndex: number,
-    kf: Keyframe,
-    skipPrevMask = false
+    kf: KeyframeRecord,
+    skipPrevMask = false,
+    prevMaskHash?: string
   ): Promise<boolean> {
     if (!opts.volumeId.value) return false;
 
-    // Check if we have any prompt: objects or prev_mask
-    const hasObjects = kf.objects.some((o) => o.points.length > 0 || o.boxes.length > 0);
-    let hasPrevMask = false;
-    for (let i = sliceIndex - 1; i >= 0; i--) {
-      const prevKf = opts.keyframes.value.get(i);
-      if (prevKf?.rawMaskHash) {
-        hasPrevMask = true;
-        break;
+    try {
+      const hasObjects = kf.objects.some((o) => o.points.length > 0 || o.boxes.length > 0);
+      let hasPrevMask = !!prevMaskHash;
+      if (!hasPrevMask && !skipPrevMask) {
+        for (let i = sliceIndex - 1; i >= 0; i--) {
+          const prevKf = await opts.getKeyframe(opts.volumeId.value, i);
+          if (prevKf?.rawMaskHash) {
+            hasPrevMask = true;
+            break;
+          }
+        }
       }
-    }
-    if (!hasObjects && !hasPrevMask) return false;
+      if (!hasObjects && !hasPrevMask) return false;
 
-    await logMessage(
-      'debug',
-      `[recognize] slice=${sliceIndex} prompts=${hasObjects ? 'objects' : ''} ${hasPrevMask ? 'prevMask' : ''}`
-    );
+      await logMessage(
+        'debug',
+        `[recognize] slice=${sliceIndex} prompts=${hasObjects ? 'objects' : ''} ${hasPrevMask ? 'prevMask' : ''}`
+      );
 
-    // Get the slice image as canvas data
-    const resp = await rawSlice(opts.volumeId.value, sliceIndex);
+      const resp = await rawSlice(opts.volumeId.value, sliceIndex);
 
-    // Convert to PNG bytes via offscreen canvas
-    const { canvasToPngBytes } = useCanvasToBytes();
-    const bytes = await canvasToPngBytes(resp.data, resp.width, resp.height);
+      const { canvasToPngBytes } = useCanvasToBytes();
+      const bytes = await canvasToPngBytes(resp.data, resp.width, resp.height);
 
-    // Validate PNG header
-    const isPng = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
-    await logMessage(
-      'debug',
-      `[recognize] slice=${sliceIndex} canvas→bytes: ${bytes.length} bytes, isPng=${isPng}, header=${bytes
-        .slice(0, 8)
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join(' ')}`
-    );
+      const isPng =
+        bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
+      await logMessage(
+        'debug',
+        `[recognize] slice=${sliceIndex} canvas→bytes: ${bytes.length} bytes, isPng=${isPng}, header=${bytes
+          .slice(0, 8)
+          .map((b) => b.toString(16).padStart(2, '0'))
+          .join(' ')}`
+      );
 
-    // Store in MCP content store
-    const mcpUrl = await mcpStoreImageBytes(bytes, 'image/png');
+      const mcpUrl = await mcpStoreImageBytes(bytes, 'image/png');
 
-    // Find prev_mask: nearest previous slice that has a mask
-    let prevMask: string | undefined;
-    if (!skipPrevMask) {
-      for (let i = sliceIndex - 1; i >= 0; i--) {
-        const prevKf = opts.keyframes.value.get(i);
-        if (prevKf?.rawMaskHash) {
-          prevMask = prevKf.rawMaskHash;
+      // Find prev_mask: use provided hash or search nearest previous slice
+      let prevMask: string | undefined = prevMaskHash ? prevMaskHash : undefined;
+      if (!prevMask && !skipPrevMask) {
+        for (let i = sliceIndex - 1; i >= 0; i--) {
+          const prevKf = await opts.getKeyframe(opts.volumeId.value, i);
+          if (prevKf?.rawMaskHash) {
+            prevMask = prevKf.rawMaskHash;
+            await logMessage(
+              'debug',
+              `[recognize] slice=${sliceIndex} using prev_mask from slice=${i}, hash=${prevMask}`
+            );
+            break;
+          }
+        }
+      }
+
+      const result = await segmentImage(mcpUrl, kf.objects, prevMask);
+      await logMessage(
+        'debug',
+        `[recognize] slice=${sliceIndex} SAM3 returned: isError=${result.isError}, content=[${result.content.map((b) => b.type).join(',')}]`
+      );
+
+      const imgBlock = result.content.find((b) => b.type === 'image');
+      const textBlock = result.content.find((b) => b.type === 'text');
+      await logMessage(
+        'debug',
+        `[recognize] slice=${sliceIndex} imgBlock=${imgBlock ? 'found' : 'null'} data=${imgBlock && 'data' in imgBlock ? String(imgBlock.data).slice(0, 60) : 'N/A'}`
+      );
+
+      return match(imgBlock)
+        .with({ type: 'image', data: P.select() }, async (rawMaskHash) => {
           await logMessage(
             'debug',
-            `[recognize] slice=${sliceIndex} using prev_mask from slice=${i}, hash=${prevMask}`
+            `[recognize] slice=${sliceIndex} rawMaskHash=${rawMaskHash.slice(0, 80)}`
           );
-          break;
-        }
-      }
-    }
-
-    const result = await segmentImage(mcpUrl, kf.objects, prevMask);
-
-    await logMessage(
-      'debug',
-      `[recognize] slice=${sliceIndex} SAM3 result: isError=${result.isError}, contentCount=${result.content.length}, types=[${result.content.map((b) => b.type).join(',')}]`
-    );
-
-    const imgBlock = result.content.find((b) => b.type === 'image');
-    const textBlock = result.content.find((b) => b.type === 'text');
-
-    return match(imgBlock)
-      .with({ type: 'image', data: P.select() }, async (hash) => {
-        kf.rawMaskHash = convertFileSrc(hash, 'mcp');
-        const { renderMask } = useMaskRenderer();
-        const maskUrl = await renderMask(
-          kf.rawMaskHash,
-          opts.confidenceThreshold.value,
-          opts.maskColor.value
-        );
-        kf.maskUrl = maskUrl;
-        if (sliceIndex === opts.currentIndex.value) {
-          opts.currentMaskUrl.value = maskUrl;
-        }
-        await logMessage(
-          'debug',
-          `[recognize] slice=${sliceIndex} done, maskHash=${hash.slice(0, 16)}...`
-        );
-        return true;
-      })
-      .otherwise(async () => {
-        const contentSummary = result.content.map((b) => b.type).join(', ');
-        await logMessage(
-          'warn',
-          `[recognize] slice=${sliceIndex} no image in SAM3 result, got: [${contentSummary}]`
-        );
-        if (result.isError) {
+          const { renderMask } = useMaskRenderer();
+          const maskUrl = await renderMask(
+            rawMaskHash,
+            opts.confidenceThreshold.value,
+            opts.maskColor.value
+          );
           await logMessage(
-            'error',
-            `[recognize] slice=${sliceIndex} SAM3 error: ${textBlock && 'text' in textBlock ? textBlock.text : 'unknown'}`
+            'debug',
+            `[recognize] slice=${sliceIndex} renderMask result: maskUrl=${maskUrl ? `dataURL(${maskUrl.length} chars)` : 'null'}`
           );
-        }
-        return false;
-      });
+
+          await opts.putKeyframe(opts.volumeId.value!, sliceIndex, {
+            objects: kf.objects,
+            rawMaskHash,
+            maskUrl,
+            maskVisible: kf.maskVisible,
+          });
+
+          if (sliceIndex === opts.currentIndex.value) {
+            opts.currentMaskUrl.value = maskUrl;
+            await logMessage(
+              'debug',
+              `[recognize] slice=${sliceIndex} set currentMaskUrl: ${maskUrl ? 'has url' : 'null'}`
+            );
+          }
+          await logMessage('info', `[recognize] slice=${sliceIndex} done`);
+          return true;
+        })
+        .otherwise(async () => {
+          const contentSummary = result.content.map((b) => b.type).join(', ');
+          await logMessage(
+            'warn',
+            `[recognize] slice=${sliceIndex} no image in SAM3 result, got: [${contentSummary}]`
+          );
+          if (result.isError) {
+            await logMessage(
+              'error',
+              `[recognize] slice=${sliceIndex} SAM3 error: ${textBlock && 'text' in textBlock ? textBlock.text : 'unknown'}`
+            );
+          }
+          return false;
+        });
+    } catch (e) {
+      await logMessage('error', `[recognize] slice=${sliceIndex} unexpected error: ${e}`);
+      return false;
+    }
   }
 
   async function recognizeCurrentSlice() {
     if (!opts.volumeId.value) return;
 
-    // Clear mask display before showing any prompts
     opts.currentMaskUrl.value = null;
 
-    // Check if current slice already has a mask
-    const existingKf = opts.keyframes.value.get(opts.currentIndex.value);
-    const hasExistingMask = !!existingKf?.rawMaskHash;
+    try {
+      const existingKf = await opts.getKeyframe(opts.volumeId.value, opts.currentIndex.value);
+      const hasExistingMask = !!existingKf?.rawMaskHash;
 
-    // Check if both objects and prev_mask exist
-    const hasObjects = opts.objects.value.some((o) => o.points.length > 0 || o.boxes.length > 0);
-    let hasPrevMask = false;
-    for (let i = opts.currentIndex.value - 1; i >= 0; i--) {
-      const prevKf = opts.keyframes.value.get(i);
-      if (prevKf?.rawMaskHash) {
-        hasPrevMask = true;
-        break;
+      const hasObjects = opts.objects.value.some((o) => o.points.length > 0 || o.boxes.length > 0);
+      let hasPrevMask = false;
+      for (let i = opts.currentIndex.value - 1; i >= 0; i--) {
+        const prevKf = await opts.getKeyframe(opts.volumeId.value, i);
+        if (prevKf?.rawMaskHash) {
+          hasPrevMask = true;
+          break;
+        }
       }
-    }
 
-    const { ElMessageBox } = await import('element-plus');
+      const { ElMessageBox } = await import('element-plus');
 
-    // Case 1: has existing mask, no objects+prev_mask → ask adopt or re-recognize
-    if (hasExistingMask && !(hasObjects && hasPrevMask)) {
-      try {
-        await ElMessageBox.confirm('已有 pred_mask，是否采用？', '提示', {
-          confirmButtonText: '采用已有',
-          cancelButtonText: '重新识别',
-          type: 'info',
-        });
-        const { renderMask } = useMaskRenderer();
-        const maskUrl = await renderMask(
-          existingKf!.rawMaskHash!,
-          opts.confidenceThreshold.value,
-          opts.maskColor.value
-        );
-        existingKf!.maskUrl = maskUrl;
-        opts.currentMaskUrl.value = maskUrl;
-        return;
-      } catch {
-        // User chose to re-recognize — fall through
-      }
-    }
-
-    // Case 2: has objects + prev_mask → single prompt
-    let skipPrevMask = false;
-    if (hasObjects && hasPrevMask) {
-      try {
-        await ElMessageBox.confirm(
-          '当前 slice 有标注且存在 prev_mask，是否结合 prev_mask 一同识别？',
-          '提示',
-          {
-            confirmButtonText: '结合 prev_mask',
-            cancelButtonText: '仅用标注',
+      if (hasExistingMask && !(hasObjects && hasPrevMask)) {
+        try {
+          await ElMessageBox.confirm('已有 pred_mask，是否采用？', '提示', {
+            confirmButtonText: '采用已有',
+            cancelButtonText: '重新识别',
             type: 'info',
-          }
-        );
-      } catch {
-        skipPrevMask = true;
+          });
+          const { renderMask } = useMaskRenderer();
+          const maskUrl = await renderMask(
+            existingKf!.rawMaskHash!,
+            opts.confidenceThreshold.value,
+            opts.maskColor.value
+          );
+          await opts.putKeyframe(opts.volumeId.value!, opts.currentIndex.value, {
+            maskUrl,
+          });
+          opts.currentMaskUrl.value = maskUrl;
+          return;
+        } catch {
+          // User chose to re-recognize — fall through
+        }
       }
-    }
 
-    // Create or get keyframe
-    let kf = opts.keyframes.value.get(opts.currentIndex.value);
-    if (!kf) {
-      kf = {
-        objects: cloneDeep(opts.objects.value),
-        maskUrl: null,
-        maskVisible: true,
-        rawMaskHash: null,
-      };
-      opts.keyframes.value.set(opts.currentIndex.value, kf);
-      opts.cloneKeyframes();
-    }
+      let skipPrevMask = false;
+      if (hasObjects && hasPrevMask) {
+        try {
+          await ElMessageBox.confirm(
+            '当前 slice 有标注且存在 prev_mask，是否结合 prev_mask 一同识别？',
+            '提示',
+            {
+              confirmButtonText: '结合 prev_mask',
+              cancelButtonText: '仅用标注',
+              type: 'info',
+            }
+          );
+        } catch {
+          skipPrevMask = true;
+        }
+      }
 
-    await doRecognize(opts.currentIndex.value, kf, skipPrevMask);
+      // Get or create keyframe
+      let kf = await opts.getKeyframe(opts.volumeId.value, opts.currentIndex.value);
+      if (!kf) {
+        kf = {
+          volumeId: opts.volumeId.value,
+          sliceIndex: opts.currentIndex.value,
+          objects: cloneDeep(opts.objects.value),
+          maskUrl: null,
+          maskVisible: true,
+          rawMaskHash: null,
+        };
+        await opts.putKeyframe(opts.volumeId.value, opts.currentIndex.value, {
+          objects: kf.objects,
+        });
+      }
+
+      await doRecognize(opts.currentIndex.value, kf, skipPrevMask);
+    } catch (e) {
+      await logMessage('error', `[recognize] recognizeCurrentSlice failed: ${e}`);
+    }
   }
 
   async function batchRecognize(start: number, end: number) {
-    // Foolproofing: invalid range
     if (start >= end) {
       const { ElMessage } = await import('element-plus');
       ElMessage.error('起始 slice 必须小于结束 slice');
       return;
     }
 
-    // Foolproofing: start slice has no seed
-    const startKf = opts.keyframes.value.get(start);
+    const volId = opts.volumeId.value;
+    if (!volId) return;
+
+    const startKf = await opts.getKeyframe(volId, start);
     const startHasMask = !!startKf?.rawMaskHash;
     const startHasObjects =
       startKf?.objects.some((o) => o.points.length > 0 || o.boxes.length > 0) ?? false;
@@ -250,40 +276,59 @@ export function useRawRecognize(opts: UseRawRecognizeOpts) {
       for (let i = start; i <= end; i++) {
         if (!isRecognizing.value) break;
 
-        progress.value = { current: i - start, total: end - start + 1 };
+        progress.value = { current: i - start + 1, total: end - start + 1 };
 
-        let kf = opts.keyframes.value.get(i);
+        let kf = await opts.getKeyframe(volId, i);
 
-        // Skip if already has mask
         if (kf?.rawMaskHash) {
+          // Already has mask — update local tracking
           prevMaskHash = kf.rawMaskHash;
+
+          // If this is the current slice, render its mask for display
+          if (i === opts.currentIndex.value) {
+            try {
+              const { renderMask } = useMaskRenderer();
+              opts.currentMaskUrl.value = await renderMask(
+                kf.rawMaskHash,
+                opts.confidenceThreshold.value,
+                opts.maskColor.value
+              );
+            } catch (e) {
+              await logMessage(
+                'warn',
+                `[batchRecognize] slice=${i} failed to render existing mask: ${e}`
+              );
+            }
+          }
           continue;
         }
 
-        // Create keyframe if none exists
         if (!kf) {
           kf = {
+            volumeId: volId,
+            sliceIndex: i,
             objects: [],
             maskUrl: null,
             maskVisible: true,
             rawMaskHash: null,
           };
-          opts.keyframes.value.set(i, kf);
+          // Write to IDB so doRecognize can find it as prevMask for next slices
+          await opts.putKeyframe(volId, i, { objects: [] });
         }
 
         const hasObjects = kf.objects.some((o) => o.points.length > 0 || o.boxes.length > 0);
 
-        // Skip if no objects and no prev_mask
         if (!hasObjects && !prevMaskHash) {
           continue;
         }
 
-        await doRecognize(i, kf, !prevMaskHash);
-        prevMaskHash = kf.rawMaskHash ?? prevMaskHash;
+        await doRecognize(i, kf, !prevMaskHash, prevMaskHash);
+        // Re-fetch to get updated rawMaskHash after doRecognize wrote it
+        const updatedKf = await opts.getKeyframe(volId, i);
+        prevMaskHash = updatedKf?.rawMaskHash ?? prevMaskHash;
       }
     } finally {
       isRecognizing.value = false;
-      opts.cloneKeyframes();
       await logMessage(
         'info',
         `[batchRecognize] finished, progress=${progress.value.current}/${progress.value.total}`

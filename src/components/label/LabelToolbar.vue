@@ -12,7 +12,6 @@
 
   useMaskRenderOnChange({
     store,
-    hasMask: () => !!store.rawMaskPath,
     renderFn: async () => {
       if (!store.rawMaskPath) return;
       const maskUrl = await renderMask(
@@ -55,7 +54,7 @@
 
       const imgBlock = result.content.find((b) => b.type === 'image');
       if (imgBlock && 'data' in imgBlock) {
-        store.rawMaskPath = convertFileSrc(imgBlock.data, 'mcp');
+        store.rawMaskPath = imgBlock.data;
         const maskUrl = await renderMask(
           store.rawMaskPath,
           store.maskSettings.threshold,

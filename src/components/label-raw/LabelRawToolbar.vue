@@ -2,29 +2,21 @@
   import { ref, computed } from 'vue';
   import { open } from '@tauri-apps/plugin-dialog';
   import { useLabelRawStore, type VolumeConfig } from '@/stores/label-raw';
-  import { useMaskRenderer } from '@/composables/useMaskRenderer';
   import { useMaskRenderOnChange } from '@/composables/useMaskRenderOnChange';
+  import { logMessage } from '@/services/cmd';
 
   const store = useLabelRawStore();
-  const { renderMask } = useMaskRenderer();
 
   useMaskRenderOnChange({
     store,
-    hasMask: () => !!store.currentKeyframe?.rawMaskHash,
     renderFn: async () => {
-      const kf = store.currentKeyframe;
-      if (!kf?.rawMaskHash) return;
-      const maskUrl = await renderMask(
-        kf.rawMaskHash,
-        store.maskSettings.threshold,
-        store.maskSettings.color
-      );
-      kf.maskUrl = maskUrl;
+      await store.renderCurrentMask();
     },
   });
 
   const isLoadingMask = ref(false);
   const showConfigDialog = ref(false);
+  const showBatchDialog = ref(false);
 
   // Config dialog state
   const configForm = ref<VolumeConfig>({
@@ -59,6 +51,7 @@
   }
 
   async function handleAIRecognize() {
+    await logMessage('debug', `[toolbar] handleAIRecognize clicked, hasVolume=${store.hasVolume}`);
     if (!store.hasVolume) return;
     isLoadingMask.value = true;
     try {
@@ -68,10 +61,25 @@
     }
   }
 
-  async function handleBatchRecognize() {
+  const batchForm = ref({ start: 0, end: 0 });
+
+  function handleOpenBatchDialog() {
+    batchForm.value = { start: store.batchRange.start, end: store.batchRange.end };
+    showBatchDialog.value = true;
+  }
+
+  async function handleConfirmBatch() {
+    const { start, end } = batchForm.value;
+    if (start >= end) {
+      const { ElMessage } = await import('element-plus');
+      ElMessage.error('起始 slice 必须小于结束 slice');
+      return;
+    }
+    showBatchDialog.value = false;
+    store.batchRange = { start, end };
     isLoadingMask.value = true;
     try {
-      await store.batchRecognize(store.batchRange.start, store.batchRange.end);
+      await store.batchRecognize(start, end);
     } finally {
       isLoadingMask.value = false;
     }
@@ -79,7 +87,7 @@
 
   const recognizeProgressDisplay = computed(() => {
     if (!store.isRecognizing) return '';
-    return `${store.recognitionProgress.current + 1}/${store.recognitionProgress.total}`;
+    return `${store.recognitionProgress.current}/${store.recognitionProgress.total}`;
   });
 
   function handleFitImage() {
@@ -113,7 +121,7 @@
         </template>
         停止 {{ recognizeProgressDisplay }}
       </el-button>
-      <el-button v-else :disabled="!store.hasVolume" @click="handleBatchRecognize">
+      <el-button v-else :disabled="!store.hasVolume" @click="handleOpenBatchDialog">
         <template #icon>
           <span>🔄</span>
         </template>
@@ -128,6 +136,10 @@
     </div>
 
     <div class="toolbar-right">
+      <div class="mask-toggle">
+        <span class="slider-label">显示前序 Mask:</span>
+        <el-switch v-model="store.maskSettings.showPrevMask" size="small" />
+      </div>
       <div class="mask-color-picker">
         <span class="slider-label">Mask 颜色:</span>
         <el-color-picker
@@ -196,6 +208,35 @@
       <template #footer>
         <el-button @click="showConfigDialog = false">取消</el-button>
         <el-button type="primary" @click="handleConfirmConfig">确认</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- Batch range dialog -->
+    <el-dialog
+      v-model="showBatchDialog"
+      title="批量识别范围"
+      width="360px"
+      :close-on-click-modal="false"
+    >
+      <el-form label-width="60px">
+        <el-form-item label="起始">
+          <el-input-number
+            v-model="batchForm.start"
+            :min="0"
+            :max="store.volumeInfo.totalSlices - 1"
+          />
+        </el-form-item>
+        <el-form-item label="结束">
+          <el-input-number
+            v-model="batchForm.end"
+            :min="0"
+            :max="store.volumeInfo.totalSlices - 1"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showBatchDialog = false">取消</el-button>
+        <el-button type="primary" @click="handleConfirmBatch">开始识别</el-button>
       </template>
     </el-dialog>
 

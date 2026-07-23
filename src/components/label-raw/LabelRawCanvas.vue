@@ -6,6 +6,7 @@
   import { clamp } from 'es-toolkit';
   import { match, P } from 'ts-pattern';
   import { useLabelRawStore } from '@/stores/label-raw';
+  import { logMessage } from '@/services/cmd';
   import { getPointerImagePos } from '@/utils/coordTransform';
   import { getPointConfig, getBoxConfig } from '@/utils/annotationConfig';
   import { useCanvasInteraction } from '@/composables/useCanvasInteraction';
@@ -48,10 +49,34 @@
   const [baseImage] = useImage(computed(() => store.sliceImageUrl ?? ''));
 
   const currentMaskVisible = computed(() => {
-    const kf = store.currentKeyframe;
+    const kf = store.currentKeyframeSummary;
     return kf ? kf.maskVisible : false;
   });
   const [maskImage] = useImage(computed(() => store.currentMaskUrl ?? ''));
+
+  watch(maskImage, (img) => {
+    logMessage(
+      'debug',
+      `[canvas] maskImage changed: ${img ? `${img.width}x${img.height}` : 'null'}`
+    );
+    if (img) {
+      mask.value = { width: img.width, height: img.height };
+    }
+  });
+
+  watch(currentMaskVisible, (visible) => {
+    logMessage('debug', `[canvas] currentMaskVisible changed: ${visible}`);
+  });
+
+  watch(
+    () => store.currentMaskUrl,
+    (url) => {
+      logMessage(
+        'debug',
+        `[canvas] currentMaskUrl changed: ${url ? `dataURL(${url.length} chars)` : 'null'}`
+      );
+    }
+  );
 
   function clampToImage(x: number, y: number) {
     return {

@@ -32,12 +32,18 @@ importers:
       '@vueuse/router':
         specifier: ^14.3.0
         version: 14.3.0(vue-router@5.1.0(@vue/compiler-sfc@3.5.40)(pinia@4.0.2(@vue/devtools-api@8.1.2)(typescript@6.0.3)(vue@3.5.40(typescript@6.0.3)))(vite@8.0.16(@types/node@25.9.1)(sass@1.100.0)(yaml@2.9.0))(vue@3.5.40(typescript@6.0.3)))(vue@3.5.40(typescript@6.0.3))
+      '@vueuse/rxjs':
+        specifier: ^14.3.0
+        version: 14.3.0(rxjs@7.8.2)(vue@3.5.40(typescript@6.0.3))
       '@xstate/vue':
         specifier: ^5.0.1
         version: 5.0.1(vue@3.5.40(typescript@6.0.3))(xstate@5.32.5)
       dayjs:
         specifier: ^1.11.21
         version: 1.11.21
+      dexie:
+        specifier: ^4.4.4
+        version: 4.4.4
       echarts:
         specifier: ^6.1.0
         version: 6.1.0
@@ -53,6 +59,9 @@ importers:
       pinia:
         specifier: ^4.0.2
         version: 4.0.2(@vue/devtools-api@8.1.2)(typescript@6.0.3)(vue@3.5.40(typescript@6.0.3))
+      rxjs:
+        specifier: ^7.8.2
+        version: 7.8.2
       ts-pattern:
         specifier: ^5.9.0
         version: 5.9.0
@@ -910,6 +919,12 @@ packages:
       vue: ^3.5.0
       vue-router: ^4.0.0 || ^5.0.0
 
+  '@vueuse/rxjs@14.3.0':
+    resolution: {integrity: sha512-sSmwVjbq3Jv7Dxdvf+YTzupTxtwqRPbVDJicQ9jII5HyjSQZNn5ypfuMaRvA0oqNmGzZjqJHNn/NQ67iMIpmvQ==}
+    peerDependencies:
+      rxjs: '>=6.0.0'
+      vue: ^3.5.0
+
   '@vueuse/shared@14.3.0':
     resolution: {integrity: sha512-bZpge9eSXwa4ToSiqJ7j6KRwhAsneMFoSz3LMWKQDkqimm3D/tbFlrklrs/IOqC8tEcYmXQZJ6N0UrjhBirVCg==}
     peerDependencies:
@@ -1079,6 +1094,9 @@ packages:
   detect-libc@2.1.2:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
     engines: {node: '>=8'}
+
+  dexie@4.4.4:
+    resolution: {integrity: sha512-jIwsYI8Os2hgnqc6O49YwFDKGc5v5QjGx0wPVp543ip1F53VFAKMLthV2pQosQcVTv3eAskTWYspOx195PM0FQ==}
 
   eastasianwidth@0.2.0:
     resolution: {integrity: sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==}
@@ -1645,6 +1663,9 @@ packages:
     resolution: {integrity: sha512-i00lAJ2ks1BYr7rjNjKC7BcqAS7nVfiT3QX1SI5aY+AFHblCmaUf9OE9dbdzDvW6dJxbi2ZCZiy9v3CcwOiX3g==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
+
+  rxjs@7.8.2:
+    resolution: {integrity: sha512-dhKf903U/PQZY6boNNtAGdWbG85WAbjT/1xYoZIC7FAY0yWapOBQVsVrDl58W86//e1VpMNBtRV4MaXfdMySFA==}
 
   sass@1.100.0:
     resolution: {integrity: sha512-B5j0rYMlinhhOo9tjQebMVVn0TfyXAF+wB3b2ggZUuJ/is/Y+7+JGjirAMxHZ9Z3hIP98NPfamlAkBHa1lAaXQ==}
@@ -2775,6 +2796,12 @@ snapshots:
       vue: 3.5.40(typescript@6.0.3)
       vue-router: 5.1.0(@vue/compiler-sfc@3.5.40)(pinia@4.0.2(@vue/devtools-api@8.1.2)(typescript@6.0.3)(vue@3.5.40(typescript@6.0.3)))(vite@8.0.16(@types/node@25.9.1)(sass@1.100.0)(yaml@2.9.0))(vue@3.5.40(typescript@6.0.3))
 
+  '@vueuse/rxjs@14.3.0(rxjs@7.8.2)(vue@3.5.40(typescript@6.0.3))':
+    dependencies:
+      '@vueuse/shared': 14.3.0(vue@3.5.40(typescript@6.0.3))
+      rxjs: 7.8.2
+      vue: 3.5.40(typescript@6.0.3)
+
   '@vueuse/shared@14.3.0(vue@3.5.40(typescript@6.0.3))':
     dependencies:
       vue: 3.5.40(typescript@6.0.3)
@@ -2915,6 +2942,8 @@ snapshots:
   deep-is@0.1.4: {}
 
   detect-libc@2.1.2: {}
+
+  dexie@4.4.4: {}
 
   eastasianwidth@0.2.0: {}
 
@@ -3458,6 +3487,10 @@ snapshots:
       '@rolldown/binding-win32-arm64-msvc': 1.0.3
       '@rolldown/binding-win32-x64-msvc': 1.0.3
 
+  rxjs@7.8.2:
+    dependencies:
+      tslib: 2.8.1
+
   sass@1.100.0:
     dependencies:
       chokidar: 5.0.0
@@ -3549,8 +3582,7 @@ snapshots:
 
   tslib@2.3.0: {}
 
-  tslib@2.8.1:
-    optional: true
+  tslib@2.8.1: {}
 
   type-check@0.4.0:
     dependencies:

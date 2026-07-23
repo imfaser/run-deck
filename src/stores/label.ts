@@ -34,7 +34,12 @@ export const useLabelStore = defineStore('label', () => {
   // Mask
   const maskUrl = ref<string | null>(null);
   const maskVisible = ref(true);
-  const maskSettings = ref<MaskSettings>({ color: '#0096ff', opacity: 0.6, threshold: 128 });
+  const maskSettings = ref<MaskSettings>({
+    color: '#0096ff',
+    opacity: 0.6,
+    threshold: 128,
+    showPrevMask: true,
+  });
   const rawMaskPath = ref<string | null>(null);
 
   // Fit image trigger

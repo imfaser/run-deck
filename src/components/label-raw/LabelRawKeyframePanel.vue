@@ -1,9 +1,30 @@
 <script setup lang="ts">
-  import { ref } from 'vue';
+  import { ref, watch } from 'vue';
   import { useLabelRawStore } from '@/stores/label-raw';
+  import { db } from '@/db/label-raw-db';
+  import { logMessage } from '@/services/cmd';
+  import type { AnnotationObject } from '@/schemas/annotation';
 
   const store = useLabelRawStore();
   const expandedIndex = ref<number | null>(null);
+  const expandedObjects = ref<AnnotationObject[]>([]);
+
+  watch(expandedIndex, async (idx) => {
+    if (idx === null || !store.volumeId) {
+      expandedObjects.value = [];
+      return;
+    }
+    try {
+      const kf = await db.keyframes
+        .where('[volumeId+sliceIndex]')
+        .equals([store.volumeId, idx])
+        .first();
+      expandedObjects.value = kf?.objects ?? [];
+    } catch (e) {
+      expandedObjects.value = [];
+      await logMessage('warn', `[keyframe-panel] failed to load expanded slice=${idx}: ${e}`);
+    }
+  });
 
   function formatAnnotation(ann: {
     id: string;
@@ -44,10 +65,6 @@
     e.stopPropagation();
     store.removeKeyframe(index);
   }
-
-  function getKfObjects(index: number) {
-    return store.keyframes.get(index)?.objects ?? [];
-  }
 </script>
 
 <template>
@@ -86,7 +103,7 @@
           </div>
           <div v-if="expandedIndex === sl.index" class="kf-detail">
             <div v-if="sl.annotationCount === 0" class="kf-empty">无标注</div>
-            <template v-for="obj in getKfObjects(sl.index)" :key="obj.id">
+            <template v-for="obj in expandedObjects" :key="obj.id">
               <div class="kf-object-name" :style="{ color: obj.color }">
                 <span class="obj-dot" :style="{ background: obj.color }"></span>
                 {{ obj.name }}

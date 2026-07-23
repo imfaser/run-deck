@@ -159,6 +159,7 @@ impl flexi_logger::filter::LogLineFilter for ModuleFilter {
             "tungstenite",
             "mio",
             "want",
+            "tao"
         ];
         if blocked.iter().any(|prefix| module.starts_with(prefix)) {
             Ok(())
