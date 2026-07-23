@@ -128,6 +128,8 @@
   watch(baseImage, (img) => {
     if (img) {
       image.value = { width: img.width, height: img.height };
+      store.imageWidth = img.width;
+      store.imageHeight = img.height;
     }
   });
 
@@ -161,6 +163,7 @@
   });
 
   function handleStageMouseDown(e: Konva.KonvaEventObject<MouseEvent>) {
+    if (store.mode === 'create' && !store.hasVolume) return;
     machineMouseDown({ evt: e.evt });
   }
 

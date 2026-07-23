@@ -20,6 +20,8 @@ function createMockStore(overrides: Partial<{ mode: string; tool: string }> = {}
     addBoxToObject: vi.fn(),
     showNameDialog: false,
     pendingAnnotation: null,
+    imageWidth: 1000,
+    imageHeight: 1000,
   };
 }
 

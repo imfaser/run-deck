@@ -23,6 +23,8 @@ interface CanvasStore {
   showNameDialog: boolean;
   pendingAnnotation: PendingAnnotation;
   cursorScreenPos: { value: Point | null } | null;
+  imageWidth: number;
+  imageHeight: number;
 }
 
 interface CanvasContext {
@@ -71,25 +73,27 @@ export const canvasMachine = setup({
         groupStart: { ...context.store.stagePos },
       };
     }),
-    startBox: assign(({ event }) => {
+    startBox: assign(({ event, context }) => {
       const evt = event as { imageX?: number; imageY?: number };
       if (evt.imageX == null || evt.imageY == null) return {};
-      const pos = { x: evt.imageX, y: evt.imageY };
+      const x = Math.max(0, Math.min(evt.imageX, context.store.imageWidth));
+      const y = Math.max(0, Math.min(evt.imageY, context.store.imageHeight));
       return {
-        boxStart: pos,
-        tempBox: { x: pos.x, y: pos.y, w: 0, h: 0 },
+        boxStart: { x, y },
+        tempBox: { x, y, w: 0, h: 0 },
       };
     }),
     updateBox: assign(({ context, event }) => {
       const evt = event as { imageX?: number; imageY?: number };
       if (evt.imageX == null || evt.imageY == null || !context.boxStart) return {};
-      const pos = { x: evt.imageX, y: evt.imageY };
+      const x = Math.max(0, Math.min(evt.imageX, context.store.imageWidth));
+      const y = Math.max(0, Math.min(evt.imageY, context.store.imageHeight));
       return {
         tempBox: {
-          x: Math.min(context.boxStart.x, pos.x),
-          y: Math.min(context.boxStart.y, pos.y),
-          w: Math.abs(pos.x - context.boxStart.x),
-          h: Math.abs(pos.y - context.boxStart.y),
+          x: Math.min(context.boxStart.x, x),
+          y: Math.min(context.boxStart.y, y),
+          w: Math.abs(x - context.boxStart.x),
+          h: Math.abs(y - context.boxStart.y),
         },
       };
     }),

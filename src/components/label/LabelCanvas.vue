@@ -4,6 +4,7 @@
   import { useResizeObserver, useEventListener } from '@vueuse/core';
   import Konva from 'konva';
   import { match, P } from 'ts-pattern';
+  import { clamp } from 'es-toolkit';
   import { useLabelStore } from '@/stores/label';
   import { getPointerImagePos } from '@/utils/coordTransform';
   import { getPointConfig, getBoxConfig } from '@/utils/annotationConfig';
@@ -47,6 +48,13 @@
   const [baseImage] = useImage(computed(() => store.imageUrl ?? ''));
   const [maskImage] = useImage(computed(() => store.maskUrl ?? ''));
 
+  function clampToImage(x: number, y: number) {
+    return {
+      x: clamp(x, 0, image.value.width),
+      y: clamp(y, 0, image.value.height),
+    };
+  }
+
   const {
     handleWheel,
     handleStageClick,
@@ -67,6 +75,8 @@
         },
     },
     dims: { image, stage },
+    clampPosition: clampToImage,
+    canCreate: () => image.value.width > 0 && image.value.height > 0,
   });
 
   const groupConfig = computed(() => ({
@@ -112,6 +122,8 @@
   watch(baseImage, (img) => {
     if (img) {
       image.value = { width: img.width, height: img.height };
+      store.imageWidth = img.width;
+      store.imageHeight = img.height;
     }
   });
 
@@ -145,6 +157,7 @@
   });
 
   function handleStageMouseDown(e: Konva.KonvaEventObject<MouseEvent>) {
+    if (store.mode === 'create' && (image.value.width === 0 || image.value.height === 0)) return;
     machineMouseDown({ evt: e.evt });
   }
 

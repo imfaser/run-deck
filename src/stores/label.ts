@@ -28,6 +28,8 @@ export const useLabelStore = defineStore('label', () => {
   // Canvas state
   const stageScale = ref(1);
   const stagePos = ref({ x: 0, y: 0 });
+  const imageWidth = ref(0);
+  const imageHeight = ref(0);
 
   // Mask
   const maskUrl = ref<string | null>(null);
@@ -103,6 +105,8 @@ export const useLabelStore = defineStore('label', () => {
     currentObjectId,
     stageScale,
     stagePos,
+    imageWidth,
+    imageHeight,
     maskUrl,
     maskVisible,
     maskSettings,

@@ -14,6 +14,8 @@ interface CanvasStore {
   addBoxToObject: (objectId: string, box: BoxAnnotation) => void;
   showNameDialog: boolean;
   pendingAnnotation: unknown;
+  imageWidth: number;
+  imageHeight: number;
 }
 
 interface CanvasRefs {

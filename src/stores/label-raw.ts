@@ -86,6 +86,8 @@ export const useLabelRawStore = defineStore('label-raw', () => {
   const currentObjectId = ref<string | null>(null);
   const stageScale = ref(1);
   const stagePos = ref({ x: 0, y: 0 });
+  const imageWidth = ref(0);
+  const imageHeight = ref(0);
 
   // ─── Mask settings ─────────────────────────────────
   const maskSettings = ref<MaskSettings>({ color: '#0096ff', opacity: 0.6, threshold: 128 });
@@ -386,6 +388,8 @@ export const useLabelRawStore = defineStore('label-raw', () => {
     currentObjectId,
     stageScale,
     stagePos,
+    imageWidth,
+    imageHeight,
     // Mask settings
     maskSettings,
     cursorImagePos,
