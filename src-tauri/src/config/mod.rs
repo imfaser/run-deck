@@ -31,13 +31,24 @@ impl Default for FrontendConfig {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Config {
+    #[serde(default = "default_log_level")]
     pub log_level: String,
+    #[serde(default = "default_log_retention_days")]
+    pub log_retention_days: u32,
     #[serde(default = "default_shell")]
     pub shell: String,
     #[serde(default)]
     pub frontend: FrontendConfig,
     #[serde(default, alias = "mcp_servers")]
     pub mcp: HashMap<String, McpServerConfig>,
+}
+
+fn default_log_level() -> String {
+    "info".to_string()
+}
+
+fn default_log_retention_days() -> u32 {
+    logging::DEFAULT_RETENTION_DAYS
 }
 
 fn default_shell() -> String {
@@ -47,7 +58,8 @@ fn default_shell() -> String {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            log_level: "info".to_string(),
+            log_level: default_log_level(),
+            log_retention_days: default_log_retention_days(),
             shell: default_shell(),
             frontend: FrontendConfig::default(),
             mcp: HashMap::new(),
@@ -61,7 +73,12 @@ impl Config {
     fn load_from_file(path: &Path) -> Result<Self> {
         if path.exists() {
             let content = std::fs::read_to_string(path)?;
-            let config: Config = serde_json::from_str(&content)?;
+            let mut config: Config = serde_json::from_str(&content)?;
+            let normalized = logging::normalize_log_level(&config.log_level);
+            if normalized != config.log_level {
+                log::warn!(target: "app", "[Config] Invalid log_level {:?}, falling back to {:?}", config.log_level, normalized);
+                config.log_level = normalized.to_string();
+            }
             Ok(config)
         } else {
             if let Some(parent) = path.parent() {

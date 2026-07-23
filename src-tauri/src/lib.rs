@@ -34,7 +34,8 @@ pub fn run() {
             // Initialize logging with log directory
             let log_dir = config::dirs::app_logs_dir().ok();
             let log_level = config.data_arc().log_level.clone();
-            logging::setup_log(log_dir.as_deref(), &log_level);
+            let retention_days = config.data_arc().log_retention_days;
+            logging::setup_log(log_dir.as_deref(), &log_level, retention_days);
 
             utils::log_app_info();
             logging!(info, Type::Setup, "应用启动完成");

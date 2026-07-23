@@ -10,6 +10,8 @@ vi.mock('@/services/raw3d', () => ({
 
 vi.mock('@/services/cmd', () => ({
   logMessage: vi.fn(),
+  setLogLevel: vi.fn(),
+  setLogLevelFilter: vi.fn(),
   mcpStoreImageBytes: vi.fn(),
 }));
 

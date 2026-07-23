@@ -4,6 +4,7 @@
     mcpListTools,
     mcpListPrompts,
     mcpListResources,
+    logMessage,
     type ToolInfo,
     type PromptInfo,
     type ResourceInfo,
@@ -57,7 +58,7 @@
       if (promptsResult.status === 'fulfilled') prompts.value = promptsResult.value;
       if (resourcesResult.status === 'fulfilled') resources.value = resourcesResult.value;
     } catch (e) {
-      console.error('[mcp-panel] loadDetails failed:', e);
+      logMessage('error', `[mcp-panel] loadDetails failed: ${e}`);
     }
   }
 

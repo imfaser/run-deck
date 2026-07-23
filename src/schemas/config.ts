@@ -34,8 +34,12 @@ export const McpServerConfigSchema = z.discriminatedUnion('type', [
   McpRemoteServerConfigSchema,
 ]);
 
+export const LogLevelSchema = z.enum(['error', 'warn', 'info', 'debug', 'trace']);
+export type LogLevel = z.infer<typeof LogLevelSchema>;
+
 export const ConfigSchema = z.object({
-  log_level: z.string(),
+  log_level: LogLevelSchema,
+  log_retention_days: z.number().int().positive().default(30),
   shell: ShellTypeSchema,
   frontend: FrontendConfigSchema,
   mcp: z.record(z.string(), McpServerConfigSchema),

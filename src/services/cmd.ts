@@ -1,15 +1,38 @@
 import { invoke } from '@tauri-apps/api/core';
 import { ConfigSchema } from '@/schemas/config';
-import type { Config, McpServerConfig, ShellType, FrontendConfig } from '@/schemas/config';
+import type {
+  Config,
+  McpServerConfig,
+  ShellType,
+  FrontendConfig,
+  LogLevel,
+} from '@/schemas/config';
 
 export async function greet(): Promise<void> {
   return invoke<void>('greet');
 }
 
-type LogLevel = 'error' | 'warn' | 'info' | 'debug' | 'trace';
+const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
+  trace: 0,
+  debug: 1,
+  info: 2,
+  warn: 3,
+  error: 4,
+};
+
+let _currentLogLevel: LogLevel = 'info';
+
+export function setLogLevelFilter(level: LogLevel) {
+  _currentLogLevel = level;
+}
 
 export async function logMessage(level: LogLevel, message: string): Promise<void> {
+  if (LOG_LEVEL_PRIORITY[level] < LOG_LEVEL_PRIORITY[_currentLogLevel]) return;
   return invoke<void>('log_message', { level, message });
+}
+
+export async function setLogLevel(level: LogLevel): Promise<void> {
+  return invoke<void>('set_log_level', { level });
 }
 
 export type { Config, McpServerConfig, ShellType, FrontendConfig };

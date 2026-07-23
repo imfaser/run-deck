@@ -22,6 +22,8 @@ vi.mock('@/services/sam3', () => ({
 vi.mock('@/services/cmd', () => ({
   mcpStoreImageBytes: vi.fn().mockResolvedValue('mcp://test/img'),
   logMessage: vi.fn(),
+  setLogLevel: vi.fn(),
+  setLogLevelFilter: vi.fn(),
 }));
 
 vi.mock('@/composables/useMaskRenderer', () => ({

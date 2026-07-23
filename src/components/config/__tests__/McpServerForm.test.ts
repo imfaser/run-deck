@@ -4,6 +4,8 @@ import { ref } from 'vue';
 
 vi.mock('@/services/cmd', () => ({
   logMessage: vi.fn(),
+  setLogLevel: vi.fn(),
+  setLogLevelFilter: vi.fn(),
   mcpServerStatus: vi.fn(),
 }));
 

@@ -1,5 +1,6 @@
 pub mod config;
 pub mod general;
+pub mod log;
 pub mod mcp;
 pub mod raw3d;
 

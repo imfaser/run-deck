@@ -1,19 +1,22 @@
-use logging::{KEEP_LOG_FILES, rotate_logs, timestamp_format};
+use logging::{cleanup_old_logs, timestamp_format, DEFAULT_RETENTION_DAYS};
+use chrono::{Local, NaiveDate};
 use flexi_logger::{DeferredNow, Record};
 use std::fs;
 use tempfile::TempDir;
 
 #[test]
-fn test_rotate_logs() {
+fn test_cleanup_old_logs_removes_old_files() {
     let tmp = TempDir::new().unwrap();
     let dir = tmp.path();
 
-    for i in 0..7 {
-        let name = format!("{:04}-01-01_00-00-0{:02}.log", 2020 + i, i);
-        fs::write(dir.join(&name), format!("log content {i}")).unwrap();
-    }
+    let old_date = Local::now() - chrono::Duration::days(DEFAULT_RETENTION_DAYS as i64 + 10);
+    let old_name = old_date.format("%Y%m%d-000000_000.log").to_string();
+    fs::write(dir.join(&old_name), "old log").unwrap();
 
-    rotate_logs(dir);
+    let recent_name = Local::now().format("%Y%m%d-120000_000.log").to_string();
+    fs::write(dir.join(&recent_name), "recent log").unwrap();
+
+    cleanup_old_logs(dir, DEFAULT_RETENTION_DAYS);
 
     let remaining: Vec<_> = fs::read_dir(dir)
         .unwrap()
@@ -21,28 +24,51 @@ fn test_rotate_logs() {
         .filter(|e| e.path().extension().is_some_and(|ext| ext == "log"))
         .collect();
 
-    assert_eq!(remaining.len(), KEEP_LOG_FILES, "should keep {KEEP_LOG_FILES} log files");
-    assert!(dir.join("old.tar.gz").exists(), "old.tar.gz should exist");
+    assert_eq!(remaining.len(), 1, "old log should be deleted");
+    assert!(
+        remaining[0].path().file_name().unwrap().to_str().unwrap().starts_with(
+            &Local::now().format("%Y%m%d").to_string()
+        ),
+        "remaining file should be the recent one"
+    );
 }
 
 #[test]
-fn test_rotate_noop_when_under_limit() {
+fn test_cleanup_old_logs_preserves_recent_files() {
     let tmp = TempDir::new().unwrap();
     let dir = tmp.path();
 
-    for i in 0..3 {
-        fs::write(dir.join(format!("test_{i}.log")), "content").unwrap();
-    }
+    let recent_name = Local::now().format("%Y%m%d-120000_000.log").to_string();
+    fs::write(dir.join(&recent_name), "recent log").unwrap();
 
-    rotate_logs(dir);
+    cleanup_old_logs(dir, DEFAULT_RETENTION_DAYS);
+
+    let remaining: Vec<_> = fs::read_dir(dir)
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().extension().is_some_and(|ext| ext == "log"))
+        .collect();
+
+    assert_eq!(remaining.len(), 1, "recent log should be preserved");
+}
+
+#[test]
+fn test_cleanup_old_logs_ignores_non_log_files() {
+    let tmp = TempDir::new().unwrap();
+    let dir = tmp.path();
+
+    let old_date = Local::now() - chrono::Duration::days(DEFAULT_RETENTION_DAYS as i64 + 10);
+    let old_name = old_date.format("%Y%m%d-000000_000.txt").to_string();
+    fs::write(dir.join(&old_name), "not a log").unwrap();
+
+    cleanup_old_logs(dir, DEFAULT_RETENTION_DAYS);
 
     let remaining: Vec<_> = fs::read_dir(dir)
         .unwrap()
         .filter_map(|e| e.ok())
         .collect();
 
-    assert_eq!(remaining.len(), 3, "should not touch files when under limit");
-    assert!(!dir.join("old.tar.gz").exists());
+    assert_eq!(remaining.len(), 1, "non-log files should be preserved");
 }
 
 #[test]

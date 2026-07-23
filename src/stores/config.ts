@@ -1,11 +1,13 @@
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import { useQueryClient } from '@tanstack/vue-query';
 import { match } from 'ts-pattern';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { FrontendConfigSchema, ShellTypeSchema } from '@/schemas/config';
 import {
   logMessage,
+  setLogLevel,
+  setLogLevelFilter,
   mcpServerStatus,
   type McpServerConfig,
   type ServerStatus,
@@ -25,6 +27,17 @@ export const useConfigStore = defineStore('config', () => {
     null
   );
   const serverStatuses = ref<Record<string, ServerStatus>>({});
+
+  // Sync frontend log level filter when config loads
+  watch(
+    config,
+    (cfg) => {
+      if (cfg?.log_level) {
+        setLogLevelFilter(cfg.log_level);
+      }
+    },
+    { immediate: true }
+  );
 
   function updateQuery(patch: Partial<Config>) {
     queryClient.setQueryData<Config>(['config'], (old) => ({ ...old!, ...patch }));
@@ -54,7 +67,16 @@ export const useConfigStore = defineStore('config', () => {
   function handleConfigUpdate(key: string, value: unknown) {
     if (!config.value) return;
     match(key)
-      .with('log_level', () => updateQuery({ log_level: String(value) }))
+      .with('log_level', async () => {
+        const level = String(value) as Config['log_level'];
+        updateQuery({ log_level: level });
+        setLogLevelFilter(level);
+        try {
+          await setLogLevel(level);
+        } catch (e) {
+          await logMessage('error', `Failed to update log level: ${e}`);
+        }
+      })
       .with('frontend.home', () =>
         updateQuery({ frontend: { ...config.value!.frontend, home: String(value) } })
       )

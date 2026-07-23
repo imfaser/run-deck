@@ -24,6 +24,7 @@ pub fn generate_handlers() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         crate::cmd::general::log_message,
         crate::cmd::general::mcp_store_content,
         crate::cmd::general::mcp_store_image_bytes,
+        crate::cmd::log::set_log_level,
         crate::cmd::mcp::mcp_list_tools,
         crate::cmd::mcp::mcp_call_tool,
         crate::cmd::mcp::mcp_call_tool_with_progress,
