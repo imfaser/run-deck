@@ -1,4 +1,5 @@
 <script setup lang="ts">
+  import { computed } from 'vue';
   import { Aim, CircleClose, Crop } from '@element-plus/icons-vue';
   import type { Component } from 'vue';
   import type { AnnotationType } from '@/schemas/annotation';
@@ -6,13 +7,15 @@
   import { useLabelStore } from '@/stores/label';
 
   const props = defineProps<{
-    mode: string;
-    tool: AnnotationType;
     storeType: 'raw' | 'label';
   }>();
 
   const rawStore = useLabelRawStore();
   const labelStore = useLabelStore();
+
+  const activeStore = computed(() => (props.storeType === 'raw' ? rawStore : labelStore));
+  const currentMode = computed(() => activeStore.value.mode);
+  const currentTool = computed(() => activeStore.value.tool);
 
   const tools: { value: AnnotationType; label: string; icon: Component; color: string }[] = [
     { value: 'p_point', label: '正向点', icon: Aim, color: '#22c55e' },
@@ -21,19 +24,15 @@
   ];
 
   function handleToolChange(tool: AnnotationType) {
-    if (props.storeType === 'raw') {
-      rawStore.setTool(tool);
-    } else {
-      labelStore.setTool(tool);
-    }
+    activeStore.value.setTool(tool);
   }
 </script>
 
 <template>
-  <div v-show="props.mode === 'create'" class="label-tool-panel">
+  <div v-show="currentMode === 'create'" class="label-tool-panel">
     <div class="panel-title">工具</div>
     <el-segmented
-      :model-value="props.tool"
+      :model-value="currentTool"
       :options="tools"
       direction="vertical"
       size="small"

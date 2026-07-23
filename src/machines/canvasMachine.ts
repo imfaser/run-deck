@@ -1,5 +1,6 @@
 import { setup, assign } from 'xstate';
-import type { LabelMode, AnnotationType, Annotation } from '@/schemas/annotation';
+import type { LabelMode, AnnotationType, BoxAnnotation } from '@/schemas/annotation';
+import type { PendingAnnotation } from '@/composables/useCanvasAnnotations';
 
 interface Point {
   x: number;
@@ -17,7 +18,11 @@ interface CanvasStore {
   mode: LabelMode;
   tool: AnnotationType;
   stagePos: Point;
-  addAnnotation: (ann: Annotation) => void;
+  currentObjectId: string | null;
+  addBoxToObject: (objectId: string, box: BoxAnnotation) => void;
+  showNameDialog: boolean;
+  pendingAnnotation: PendingAnnotation;
+  cursorScreenPos: { value: Point | null } | null;
 }
 
 interface CanvasContext {
@@ -41,7 +46,8 @@ type CanvasEvent =
       imageY?: number;
     }
   | { type: 'MOUSE_MOVE'; clientX: number; clientY: number; imageX?: number; imageY?: number }
-  | { type: 'MOUSE_UP' };
+  | { type: 'MOUSE_UP' }
+  | { type: 'CLEAR_TEMP_BOX' };
 
 export const canvasMachine = setup({
   types: {
@@ -91,22 +97,38 @@ export const canvasMachine = setup({
       if (!context.tempBox) return;
       const { x, y, w, h } = context.tempBox;
       if (w > 2 && h > 2) {
-        context.store.addAnnotation({
+        if (!context.store.currentObjectId) {
+          context.store.pendingAnnotation = {
+            type: 'box',
+            box: {
+              id: crypto.randomUUID(),
+              x1: Math.round(x),
+              y1: Math.round(y),
+              x2: Math.round(x + w),
+              y2: Math.round(y + h),
+            },
+          };
+          return;
+        }
+        context.store.addBoxToObject(context.store.currentObjectId, {
           id: crypto.randomUUID(),
-          type: 'box',
           x1: Math.round(x),
           y1: Math.round(y),
           x2: Math.round(x + w),
           y2: Math.round(y + h),
         });
+        context.tempBox = null;
       }
     },
-    resetBox: assign({
-      boxStart: null,
-      tempBox: null,
+    resetBox: assign(({ context }) => {
+      if (context.store.pendingAnnotation?.type === 'box') {
+        return { boxStart: null };
+      }
+      return { boxStart: null, tempBox: null };
     }),
     setSpaceDown: assign({ isSpaceDown: true }),
     setSpaceUp: assign({ isSpaceDown: false }),
+    clearTempBox: assign({ tempBox: null }),
   },
 }).createMachine({
   id: 'canvas',
@@ -136,6 +158,9 @@ export const canvasMachine = setup({
             target: 'idle',
           },
         ],
+        CLEAR_TEMP_BOX: {
+          actions: 'clearTempBox',
+        },
       },
     },
     spaceHeld: {

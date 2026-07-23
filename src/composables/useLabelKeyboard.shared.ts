@@ -3,11 +3,11 @@ import { match } from 'ts-pattern';
 import type { LabelMode, AnnotationType } from '@/schemas/annotation';
 
 interface LabelKeyboardStore {
-  selectedId: string | null;
+  selectedAnnotationId: string | null;
   setMode: (mode: LabelMode) => void;
   setTool: (tool: AnnotationType) => void;
   clearSelection: () => void;
-  removeAnnotation: (id: string) => void;
+  removeAnnotationFromObject: (id: string) => void;
   resetCanvas: () => void;
 }
 
@@ -23,13 +23,13 @@ export function useLabelKeyboardShared(store: LabelKeyboardStore) {
       .with('KeyN', () => store.setTool('n_point' as AnnotationType))
       .with('KeyB', () => store.setTool('box' as AnnotationType))
       .with('Escape', () => {
-        if (store.selectedId) {
+        if (store.selectedAnnotationId) {
           store.clearSelection();
         }
       })
       .with('Delete', 'Backspace', () => {
-        if (store.selectedId) {
-          store.removeAnnotation(store.selectedId);
+        if (store.selectedAnnotationId) {
+          store.removeAnnotationFromObject(store.selectedAnnotationId);
         }
       })
       .with('Digit0', () => store.resetCanvas())

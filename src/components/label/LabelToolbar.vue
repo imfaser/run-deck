@@ -1,5 +1,4 @@
 <script setup lang="ts">
-  // ========== 1. 第三方 / 内部模块引入 ==========
   import { ref, computed } from 'vue';
   import { open } from '@tauri-apps/plugin-dialog';
   import { convertFileSrc } from '@tauri-apps/api/core';
@@ -8,7 +7,6 @@
   import { useMaskRenderer } from '@/composables/useMaskRenderer';
   import { useMaskRenderOnChange } from '@/composables/useMaskRenderOnChange';
 
-  // ========== 2. 组合式函数（Composables）调用 ==========
   const store = useLabelStore();
   const { renderMask } = useMaskRenderer();
 
@@ -26,16 +24,13 @@
     },
   });
 
-  // ========== 4. 响应式状态声明 ==========
   const isLoadingMask = ref(false);
 
-  // ========== 5. 计算属性 ==========
   const cursorDisplay = computed(() => {
     if (!store.cursorImagePos) return '坐标: -, -';
     return `坐标: ${store.cursorImagePos.x}, ${store.cursorImagePos.y}`;
   });
 
-  // ========== 7. 普通方法与业务逻辑 ==========
   async function handleOpenImage() {
     const selected = await open({
       multiple: false,
@@ -44,7 +39,7 @@
     if (selected) {
       store.imagePath = selected as string;
       store.imageUrl = convertFileSrc(selected as string);
-      store.clearAnnotations();
+      store.clearObjects();
       store.maskUrl = null;
       store.rawMaskPath = null;
     }
@@ -52,21 +47,11 @@
 
   async function handleAIRecognize() {
     if (!store.imagePath) return;
-    if (store.annotations.length === 0) return;
+    if (store.objects.length === 0) return;
 
     isLoadingMask.value = true;
     try {
-      const pPoints = store.positivePoints.map((p) => [p.x, p.y] as [number, number]);
-      const nPoints = store.negativePoints.map((p) => [p.x, p.y] as [number, number]);
-      const boxList = store.boxes.map(
-        (b) => [b.x1, b.y1, b.x2, b.y2] as [number, number, number, number]
-      );
-
-      const result = await segmentImage(store.imagePath, {
-        p_point: pPoints.length > 0 ? pPoints : undefined,
-        n_point: nPoints.length > 0 ? nPoints : undefined,
-        boxes: boxList.length > 0 ? boxList : undefined,
-      });
+      const result = await segmentImage(store.imagePath, store.objects);
 
       const imgBlock = result.content.find((b) => b.type === 'image');
       if (imgBlock && 'data' in imgBlock) {
@@ -100,7 +85,7 @@
       <el-button
         type="primary"
         :loading="isLoadingMask"
-        :disabled="!store.imagePath || store.annotations.length === 0"
+        :disabled="!store.imagePath || store.objects.length === 0"
         @click="handleAIRecognize"
       >
         <template #icon>

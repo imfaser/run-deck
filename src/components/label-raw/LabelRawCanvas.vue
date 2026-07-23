@@ -4,15 +4,26 @@
   import { useResizeObserver, useEventListener } from '@vueuse/core';
   import Konva from 'konva';
   import { clamp } from 'es-toolkit';
+  import { match, P } from 'ts-pattern';
   import { useLabelRawStore } from '@/stores/label-raw';
   import { getPointerImagePos } from '@/utils/coordTransform';
   import { getPointConfig, getBoxConfig } from '@/utils/annotationConfig';
   import { useCanvasInteraction } from '@/composables/useCanvasInteraction';
   import { useCanvasAnnotations } from '@/composables/useCanvasAnnotations';
+  import { useCanvasRefs } from '@/composables/useCanvasRefs';
 
   const store = useLabelRawStore();
+  const containerRef = ref<HTMLDivElement | null>(null);
+  const stageRef = ref<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const stage = ref({ width: 800, height: 600 });
+  const image = ref({ width: 0, height: 0 });
+  const mask = ref({ width: 0, height: 0 });
+
+  const { getStage, getGroup, getTransformer, getLayer } = useCanvasRefs(stageRef);
+
   const {
     snapshot,
+    send,
     cursorStyle,
     handleStageMouseDown: machineMouseDown,
     handleStageMouseMove: machineMouseMove,
@@ -27,14 +38,12 @@
       getPointerImagePos(s as Konva.Stage, g as Konva.Group),
   });
 
-  const containerRef = ref<HTMLDivElement | null>(null);
-  const stageRef = ref<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
-  const stageWidth = ref(800);
-  const stageHeight = ref(600);
-  const imageWidth = ref(0);
-  const imageHeight = ref(0);
-  const maskWidth = ref(0);
-  const maskHeight = ref(0);
+  watch(
+    () => store.pendingAnnotation,
+    (val) => {
+      if (!val) send({ type: 'CLEAR_TEMP_BOX' });
+    }
+  );
 
   const [baseImage] = useImage(computed(() => store.sliceImageUrl ?? ''));
 
@@ -46,8 +55,8 @@
 
   function clampToImage(x: number, y: number) {
     return {
-      x: clamp(x, 0, imageWidth.value),
-      y: clamp(y, 0, imageHeight.value),
+      x: clamp(x, 0, image.value.width),
+      y: clamp(y, 0, image.value.height),
     };
   }
 
@@ -70,7 +79,7 @@
           y: number;
         },
     },
-    dims: { imageWidth, imageHeight, stageWidth, stageHeight },
+    dims: { image, stage },
     maxScale: 5,
     clampPosition: clampToImage,
     canCreate: () => store.hasVolume,
@@ -92,24 +101,39 @@
       y: box.y,
       width: box.w,
       height: box.h,
-      stroke: 'var(--color-warning)',
+      stroke: '#e6a23c',
       strokeWidth: 2,
       strokeScaleEnabled: false,
       fill: 'transparent',
+      listening: false,
     };
   });
 
+  const pendingBoxConfig = computed(() =>
+    match(store.pendingAnnotation)
+      .with({ type: 'box', box: P.select() }, (b) => ({
+        x: b.x1,
+        y: b.y1,
+        width: b.x2 - b.x1,
+        height: b.y2 - b.y1,
+        stroke: '#e6a23c',
+        strokeWidth: 2,
+        strokeScaleEnabled: false,
+        fill: 'rgba(234, 179, 8, 0.08)',
+        listening: false,
+      }))
+      .otherwise(() => null)
+  );
+
   watch(baseImage, (img) => {
     if (img) {
-      imageWidth.value = img.width;
-      imageHeight.value = img.height;
+      image.value = { width: img.width, height: img.height };
     }
   });
 
   watch(maskImage, (img) => {
     if (img) {
-      maskWidth.value = img.width;
-      maskHeight.value = img.height;
+      mask.value = { width: img.width, height: img.height };
     }
   });
 
@@ -122,40 +146,17 @@
   );
 
   onUnmounted(() => {
-    const stage = getStage();
-    if (stage) {
-      stage.destroyChildren();
-      stage.destroy();
+    const s = getStage();
+    if (s) {
+      s.destroyChildren();
+      s.destroy();
     }
   });
-
-  function getStage(): Konva.Stage | null {
-    return stageRef.value?.getStage?.() ?? null;
-  }
-
-  function getGroup(): Konva.Group | null {
-    const stage = getStage();
-    if (!stage) return null;
-    return stage.findOne('.annotation-group') as Konva.Group | null;
-  }
-
-  function getTransformer(): Konva.Transformer | null {
-    const stage = getStage();
-    if (!stage) return null;
-    return stage.findOne('.transformer-handle') as Konva.Transformer | null;
-  }
-
-  function getLayer(): Konva.Layer | null {
-    const stage = getStage();
-    if (!stage) return null;
-    return stage.findOne('Layer') as Konva.Layer | null;
-  }
 
   useResizeObserver(containerRef, (entries) => {
     const entry = entries[0];
     if (!entry) return;
-    stageWidth.value = entry.contentRect.width;
-    stageHeight.value = entry.contentRect.height;
+    stage.value = { width: entry.contentRect.width, height: entry.contentRect.height };
     getLayer()?.batchDraw();
   });
 
@@ -165,10 +166,20 @@
 
   function handleStageMouseMove(e: Konva.KonvaEventObject<MouseEvent>) {
     machineMouseMove({ evt: e.evt });
+    const stage = getStage();
+    if (stage) {
+      const pos = stage.getPointerPosition();
+      if (pos) store.cursorScreenPos = pos;
+    }
   }
 
-  function handleStageMouseUp() {
+  function handleStageMouseUp(_e: Konva.KonvaEventObject<MouseEvent>) {
     machineMouseUp();
+    const stage = getStage();
+    if (stage) {
+      const pos = stage.getPointerPosition();
+      if (pos) store.cursorScreenPos = pos;
+    }
   }
 
   defineExpose({ fitToImage });
@@ -178,7 +189,7 @@
   <div ref="containerRef" class="label-canvas-container">
     <v-stage
       ref="stageRef"
-      :config="{ width: stageWidth, height: stageHeight }"
+      :config="{ width: stage.width, height: stage.height }"
       :style="{ cursor: cursorStyle }"
       @mousedown="handleStageMouseDown"
       @mousemove="handleStageMouseMove"
@@ -190,53 +201,44 @@
         <v-group :config="groupConfig">
           <v-image
             v-if="baseImage"
-            :config="{ image: baseImage, width: imageWidth, height: imageHeight }"
+            :config="{ image: baseImage, width: image.width, height: image.height }"
           />
           <v-image
             v-if="maskImage && currentMaskVisible"
             :config="{
               image: maskImage,
-              width: maskWidth,
-              height: maskHeight,
+              width: mask.width,
+              height: mask.height,
               opacity: store.maskSettings.opacity,
             }"
           />
-          <v-circle
-            v-for="ann in store.positivePoints"
-            :key="ann.id"
-            :config="{
-              ...getPointConfig(ann, store.selectedId === ann.id),
-              draggable: store.mode === 'select',
-              scaleX: 1 / store.stageScale,
-              scaleY: 1 / store.stageScale,
-            }"
-            @click="(e: Konva.KonvaEventObject<MouseEvent>) => handleAnnotationClick(ann, e)"
-            @dragend="(e: Konva.KonvaEventObject<DragEvent>) => handleDragEnd(ann, e)"
-          />
-          <v-circle
-            v-for="ann in store.negativePoints"
-            :key="ann.id"
-            :config="{
-              ...getPointConfig(ann, store.selectedId === ann.id),
-              draggable: store.mode === 'select',
-              scaleX: 1 / store.stageScale,
-              scaleY: 1 / store.stageScale,
-            }"
-            @click="(e: Konva.KonvaEventObject<MouseEvent>) => handleAnnotationClick(ann, e)"
-            @dragend="(e: Konva.KonvaEventObject<DragEvent>) => handleDragEnd(ann, e)"
-          />
-          <v-rect
-            v-for="ann in store.boxes"
-            :key="ann.id"
-            :config="{
-              ...getBoxConfig(ann, store.selectedId === ann.id),
-              draggable: store.mode === 'select',
-            }"
-            @click="(e: Konva.KonvaEventObject<MouseEvent>) => handleAnnotationClick(ann, e)"
-            @dragend="(e: Konva.KonvaEventObject<DragEvent>) => handleDragEnd(ann, e)"
-            @transformend="handleTransformEnd"
-          />
+          <template v-for="obj in store.objects" :key="obj.id">
+            <v-circle
+              v-for="ann in obj.points"
+              :key="ann.id"
+              :config="{
+                ...getPointConfig(ann, store.selectedAnnotationId === ann.id, obj.color),
+                draggable: store.mode === 'select',
+                scaleX: 1 / store.stageScale,
+                scaleY: 1 / store.stageScale,
+              }"
+              @click="(e: Konva.KonvaEventObject<MouseEvent>) => handleAnnotationClick(ann, e)"
+              @dragend="(e: Konva.KonvaEventObject<DragEvent>) => handleDragEnd(ann, e)"
+            />
+            <v-rect
+              v-for="ann in obj.boxes"
+              :key="ann.id"
+              :config="{
+                ...getBoxConfig(ann, store.selectedAnnotationId === ann.id, obj.color),
+                draggable: store.mode === 'select',
+              }"
+              @click="(e: Konva.KonvaEventObject<MouseEvent>) => handleAnnotationClick(ann, e)"
+              @dragend="(e: Konva.KonvaEventObject<DragEvent>) => handleDragEnd(ann, e)"
+              @transformend="handleTransformEnd"
+            />
+          </template>
           <v-rect v-if="snapshot.context.tempBox" :config="tempBoxConfig" />
+          <v-rect v-if="pendingBoxConfig" :config="pendingBoxConfig" />
         </v-group>
         <v-transformer
           :config="{

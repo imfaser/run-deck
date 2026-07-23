@@ -2,7 +2,7 @@ import { computed } from 'vue';
 import { useMachine } from '@xstate/vue';
 import { match, P } from 'ts-pattern';
 import { canvasMachine } from '@/machines/canvasMachine';
-import type { LabelMode, AnnotationType, Annotation } from '@/schemas/annotation';
+import type { LabelMode, AnnotationType, BoxAnnotation } from '@/schemas/annotation';
 
 interface CanvasStore {
   mode: LabelMode;
@@ -10,11 +10,10 @@ interface CanvasStore {
   stagePos: { x: number; y: number };
   stageScale: number;
   cursorImagePos: { x: number; y: number } | null;
-  annotations: Array<{ id: string; type: string }>;
-  addAnnotation: (ann: Annotation) => void;
-  selectAnnotation: (id: string) => void;
-  removeAnnotation: (id: string) => void;
-  clearSelection: () => void;
+  currentObjectId: string | null;
+  addBoxToObject: (objectId: string, box: BoxAnnotation) => void;
+  showNameDialog: boolean;
+  pendingAnnotation: unknown;
 }
 
 interface CanvasRefs {

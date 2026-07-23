@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ref } from 'vue';
-import type { Annotation } from '@/schemas/annotation';
+import type { AnnotationObject } from '@/schemas/annotation';
 import type { Keyframe } from '@/stores/label-raw';
 
 vi.mock('@/services/raw3d', () => ({
@@ -40,11 +40,21 @@ vi.mock('@/composables/useCanvasToBytes', () => ({
   }),
 }));
 
+function createTestObject(id = 'obj-1', name = 'car'): AnnotationObject {
+  return {
+    id,
+    name,
+    color: '#ff3b30',
+    points: [],
+    boxes: [],
+  };
+}
+
 function createOpts() {
   return {
     volumeId: ref<string | null>('vol-1'),
     keyframes: ref<Map<number, Keyframe>>(new Map()),
-    annotations: ref<Annotation[]>([]),
+    objects: ref<AnnotationObject[]>([]),
     currentIndex: ref(0),
     totalSlices: ref(10),
     currentMaskUrl: ref<string | null>(null),
@@ -61,7 +71,9 @@ describe('useRawRecognize', () => {
 
   it('recognizeCurrentSlice creates keyframe if none exists', async () => {
     const opts = createOpts();
-    opts.annotations.value = [{ id: 'a1', type: 'p_point', x: 10, y: 20 }];
+    const obj = createTestObject();
+    obj.points.push({ id: 'p1', x: 10, y: 20, label: 1 });
+    opts.objects.value = [obj];
 
     const { useRawRecognize } = await import('../useRawRecognize');
     const { recognizeCurrentSlice } = useRawRecognize(opts);
@@ -70,7 +82,8 @@ describe('useRawRecognize', () => {
 
     expect(opts.keyframes.value.has(0)).toBe(true);
     const kf = opts.keyframes.value.get(0)!;
-    expect(kf.annotations).toHaveLength(1);
+    expect(kf.objects).toHaveLength(1);
+    expect(kf.objects[0].points).toHaveLength(1);
     expect(kf.rawMaskHash).toBe('mcp://localhost/mock-hash-abc');
     expect(kf.maskUrl).toBe('data:image/png;base64,mock');
     expect(opts.currentMaskUrl.value).toBe('data:image/png;base64,mock');
@@ -90,14 +103,15 @@ describe('useRawRecognize', () => {
 
   it('recognizeCurrentSlice uses existing keyframe', async () => {
     const opts = createOpts();
-    opts.annotations.value = [{ id: 'a1', type: 'p_point', x: 10, y: 20 }];
+    const obj = createTestObject();
+    obj.points.push({ id: 'p1', x: 10, y: 20, label: 1 });
+    opts.objects.value = [obj];
 
     const existingKf: Keyframe = {
-      annotations: [{ id: 'a1', type: 'p_point', x: 10, y: 20 }],
+      objects: [{ ...obj }],
       maskUrl: null,
       maskVisible: true,
       rawMaskHash: null,
-      manual: false,
     };
     opts.keyframes.value.set(0, existingKf);
 
@@ -110,61 +124,59 @@ describe('useRawRecognize', () => {
     expect(existingKf.rawMaskHash).toBe('mcp://localhost/mock-hash-abc');
   });
 
-  it('batchProcessKeyframes processes keyframes without mask', async () => {
+  it('batchRecognize skips slices with mask', async () => {
     const opts = createOpts();
+    const obj1 = createTestObject('obj-1', 'car');
+    obj1.points.push({ id: 'p1', x: 10, y: 20, label: 1 });
     opts.keyframes.value.set(0, {
-      annotations: [{ id: 'a1', type: 'p_point', x: 10, y: 20 }],
+      objects: [obj1],
       maskUrl: null,
       maskVisible: true,
       rawMaskHash: null,
-      manual: false,
     });
     opts.keyframes.value.set(3, {
-      annotations: [{ id: 'a2', type: 'p_point', x: 30, y: 40 }],
+      objects: [],
       maskUrl: null,
       maskVisible: true,
       rawMaskHash: 'existing-hash',
-      manual: false,
     });
 
     const { useRawRecognize } = await import('../useRawRecognize');
-    const { batchProcessKeyframes } = useRawRecognize(opts);
+    const { batchRecognize } = useRawRecognize(opts);
 
-    await batchProcessKeyframes();
+    await batchRecognize(0, 5);
 
     const { segmentImage } = await import('@/services/sam3');
-    expect(segmentImage).toHaveBeenCalledTimes(1);
+    expect(segmentImage).toHaveBeenCalledTimes(5);
   });
 
-  it('recognizeAllSlices refuses when no keyframes', async () => {
+  it('batchRecognize rejects invalid range', async () => {
     const opts = createOpts();
 
     const { useRawRecognize } = await import('../useRawRecognize');
-    const { recognizeAllSlices } = useRawRecognize(opts);
+    const { batchRecognize } = useRawRecognize(opts);
 
-    await recognizeAllSlices();
+    await batchRecognize(5, 5);
 
-    const { logMessage } = await import('@/services/cmd');
-    expect(logMessage).toHaveBeenCalledWith(
-      'warn',
-      '[recognizeAll] refused: no keyframes with mask or annotations'
-    );
+    const { ElMessage } = await import('element-plus');
+    expect(ElMessage.error).toBeDefined();
   });
 
-  it('recognizeAllSlices propagates prev_mask chain', async () => {
+  it('batchRecognize propagates prev_mask chain', async () => {
     const opts = createOpts();
+    const obj = createTestObject();
+    obj.points.push({ id: 'p1', x: 10, y: 20, label: 1 });
     opts.keyframes.value.set(2, {
-      annotations: [{ id: 'a1', type: 'p_point', x: 10, y: 20 }],
+      objects: [obj],
       maskUrl: null,
       maskVisible: true,
       rawMaskHash: 'mcp://localhost/seed-hash',
-      manual: false,
     });
 
     const { useRawRecognize } = await import('../useRawRecognize');
-    const { recognizeAllSlices } = useRawRecognize(opts);
+    const { batchRecognize } = useRawRecognize(opts);
 
-    await recognizeAllSlices(5);
+    await batchRecognize(2, 5);
 
     const { segmentImage } = await import('@/services/sam3');
     expect(segmentImage).toHaveBeenCalled();

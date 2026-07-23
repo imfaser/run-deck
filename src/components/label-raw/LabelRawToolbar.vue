@@ -68,45 +68,13 @@
     }
   }
 
-  async function handleBatchProcess() {
+  async function handleBatchRecognize() {
     isLoadingMask.value = true;
     try {
-      await store.batchProcessKeyframes();
+      await store.batchRecognize(store.batchRange.start, store.batchRange.end);
     } finally {
       isLoadingMask.value = false;
     }
-  }
-
-  async function handleRecognizeAll() {
-    const { ElMessageBox } = await import('element-plus');
-
-    // Show endSlice dialog (1-indexed for user)
-    let endSlice: number | undefined;
-    try {
-      const result = await ElMessageBox.prompt('识别全部：指定结束 slice 编号', '识别全部', {
-        confirmButtonText: '开始识别',
-        cancelButtonText: '取消',
-        inputPlaceholder: `默认 ${store.volumeInfo.totalSlices}`,
-        inputType: 'number',
-        inputValue: String(store.volumeInfo.totalSlices),
-        inputValidator: (val: string) => {
-          if (val === '') return true;
-          const n = Number(val);
-          if (Number.isNaN(n) || n < 1 || n > store.volumeInfo.totalSlices) {
-            return `请输入 1 ~ ${store.volumeInfo.totalSlices} 之间的数字`;
-          }
-          return true;
-        },
-      });
-      if (result.value !== '' && result.value !== undefined) {
-        endSlice = Number(result.value) - 1; // Convert to 0-indexed
-      }
-    } catch {
-      return; // User cancelled
-    }
-
-    // Start recognition in background
-    store.recognizeAllSlices(endSlice);
   }
 
   const recognizeProgressDisplay = computed(() => {
@@ -128,12 +96,6 @@
         </template>
         打开 Raw
       </el-button>
-      <el-button :disabled="!store.hasVolume" @click="store.toggleKeyframe()">
-        <template #icon>
-          <span>📌</span>
-        </template>
-        {{ store.isManualKeyframe ? '取消关键帧' : '关键帧标记' }}
-      </el-button>
       <el-button
         type="primary"
         :loading="isLoadingMask"
@@ -145,23 +107,17 @@
         </template>
         AI 识别
       </el-button>
-      <el-button :disabled="!store.hasVolume" @click="handleBatchProcess">
-        <template #icon>
-          <span>⚡</span>
-        </template>
-        批量处理
-      </el-button>
       <el-button v-if="store.isRecognizing" type="danger" @click="store.stopRecognition()">
         <template #icon>
           <span>⏹</span>
         </template>
         停止 {{ recognizeProgressDisplay }}
       </el-button>
-      <el-button v-else :disabled="!store.hasVolume" @click="handleRecognizeAll">
+      <el-button v-else :disabled="!store.hasVolume" @click="handleBatchRecognize">
         <template #icon>
           <span>🔄</span>
         </template>
-        识别全部
+        批量识别
       </el-button>
       <el-button :disabled="!store.sliceImageUrl" @click="handleFitImage">
         <template #icon>
@@ -246,7 +202,7 @@
     <!-- Recognize all progress dialog -->
     <el-dialog
       v-model="store.isRecognizing"
-      title="识别全部"
+      title="批量识别"
       width="360px"
       :close-on-click-modal="false"
       :close-on-press-escape="false"

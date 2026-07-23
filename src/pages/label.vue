@@ -6,21 +6,23 @@
   import LabelToolPanel from '@/components/shared/LabelToolPanel.vue';
   import LabelCanvas from '@/components/label/LabelCanvas.vue';
   import LabelInfoPanel from '@/components/label/LabelInfoPanel.vue';
-  import { useLabelStore } from '@/stores/label';
+  import LabelNameDialogHandler from '@/components/label/LabelNameDialogHandler.vue';
+  import ObjectSelectPopup from '@/components/label/ObjectSelectPopup.vue';
 
   // ========== 2. 组合式函数（Composables）调用 ==========
   useLabelKeyboard();
-  const store = useLabelStore();
 </script>
 
 <template>
+  <LabelNameDialogHandler />
+  <ObjectSelectPopup />
   <el-container direction="vertical" class="label-page">
     <LabelToolbar />
 
     <el-container class="label-body">
-      <el-aside width="64px" class="label-sidebar-left">
-        <LabelModePanel :mode="store.mode" store-type="label" />
-        <LabelToolPanel :mode="store.mode" :tool="store.tool" store-type="label" />
+      <el-aside width="80px" class="label-sidebar-left">
+        <LabelModePanel store-type="label" />
+        <LabelToolPanel store-type="label" />
       </el-aside>
 
       <el-main class="label-canvas-area">

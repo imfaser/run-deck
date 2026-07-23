@@ -19,8 +19,7 @@ vi.mock('@/composables/useRawRecognize', () => ({
     progress: ref({ current: 0, total: 0 }),
     stopRecognition: vi.fn(),
     recognizeCurrentSlice: vi.fn(),
-    batchProcessKeyframes: vi.fn(),
-    recognizeAllSlices: vi.fn(),
+    batchRecognize: vi.fn(),
   }),
 }));
 
@@ -38,85 +37,68 @@ describe('label-raw store', () => {
     expect(store.volumeInfo.totalSlices).toBe(0);
     expect(store.currentIndex).toBe(0);
     expect(store.keyframes.size).toBe(0);
-    expect(store.annotations).toHaveLength(0);
+    expect(store.objects).toHaveLength(0);
     expect(store.mode).toBe('create');
     expect(store.tool).toBe('p_point');
     expect(store.hasVolume).toBe(false);
   });
 
-  it('addAnnotation adds to annotations', async () => {
+  it('addObject creates object', async () => {
     const { useLabelRawStore } = await import('../label-raw');
     const store = useLabelRawStore();
     store.volumeId = 'vol-1';
 
-    store.addAnnotation({
-      id: 'ann-1',
-      type: 'p_point',
-      x: 10,
-      y: 20,
-    });
+    const obj = store.addObject('tumor');
+    store.addPointToObject(obj.id, { id: 'p1', x: 10, y: 20, label: 1 });
 
-    expect(store.annotations).toHaveLength(1);
-    expect(store.annotations[0].id).toBe('ann-1');
-    expect(store.positivePoints).toHaveLength(1);
-    expect(store.negativePoints).toHaveLength(0);
-    expect(store.boxes).toHaveLength(0);
+    expect(store.objects).toHaveLength(1);
+    expect(store.objects[0].points).toHaveLength(1);
+    expect(store.allPoints).toHaveLength(1);
   });
 
-  it('addAnnotation ignores when no volume', async () => {
-    const { useLabelRawStore } = await import('../label-raw');
-    const store = useLabelRawStore();
-
-    store.addAnnotation({ id: 'ann-1', type: 'p_point', x: 10, y: 20 });
-
-    expect(store.annotations).toHaveLength(0);
-  });
-
-  it('removeAnnotation removes by id', async () => {
+  it('removeAnnotationFromObject removes point', async () => {
     const { useLabelRawStore } = await import('../label-raw');
     const store = useLabelRawStore();
     store.volumeId = 'vol-1';
 
-    store.addAnnotation({ id: 'a1', type: 'p_point', x: 1, y: 2 });
-    store.addAnnotation({ id: 'a2', type: 'box', x1: 0, y1: 0, x2: 10, y2: 10 });
+    const obj = store.addObject('tumor');
+    store.addPointToObject(obj.id, { id: 'p1', x: 1, y: 2, label: 1 });
+    store.addBoxToObject(obj.id, { id: 'b1', x1: 0, y1: 0, x2: 10, y2: 10 });
 
-    expect(store.annotations).toHaveLength(2);
+    expect(store.allAnnotations).toHaveLength(2);
 
-    store.removeAnnotation('a1');
+    store.removeAnnotationFromObject('p1');
 
-    expect(store.annotations).toHaveLength(1);
-    expect(store.annotations[0].id).toBe('a2');
+    expect(store.objects[0].points).toHaveLength(0);
+    expect(store.objects[0].boxes).toHaveLength(1);
   });
 
-  it('removeAnnotation clears selectedId if removing selected', async () => {
+  it('selectAnnotation clears selectedAnnotationId if removing selected', async () => {
     const { useLabelRawStore } = await import('../label-raw');
     const store = useLabelRawStore();
     store.volumeId = 'vol-1';
 
-    store.addAnnotation({ id: 'a1', type: 'p_point', x: 1, y: 2 });
-    store.selectAnnotation('a1');
-    expect(store.selectedId).toBe('a1');
+    const obj = store.addObject('tumor');
+    store.addPointToObject(obj.id, { id: 'p1', x: 1, y: 2, label: 1 });
+    store.selectAnnotation('p1');
+    expect(store.selectedAnnotationId).toBe('p1');
 
-    store.removeAnnotation('a1');
-    expect(store.selectedId).toBeNull();
+    store.removeAnnotationFromObject('p1');
+    expect(store.selectedAnnotationId).toBeNull();
   });
 
-  it('updateAnnotation updates fields', async () => {
+  it('updateAnnotationInObject updates fields', async () => {
     const { useLabelRawStore } = await import('../label-raw');
     const store = useLabelRawStore();
     store.volumeId = 'vol-1';
 
-    store.addAnnotation({ id: 'a1', type: 'p_point', x: 10, y: 20 });
+    const obj = store.addObject('tumor');
+    store.addPointToObject(obj.id, { id: 'p1', x: 10, y: 20, label: 1 });
 
-    store.updateAnnotation('a1', { x: 100, y: 200 });
+    store.updateAnnotationInObject('p1', { x: 100, y: 200 });
 
-    const ann = store.annotations[0];
-    if (ann.type === 'p_point') {
-      expect(ann.x).toBe(100);
-      expect(ann.y).toBe(200);
-    } else {
-      throw new Error('Expected p_point annotation');
-    }
+    expect(store.objects[0].points[0].x).toBe(100);
+    expect(store.objects[0].points[0].y).toBe(200);
   });
 
   it('setMode clears selection', async () => {
@@ -124,13 +106,14 @@ describe('label-raw store', () => {
     const store = useLabelRawStore();
     store.volumeId = 'vol-1';
 
-    store.addAnnotation({ id: 'a1', type: 'p_point', x: 1, y: 2 });
-    store.selectAnnotation('a1');
-    expect(store.selectedId).toBe('a1');
+    const obj = store.addObject('tumor');
+    store.addPointToObject(obj.id, { id: 'p1', x: 1, y: 2, label: 1 });
+    store.selectAnnotation('p1');
+    expect(store.selectedAnnotationId).toBe('p1');
 
     store.setMode('delete');
     expect(store.mode).toBe('delete');
-    expect(store.selectedId).toBeNull();
+    expect(store.selectedAnnotationId).toBeNull();
   });
 
   it('setTool sets mode to create', async () => {
@@ -144,19 +127,16 @@ describe('label-raw store', () => {
     expect(store.mode).toBe('create');
   });
 
-  it('clearAnnotations clears all', async () => {
+  it('clearObjects clears all', async () => {
     const { useLabelRawStore } = await import('../label-raw');
     const store = useLabelRawStore();
     store.volumeId = 'vol-1';
 
-    store.addAnnotation({ id: 'a1', type: 'p_point', x: 1, y: 2 });
-    store.addAnnotation({ id: 'a2', type: 'box', x1: 0, y1: 0, x2: 10, y2: 10 });
-    store.selectAnnotation('a1');
+    store.addObject('tumor');
+    store.clearObjects();
 
-    store.clearAnnotations();
-
-    expect(store.annotations).toHaveLength(0);
-    expect(store.selectedId).toBeNull();
+    expect(store.objects).toHaveLength(0);
+    expect(store.currentObjectId).toBeNull();
   });
 
   it('resetCanvas resets scale and position', async () => {
@@ -172,19 +152,21 @@ describe('label-raw store', () => {
     expect(store.stagePos).toEqual({ x: 0, y: 0 });
   });
 
-  it('computed positivePoints/negativePoints/boxes filter correctly', async () => {
+  it('computed allAnnotations aggregates across objects', async () => {
     const { useLabelRawStore } = await import('../label-raw');
     const store = useLabelRawStore();
     store.volumeId = 'vol-1';
 
-    store.addAnnotation({ id: 'p1', type: 'p_point', x: 1, y: 2 });
-    store.addAnnotation({ id: 'n1', type: 'n_point', x: 3, y: 4 });
-    store.addAnnotation({ id: 'b1', type: 'box', x1: 0, y1: 0, x2: 10, y2: 10 });
-    store.addAnnotation({ id: 'p2', type: 'p_point', x: 5, y: 6 });
+    const obj1 = store.addObject('tumor');
+    const obj2 = store.addObject('organ');
+    store.addPointToObject(obj1.id, { id: 'p1', x: 1, y: 2, label: 1 });
+    store.addPointToObject(obj1.id, { id: 'p2', x: 3, y: 4, label: 0 });
+    store.addBoxToObject(obj1.id, { id: 'b1', x1: 0, y1: 0, x2: 10, y2: 10 });
+    store.addPointToObject(obj2.id, { id: 'p3', x: 5, y: 6, label: 1 });
 
-    expect(store.positivePoints).toHaveLength(2);
-    expect(store.negativePoints).toHaveLength(1);
-    expect(store.boxes).toHaveLength(1);
+    expect(store.allPoints).toHaveLength(3);
+    expect(store.allBoxes).toHaveLength(1);
+    expect(store.allAnnotations).toHaveLength(4);
   });
 
   it('selectedAnnotation returns correct annotation', async () => {
@@ -192,13 +174,15 @@ describe('label-raw store', () => {
     const store = useLabelRawStore();
     store.volumeId = 'vol-1';
 
-    store.addAnnotation({ id: 'a1', type: 'p_point', x: 1, y: 2 });
-    store.addAnnotation({ id: 'a2', type: 'box', x1: 0, y1: 0, x2: 10, y2: 10 });
+    const obj = store.addObject('tumor');
+    store.addPointToObject(obj.id, { id: 'p1', x: 1, y: 2, label: 1 });
+    store.addBoxToObject(obj.id, { id: 'b1', x1: 0, y1: 0, x2: 10, y2: 10 });
 
-    expect(store.selectedAnnotation).toBeNull();
+    // Adding an annotation auto-selects it
+    expect(store.selectedAnnotation?.id).toBe('b1');
 
-    store.selectAnnotation('a2');
-    expect(store.selectedAnnotation?.id).toBe('a2');
+    store.selectAnnotation('p1');
+    expect(store.selectedAnnotation?.id).toBe('p1');
 
     store.selectAnnotation(null);
     expect(store.selectedAnnotation).toBeNull();

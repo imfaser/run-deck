@@ -8,15 +8,14 @@ export type LabelMode = z.infer<typeof LabelModeSchema>;
 
 export const PointAnnotationSchema = z.object({
   id: z.string(),
-  type: z.enum(['p_point', 'n_point']),
   x: z.number(),
   y: z.number(),
+  label: z.union([z.literal(0), z.literal(1)]),
 });
 export type PointAnnotation = z.infer<typeof PointAnnotationSchema>;
 
 export const BoxAnnotationSchema = z.object({
   id: z.string(),
-  type: z.literal('box'),
   x1: z.number(),
   y1: z.number(),
   x2: z.number(),
@@ -24,8 +23,14 @@ export const BoxAnnotationSchema = z.object({
 });
 export type BoxAnnotation = z.infer<typeof BoxAnnotationSchema>;
 
-export const AnnotationSchema = z.discriminatedUnion('type', [
-  PointAnnotationSchema,
-  BoxAnnotationSchema,
-]);
+export const AnnotationSchema = z.union([PointAnnotationSchema, BoxAnnotationSchema]);
 export type Annotation = z.infer<typeof AnnotationSchema>;
+
+export const AnnotationObjectSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1),
+  color: z.string(),
+  points: z.array(PointAnnotationSchema),
+  boxes: z.array(BoxAnnotationSchema),
+});
+export type AnnotationObject = z.infer<typeof AnnotationObjectSchema>;

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+  import { computed } from 'vue';
   import { Pointer, Edit, Delete } from '@element-plus/icons-vue';
   import type { Component } from 'vue';
   import type { LabelMode } from '@/schemas/annotation';
@@ -6,12 +7,14 @@
   import { useLabelStore } from '@/stores/label';
 
   const props = defineProps<{
-    mode: LabelMode;
     storeType: 'raw' | 'label';
   }>();
 
   const rawStore = useLabelRawStore();
   const labelStore = useLabelStore();
+
+  const activeStore = computed(() => (props.storeType === 'raw' ? rawStore : labelStore));
+  const currentMode = computed(() => activeStore.value.mode);
 
   const modes: { value: LabelMode; label: string; icon: Component }[] = [
     { value: 'select', label: '选择', icon: Pointer },
@@ -20,11 +23,7 @@
   ];
 
   function handleModeChange(mode: LabelMode) {
-    if (props.storeType === 'raw') {
-      rawStore.setMode(mode);
-    } else {
-      labelStore.setMode(mode);
-    }
+    activeStore.value.setMode(mode);
   }
 </script>
 
@@ -32,7 +31,7 @@
   <div class="label-mode-panel">
     <div class="panel-title">模式</div>
     <el-segmented
-      :model-value="props.mode"
+      :model-value="currentMode"
       :options="modes"
       direction="vertical"
       size="small"

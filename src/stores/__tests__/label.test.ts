@@ -14,81 +14,114 @@ describe('label store', () => {
     expect(store.imageUrl).toBeNull();
     expect(store.mode).toBe('create');
     expect(store.tool).toBe('p_point');
-    expect(store.annotations).toHaveLength(0);
-    expect(store.selectedId).toBeNull();
+    expect(store.objects).toHaveLength(0);
+    expect(store.selectedObjectId).toBeNull();
+    expect(store.selectedAnnotationId).toBeNull();
+    expect(store.currentObjectId).toBeNull();
     expect(store.stageScale).toBe(1);
     expect(store.stagePos).toEqual({ x: 0, y: 0 });
     expect(store.maskVisible).toBe(true);
     expect(store.maskSettings.opacity).toBe(0.6);
   });
 
-  it('addAnnotation adds to annotations', async () => {
+  it('addObject creates object and sets currentObjectId', async () => {
     const { useLabelStore } = await import('../label');
     const store = useLabelStore();
 
-    store.addAnnotation({ id: 'ann-1', type: 'p_point', x: 10, y: 20 });
+    const obj = store.addObject('car');
 
-    expect(store.annotations).toHaveLength(1);
-    expect(store.annotations[0].id).toBe('ann-1');
-    expect(store.positivePoints).toHaveLength(1);
-    expect(store.negativePoints).toHaveLength(0);
-    expect(store.boxes).toHaveLength(0);
+    expect(store.objects).toHaveLength(1);
+    expect(obj.name).toBe('car');
+    expect(obj.color).toBeTruthy();
+    expect(obj.points).toHaveLength(0);
+    expect(obj.boxes).toHaveLength(0);
+    expect(store.currentObjectId).toBe(obj.id);
   });
 
-  it('removeAnnotation removes by id', async () => {
+  it('addPointToObject adds point to correct object', async () => {
     const { useLabelStore } = await import('../label');
     const store = useLabelStore();
 
-    store.addAnnotation({ id: 'a1', type: 'p_point', x: 1, y: 2 });
-    store.addAnnotation({ id: 'a2', type: 'box', x1: 0, y1: 0, x2: 10, y2: 10 });
+    const obj = store.addObject('car');
+    store.addPointToObject(obj.id, { id: 'p1', x: 10, y: 20, label: 1 });
 
-    expect(store.annotations).toHaveLength(2);
-
-    store.removeAnnotation('a1');
-
-    expect(store.annotations).toHaveLength(1);
-    expect(store.annotations[0].id).toBe('a2');
+    expect(store.objects[0].points).toHaveLength(1);
+    expect(store.objects[0].points[0].label).toBe(1);
+    expect(store.allPoints).toHaveLength(1);
   });
 
-  it('removeAnnotation clears selectedId if removing selected', async () => {
+  it('addBoxToObject adds box to correct object', async () => {
     const { useLabelStore } = await import('../label');
     const store = useLabelStore();
 
-    store.addAnnotation({ id: 'a1', type: 'p_point', x: 1, y: 2 });
-    store.selectAnnotation('a1');
-    expect(store.selectedId).toBe('a1');
+    const obj = store.addObject('car');
+    store.addBoxToObject(obj.id, { id: 'b1', x1: 0, y1: 0, x2: 100, y2: 100 });
 
-    store.removeAnnotation('a1');
-    expect(store.selectedId).toBeNull();
+    expect(store.objects[0].boxes).toHaveLength(1);
+    expect(store.allBoxes).toHaveLength(1);
   });
 
-  it('updateAnnotation updates fields', async () => {
+  it('removeObject removes object and clears currentObjectId', async () => {
     const { useLabelStore } = await import('../label');
     const store = useLabelStore();
 
-    store.addAnnotation({ id: 'a1', type: 'p_point', x: 10, y: 20 });
-    store.updateAnnotation('a1', { x: 100, y: 200 });
+    const obj = store.addObject('car');
+    store.removeObject(obj.id);
 
-    const ann = store.annotations[0];
-    if (ann.type === 'p_point') {
-      expect(ann.x).toBe(100);
-      expect(ann.y).toBe(200);
-    } else {
-      throw new Error('Expected p_point annotation');
-    }
+    expect(store.objects).toHaveLength(0);
+    expect(store.currentObjectId).toBeNull();
+  });
+
+  it('renameObject updates name and color', async () => {
+    const { useLabelStore } = await import('../label');
+    const store = useLabelStore();
+
+    const obj = store.addObject('car');
+    store.renameObject(obj.id, 'book');
+
+    expect(store.objects[0].name).toBe('book');
+    // Color may or may not change depending on hash collision
+    expect(store.objects[0].color).toBeTruthy();
+  });
+
+  it('removeAnnotationFromObject removes point', async () => {
+    const { useLabelStore } = await import('../label');
+    const store = useLabelStore();
+
+    const obj = store.addObject('car');
+    store.addPointToObject(obj.id, { id: 'p1', x: 10, y: 20, label: 1 });
+    store.addPointToObject(obj.id, { id: 'p2', x: 30, y: 40, label: 0 });
+
+    store.removeAnnotationFromObject('p1');
+
+    expect(store.objects[0].points).toHaveLength(1);
+    expect(store.objects[0].points[0].id).toBe('p2');
+  });
+
+  it('selectAnnotation selects and sets selectedObjectId', async () => {
+    const { useLabelStore } = await import('../label');
+    const store = useLabelStore();
+
+    const obj = store.addObject('car');
+    store.addPointToObject(obj.id, { id: 'p1', x: 10, y: 20, label: 1 });
+
+    store.selectAnnotation('p1');
+
+    expect(store.selectedAnnotationId).toBe('p1');
+    expect(store.selectedObjectId).toBe(obj.id);
   });
 
   it('setMode clears selection', async () => {
     const { useLabelStore } = await import('../label');
     const store = useLabelStore();
 
-    store.addAnnotation({ id: 'a1', type: 'p_point', x: 1, y: 2 });
-    store.selectAnnotation('a1');
-    expect(store.selectedId).toBe('a1');
+    const obj = store.addObject('car');
+    store.addPointToObject(obj.id, { id: 'p1', x: 10, y: 20, label: 1 });
+    store.selectAnnotation('p1');
 
     store.setMode('delete');
     expect(store.mode).toBe('delete');
-    expect(store.selectedId).toBeNull();
+    expect(store.selectedAnnotationId).toBeNull();
   });
 
   it('setTool sets mode to create', async () => {
@@ -102,18 +135,16 @@ describe('label store', () => {
     expect(store.mode).toBe('create');
   });
 
-  it('clearAnnotations clears all', async () => {
+  it('clearObjects clears all', async () => {
     const { useLabelStore } = await import('../label');
     const store = useLabelStore();
 
-    store.addAnnotation({ id: 'a1', type: 'p_point', x: 1, y: 2 });
-    store.addAnnotation({ id: 'a2', type: 'box', x1: 0, y1: 0, x2: 10, y2: 10 });
-    store.selectAnnotation('a1');
+    store.addObject('car');
+    store.clearObjects();
 
-    store.clearAnnotations();
-
-    expect(store.annotations).toHaveLength(0);
-    expect(store.selectedId).toBeNull();
+    expect(store.objects).toHaveLength(0);
+    expect(store.currentObjectId).toBeNull();
+    expect(store.selectedObjectId).toBeNull();
   });
 
   it('resetCanvas resets scale and position', async () => {
@@ -129,31 +160,35 @@ describe('label store', () => {
     expect(store.stagePos).toEqual({ x: 0, y: 0 });
   });
 
-  it('computed positivePoints/negativePoints/boxes filter correctly', async () => {
+  it('computed allAnnotations aggregates across objects', async () => {
     const { useLabelStore } = await import('../label');
     const store = useLabelStore();
 
-    store.addAnnotation({ id: 'p1', type: 'p_point', x: 1, y: 2 });
-    store.addAnnotation({ id: 'n1', type: 'n_point', x: 3, y: 4 });
-    store.addAnnotation({ id: 'b1', type: 'box', x1: 0, y1: 0, x2: 10, y2: 10 });
-    store.addAnnotation({ id: 'p2', type: 'p_point', x: 5, y: 6 });
+    const car = store.addObject('car');
+    const book = store.addObject('book');
+    store.addPointToObject(car.id, { id: 'p1', x: 1, y: 2, label: 1 });
+    store.addPointToObject(car.id, { id: 'p2', x: 3, y: 4, label: 0 });
+    store.addBoxToObject(car.id, { id: 'b1', x1: 0, y1: 0, x2: 10, y2: 10 });
+    store.addPointToObject(book.id, { id: 'p3', x: 5, y: 6, label: 1 });
 
-    expect(store.positivePoints).toHaveLength(2);
-    expect(store.negativePoints).toHaveLength(1);
-    expect(store.boxes).toHaveLength(1);
+    expect(store.allPoints).toHaveLength(3);
+    expect(store.allBoxes).toHaveLength(1);
+    expect(store.allAnnotations).toHaveLength(4);
   });
 
   it('selectedAnnotation returns correct annotation', async () => {
     const { useLabelStore } = await import('../label');
     const store = useLabelStore();
 
-    store.addAnnotation({ id: 'a1', type: 'p_point', x: 1, y: 2 });
-    store.addAnnotation({ id: 'a2', type: 'box', x1: 0, y1: 0, x2: 10, y2: 10 });
+    const obj = store.addObject('car');
+    store.addPointToObject(obj.id, { id: 'p1', x: 1, y: 2, label: 1 });
+    store.addBoxToObject(obj.id, { id: 'b1', x1: 0, y1: 0, x2: 10, y2: 10 });
 
-    expect(store.selectedAnnotation).toBeNull();
+    // Adding an annotation auto-selects it
+    expect(store.selectedAnnotation?.id).toBe('b1');
 
-    store.selectAnnotation('a2');
-    expect(store.selectedAnnotation?.id).toBe('a2');
+    store.selectAnnotation('p1');
+    expect(store.selectedAnnotation?.id).toBe('p1');
 
     store.selectAnnotation(null);
     expect(store.selectedAnnotation).toBeNull();

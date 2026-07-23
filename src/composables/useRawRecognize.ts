@@ -7,13 +7,13 @@ import { segmentImage } from '@/services/sam3';
 import { mcpStoreImageBytes, logMessage } from '@/services/cmd';
 import { useMaskRenderer } from '@/composables/useMaskRenderer';
 import { useCanvasToBytes } from '@/composables/useCanvasToBytes';
-import type { Annotation, PointAnnotation, BoxAnnotation } from '@/schemas/annotation';
+import type { AnnotationObject } from '@/schemas/annotation';
 import type { Keyframe } from '@/stores/label-raw';
 
 export interface UseRawRecognizeOpts {
   volumeId: Ref<string | null>;
   keyframes: Ref<Map<number, Keyframe>>;
-  annotations: Ref<Annotation[]>;
+  objects: Ref<AnnotationObject[]>;
   currentIndex: Ref<number>;
   totalSlices: Ref<number>;
   currentMaskUrl: Ref<string | null>;
@@ -37,8 +37,8 @@ export function useRawRecognize(opts: UseRawRecognizeOpts) {
   ): Promise<boolean> {
     if (!opts.volumeId.value) return false;
 
-    // Check if we have any prompt: annotations or prev_mask
-    const hasAnnotations = kf.annotations.length > 0;
+    // Check if we have any prompt: objects or prev_mask
+    const hasObjects = kf.objects.some((o) => o.points.length > 0 || o.boxes.length > 0);
     let hasPrevMask = false;
     for (let i = sliceIndex - 1; i >= 0; i--) {
       const prevKf = opts.keyframes.value.get(i);
@@ -47,11 +47,11 @@ export function useRawRecognize(opts: UseRawRecognizeOpts) {
         break;
       }
     }
-    if (!hasAnnotations && !hasPrevMask) return false;
+    if (!hasObjects && !hasPrevMask) return false;
 
     await logMessage(
       'debug',
-      `[recognize] slice=${sliceIndex} prompts=${hasAnnotations ? 'annotations' : ''} ${hasPrevMask ? 'prevMask' : ''}`
+      `[recognize] slice=${sliceIndex} prompts=${hasObjects ? 'objects' : ''} ${hasPrevMask ? 'prevMask' : ''}`
     );
 
     // Get the slice image as canvas data
@@ -61,7 +61,7 @@ export function useRawRecognize(opts: UseRawRecognizeOpts) {
     const { canvasToPngBytes } = useCanvasToBytes();
     const bytes = await canvasToPngBytes(resp.data, resp.width, resp.height);
 
-    // Validate PNG header: first 8 bytes should be PNG magic number
+    // Validate PNG header
     const isPng = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
     await logMessage(
       'debug',
@@ -73,17 +73,6 @@ export function useRawRecognize(opts: UseRawRecognizeOpts) {
 
     // Store in MCP content store
     const mcpUrl = await mcpStoreImageBytes(bytes, 'image/png');
-
-    // Call SAM3
-    const pPoints = kf.annotations
-      .filter((a): a is PointAnnotation => a.type === 'p_point')
-      .map((p) => [p.x, p.y] as [number, number]);
-    const nPoints = kf.annotations
-      .filter((a): a is PointAnnotation => a.type === 'n_point')
-      .map((p) => [p.x, p.y] as [number, number]);
-    const boxList = kf.annotations
-      .filter((a): a is BoxAnnotation => a.type === 'box')
-      .map((b) => [b.x1, b.y1, b.x2, b.y2] as [number, number, number, number]);
 
     // Find prev_mask: nearest previous slice that has a mask
     let prevMask: string | undefined;
@@ -101,12 +90,7 @@ export function useRawRecognize(opts: UseRawRecognizeOpts) {
       }
     }
 
-    const result = await segmentImage(mcpUrl, {
-      p_point: pPoints.length > 0 ? pPoints : undefined,
-      n_point: nPoints.length > 0 ? nPoints : undefined,
-      boxes: boxList.length > 0 ? boxList : undefined,
-      prev_mask: prevMask,
-    });
+    const result = await segmentImage(mcpUrl, kf.objects, prevMask);
 
     await logMessage(
       'debug',
@@ -161,8 +145,8 @@ export function useRawRecognize(opts: UseRawRecognizeOpts) {
     const existingKf = opts.keyframes.value.get(opts.currentIndex.value);
     const hasExistingMask = !!existingKf?.rawMaskHash;
 
-    // Check if both annotations and prev_mask exist
-    const hasAnnotations = opts.annotations.value.length > 0;
+    // Check if both objects and prev_mask exist
+    const hasObjects = opts.objects.value.some((o) => o.points.length > 0 || o.boxes.length > 0);
     let hasPrevMask = false;
     for (let i = opts.currentIndex.value - 1; i >= 0; i--) {
       const prevKf = opts.keyframes.value.get(i);
@@ -174,8 +158,8 @@ export function useRawRecognize(opts: UseRawRecognizeOpts) {
 
     const { ElMessageBox } = await import('element-plus');
 
-    // Case 1: has existing mask, no annotation+prev_mask → ask adopt or re-recognize
-    if (hasExistingMask && !(hasAnnotations && hasPrevMask)) {
+    // Case 1: has existing mask, no objects+prev_mask → ask adopt or re-recognize
+    if (hasExistingMask && !(hasObjects && hasPrevMask)) {
       try {
         await ElMessageBox.confirm('已有 pred_mask，是否采用？', '提示', {
           confirmButtonText: '采用已有',
@@ -196,9 +180,9 @@ export function useRawRecognize(opts: UseRawRecognizeOpts) {
       }
     }
 
-    // Case 2: has annotations + prev_mask → single prompt
+    // Case 2: has objects + prev_mask → single prompt
     let skipPrevMask = false;
-    if (hasAnnotations && hasPrevMask) {
+    if (hasObjects && hasPrevMask) {
       try {
         await ElMessageBox.confirm(
           '当前 slice 有标注且存在 prev_mask，是否结合 prev_mask 一同识别？',
@@ -218,11 +202,10 @@ export function useRawRecognize(opts: UseRawRecognizeOpts) {
     let kf = opts.keyframes.value.get(opts.currentIndex.value);
     if (!kf) {
       kf = {
-        annotations: cloneDeep(opts.annotations.value),
+        objects: cloneDeep(opts.objects.value),
         maskUrl: null,
         maskVisible: true,
         rawMaskHash: null,
-        manual: false,
       };
       opts.keyframes.value.set(opts.currentIndex.value, kf);
       opts.cloneKeyframes();
@@ -231,96 +214,79 @@ export function useRawRecognize(opts: UseRawRecognizeOpts) {
     await doRecognize(opts.currentIndex.value, kf, skipPrevMask);
   }
 
-  async function batchProcessKeyframes() {
-    for (const [idx, kf] of opts.keyframes.value) {
-      if (!kf.rawMaskHash && kf.annotations.length > 0) {
-        await doRecognize(idx, kf);
-      }
-    }
-  }
-
-  async function recognizeAllSlices(endSlice?: number) {
-    // Pre-check: need at least one keyframe with mask or annotations
-    const hasAnyKeyframe = Array.from(opts.keyframes.value.values()).some(
-      (kf) => kf.rawMaskHash !== null || kf.annotations.length > 0
-    );
-    if (!hasAnyKeyframe) {
+  async function batchRecognize(start: number, end: number) {
+    // Foolproofing: invalid range
+    if (start >= end) {
       const { ElMessage } = await import('element-plus');
-      ElMessage.warning('无关键帧，无法识别全部');
-      await logMessage('warn', '[recognizeAll] refused: no keyframes with mask or annotations');
+      ElMessage.error('起始 slice 必须小于结束 slice');
       return;
     }
 
-    const effectiveEnd = endSlice ?? opts.totalSlices.value - 1;
-    await logMessage('info', `[recognizeAll] start endSlice=${effectiveEnd}`);
+    // Foolproofing: start slice has no seed
+    const startKf = opts.keyframes.value.get(start);
+    const startHasMask = !!startKf?.rawMaskHash;
+    const startHasObjects =
+      startKf?.objects.some((o) => o.points.length > 0 || o.boxes.length > 0) ?? false;
+    if (!startHasMask && !startHasObjects) {
+      const { ElMessageBox } = await import('element-plus');
+      try {
+        await ElMessageBox.confirm(
+          '起点 slice 无标注也无 mask，传播效果可能差。是否继续？',
+          '提示',
+          { confirmButtonText: '继续', cancelButtonText: '取消', type: 'warning' }
+        );
+      } catch {
+        return;
+      }
+    }
+
+    await logMessage('info', `[batchRecognize] start=${start} end=${end}`);
     isRecognizing.value = true;
-    progress.value = { current: 0, total: effectiveEnd + 1 };
+    progress.value = { current: 0, total: end - start + 1 };
 
     try {
-      // Find starting point: first keyframe with mask, or first with annotations
-      let startIdx = -1;
-      for (const [idx, kf] of opts.keyframes.value) {
-        if (kf.rawMaskHash) {
-          startIdx = idx;
-          break;
-        }
-      }
-      if (startIdx === -1) {
-        // No keyframe has mask yet — recognize first keyframe with annotations
-        for (const [idx, kf] of opts.keyframes.value) {
-          if (kf.annotations.length > 0) {
-            const success = await doRecognize(idx, kf);
-            if (success) {
-              startIdx = idx;
-            }
-            break;
-          }
-        }
-      }
+      let prevMaskHash: string | undefined;
 
-      if (startIdx === -1) return;
-
-      // Propagate prev_mask chain from startIdx
-      let prevMaskHash: string | undefined =
-        opts.keyframes.value.get(startIdx)?.rawMaskHash ?? undefined;
-
-      for (let i = startIdx + 1; i <= effectiveEnd; i++) {
+      for (let i = start; i <= end; i++) {
         if (!isRecognizing.value) break;
 
-        progress.value = { current: i, total: effectiveEnd + 1 };
+        progress.value = { current: i - start, total: end - start + 1 };
 
-        const kf = opts.keyframes.value.get(i);
-        if (kf) {
-          if (kf.rawMaskHash) {
-            // Keyframe has mask — use it as new prev_mask source
-            prevMaskHash = kf.rawMaskHash;
-          } else if (kf.annotations.length > 0) {
-            // Keyframe has annotations but no mask — recognize it
-            await doRecognize(i, kf);
-            prevMaskHash = kf.rawMaskHash ?? undefined;
-          }
-          // else: keyframe has neither — skip (theoretically shouldn't happen)
-        } else {
-          // No keyframe — create temp keyframe and recognize with prev_mask
-          if (prevMaskHash) {
-            const tempKf: Keyframe = {
-              annotations: [],
-              maskUrl: null,
-              maskVisible: true,
-              rawMaskHash: null,
-              manual: false,
-            };
-            opts.keyframes.value.set(i, tempKf);
-            await doRecognize(i, tempKf);
-            prevMaskHash = tempKf.rawMaskHash ?? undefined;
-          }
+        let kf = opts.keyframes.value.get(i);
+
+        // Skip if already has mask
+        if (kf?.rawMaskHash) {
+          prevMaskHash = kf.rawMaskHash;
+          continue;
         }
+
+        // Create keyframe if none exists
+        if (!kf) {
+          kf = {
+            objects: [],
+            maskUrl: null,
+            maskVisible: true,
+            rawMaskHash: null,
+          };
+          opts.keyframes.value.set(i, kf);
+        }
+
+        const hasObjects = kf.objects.some((o) => o.points.length > 0 || o.boxes.length > 0);
+
+        // Skip if no objects and no prev_mask
+        if (!hasObjects && !prevMaskHash) {
+          continue;
+        }
+
+        await doRecognize(i, kf, !prevMaskHash);
+        prevMaskHash = kf.rawMaskHash ?? prevMaskHash;
       }
     } finally {
       isRecognizing.value = false;
+      opts.cloneKeyframes();
       await logMessage(
         'info',
-        `[recognizeAll] finished, progress=${progress.value.current}/${progress.value.total}`
+        `[batchRecognize] finished, progress=${progress.value.current}/${progress.value.total}`
       );
     }
   }
@@ -330,7 +296,6 @@ export function useRawRecognize(opts: UseRawRecognizeOpts) {
     progress,
     stopRecognition,
     recognizeCurrentSlice,
-    batchProcessKeyframes,
-    recognizeAllSlices,
+    batchRecognize,
   };
 }

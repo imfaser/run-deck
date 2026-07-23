@@ -48,6 +48,28 @@
       :disabled="store.isRecognizing"
       class="slider"
     />
+    <span class="range-label">范围:</span>
+    <el-input-number
+      v-model="store.batchRange.start"
+      :min="0"
+      :max="store.volumeInfo.totalSlices - 1"
+      :step="1"
+      size="small"
+      controls-position="right"
+      :disabled="store.isRecognizing"
+      class="range-input"
+    />
+    <span class="range-sep">~</span>
+    <el-input-number
+      v-model="store.batchRange.end"
+      :min="0"
+      :max="store.volumeInfo.totalSlices - 1"
+      :step="1"
+      size="small"
+      controls-position="right"
+      :disabled="store.isRecognizing"
+      class="range-input"
+    />
   </div>
 </template>
 
@@ -85,5 +107,20 @@
 
   .slider {
     flex: 1;
+  }
+
+  .range-label {
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+
+  .range-sep {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+  }
+
+  .range-input {
+    width: 80px;
   }
 </style>

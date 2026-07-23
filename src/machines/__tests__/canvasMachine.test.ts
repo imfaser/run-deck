@@ -16,7 +16,10 @@ function createMockStore(overrides: Partial<{ mode: string; tool: string }> = {}
     mode: overrides.mode ?? 'create',
     tool: overrides.tool ?? 'p_point',
     stagePos: { x: 0, y: 0 },
-    addAnnotation: vi.fn(),
+    currentObjectId: 'obj-1',
+    addBoxToObject: vi.fn(),
+    showNameDialog: false,
+    pendingAnnotation: null,
   };
 }
 
@@ -93,8 +96,9 @@ describe('canvasMachine', () => {
     expect(actor.getSnapshot().context.tempBox).toEqual({ x: 10, y: 20, w: 100, h: 100 });
     actor.send({ type: 'MOUSE_UP' });
     expect(actor.getSnapshot().value).toBe('idle');
-    expect(store.addAnnotation).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'box', x1: 10, y1: 20, x2: 110, y2: 120 })
+    expect(store.addBoxToObject).toHaveBeenCalledWith(
+      'obj-1',
+      expect.objectContaining({ x1: 10, y1: 20, x2: 110, y2: 120 })
     );
   });
 
@@ -106,7 +110,7 @@ describe('canvasMachine', () => {
     actor.send({ type: 'MOUSE_MOVE', clientX: 50, clientY: 50, imageX: 11, imageY: 21 });
     actor.send({ type: 'MOUSE_UP' });
     expect(actor.getSnapshot().value).toBe('idle');
-    expect(store.addAnnotation).not.toHaveBeenCalled();
+    expect(store.addBoxToObject).not.toHaveBeenCalled();
   });
 
   it('resets box on MOUSE_UP from drawingBox without MOUSE_MOVE', () => {
@@ -116,6 +120,6 @@ describe('canvasMachine', () => {
     actor.send({ type: 'MOUSE_DOWN', button: 0, clientX: 0, clientY: 0, imageX: 10, imageY: 20 });
     actor.send({ type: 'MOUSE_UP' });
     expect(actor.getSnapshot().value).toBe('idle');
-    expect(store.addAnnotation).not.toHaveBeenCalled();
+    expect(store.addBoxToObject).not.toHaveBeenCalled();
   });
 });

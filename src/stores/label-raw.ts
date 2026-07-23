@@ -10,7 +10,7 @@ import type {
   LabelMode,
   PointAnnotation,
   BoxAnnotation,
-  Annotation,
+  AnnotationObject,
 } from '@/schemas/annotation';
 
 export type VolumeDtype = 'u8' | 'u16';
@@ -39,11 +39,10 @@ export interface MaskSettings {
 }
 
 export interface Keyframe {
-  annotations: Annotation[];
+  objects: AnnotationObject[];
   maskUrl: string | null;
   maskVisible: boolean;
   rawMaskHash: string | null;
-  manual: boolean;
 }
 
 export const useLabelRawStore = defineStore('label-raw', () => {
@@ -72,6 +71,7 @@ export const useLabelRawStore = defineStore('label-raw', () => {
 
   // ─── Keyframes ─────────────────────────────────────
   const keyframes = ref<Map<number, Keyframe>>(new Map());
+  const batchRange = ref<{ start: number; end: number }>({ start: 0, end: 0 });
 
   function cloneKeyframes() {
     keyframes.value = new Map(keyframes.value);
@@ -80,23 +80,40 @@ export const useLabelRawStore = defineStore('label-raw', () => {
   // ─── Canvas state ──────────────────────────────────
   const mode = ref<LabelMode>('create');
   const tool = ref<AnnotationType>('p_point');
-  const annotations = ref<Annotation[]>([]);
-  const selectedId = ref<string | null>(null);
+  const objects = ref<AnnotationObject[]>([]);
+  const selectedObjectId = ref<string | null>(null);
+  const selectedAnnotationId = ref<string | null>(null);
+  const currentObjectId = ref<string | null>(null);
   const stageScale = ref(1);
   const stagePos = ref({ x: 0, y: 0 });
 
   // ─── Mask settings ─────────────────────────────────
   const maskSettings = ref<MaskSettings>({ color: '#0096ff', opacity: 0.6, threshold: 128 });
   const cursorImagePos = ref<{ x: number; y: number } | null>(null);
+  const cursorScreenPos = ref<{ x: number; y: number } | null>(null);
 
   // ─── Fit image trigger ─────────────────────────────
   const fitImageTrigger = ref(0);
+
+  // ─── Name dialog ───────────────────────────────────
+  const showNameDialog = ref(false);
+  const pendingAnnotation = ref<
+    | { type: 'point'; point: PointAnnotation }
+    | {
+        type: 'box';
+        box: BoxAnnotation;
+      }
+    | null
+  >(null);
+
+  // ─── Select dialog ─────────────────────────────────
+  const showSelectDialog = ref(false);
 
   // ─── Recognition composable ────────────────────────
   const recognize = useRawRecognize({
     volumeId,
     keyframes,
-    annotations,
+    objects,
     currentIndex,
     totalSlices: computed(() => volumeInfo.value.totalSlices),
     currentMaskUrl,
@@ -106,83 +123,59 @@ export const useLabelRawStore = defineStore('label-raw', () => {
   });
 
   // ─── Computed ──────────────────────────────────────
-  const positivePoints = computed(() =>
-    annotations.value.filter((a): a is PointAnnotation => a.type === 'p_point')
+  const currentObject = computed(
+    () => objects.value.find((o) => o.id === currentObjectId.value) ?? null
   );
 
-  const negativePoints = computed(() =>
-    annotations.value.filter((a): a is PointAnnotation => a.type === 'n_point')
-  );
+  const allPoints = computed(() => objects.value.flatMap((o) => o.points));
 
-  const boxes = computed(() =>
-    annotations.value.filter((a): a is BoxAnnotation => a.type === 'box')
-  );
+  const allBoxes = computed(() => objects.value.flatMap((o) => o.boxes));
 
-  const selectedAnnotation = computed(
-    () => annotations.value.find((a) => a.id === selectedId.value) ?? null
-  );
+  const allAnnotations = computed(() => [...allPoints.value, ...allBoxes.value]);
+
+  const selectedAnnotation = computed(() => {
+    const id = selectedAnnotationId.value;
+    if (!id) return null;
+    for (const obj of objects.value) {
+      const point = obj.points.find((p) => p.id === id);
+      if (point) return point;
+      const box = obj.boxes.find((b) => b.id === id);
+      if (box) return box;
+    }
+    return null;
+  });
 
   const currentKeyframe = computed(() => keyframes.value.get(currentIndex.value) ?? null);
 
-  const isManualKeyframe = computed(() => currentKeyframe.value?.manual === true);
-
   const hasVolume = computed(() => volumeId.value !== null);
 
-  const manualKeyframes = computed(() =>
+  const allSlices = computed(() =>
     sortBy(
-      Array.from(keyframes.value.entries())
-        .filter(([, kf]) => kf.manual)
-        .map(([idx, kf]) => ({
+      [
+        ...Array.from(keyframes.value.entries()).map(([idx, kf]) => ({
           index: idx,
-          annotationCount: kf.annotations.length,
+          annotationCount: kf.objects.reduce((sum, o) => sum + o.points.length + o.boxes.length, 0),
           hasMask: kf.rawMaskHash !== null,
           maskVisible: kf.maskVisible,
         })),
-      [(e) => e.index]
-    )
-  );
-
-  const annotatedSlices = computed(() => {
-    const seen = new Set<number>();
-    return sortBy(
-      [
-        ...Array.from(keyframes.value.entries())
-          .filter(([idx, kf]) => {
-            if (!kf.manual && kf.annotations.length > 0) {
-              seen.add(idx);
-              return true;
-            }
-            return false;
-          })
-          .map(([idx, kf]) => ({
-            index: idx,
-            annotationCount: kf.annotations.length,
-            hasMask: kf.rawMaskHash !== null,
-          })),
-        // Only add current slice's local annotations if:
-        // 1. It has annotations
-        // 2. It's not already in the seen set (from non-manual keyframes)
-        // 3. It's not a manual keyframe
-        ...(annotations.value.length > 0 &&
-        !seen.has(currentIndex.value) &&
-        !keyframes.value.get(currentIndex.value)?.manual
+        ...(allAnnotations.value.length > 0 && !keyframes.value.has(currentIndex.value)
           ? [
               {
                 index: currentIndex.value,
-                annotationCount: annotations.value.length,
+                annotationCount: allAnnotations.value.length,
                 hasMask: false,
+                maskVisible: true,
               },
             ]
           : []),
       ],
       [(e) => e.index]
-    );
-  });
+    )
+  );
 
   const canRecognize = computed(() => {
     if (!volumeId.value) return false;
-    if (annotations.value.length > 0) return true;
-    // Check if any previous slice has a mask
+    if (allAnnotations.value.length > 0) return true;
     for (let i = currentIndex.value - 1; i >= 0; i--) {
       if (keyframes.value.get(i)?.rawMaskHash) return true;
     }
@@ -213,8 +206,11 @@ export const useLabelRawStore = defineStore('label-raw', () => {
     };
     currentIndex.value = 0;
     keyframes.value.clear();
-    annotations.value = [];
-    selectedId.value = null;
+    batchRange.value = { start: 0, end: resp.totalSlices - 1 };
+    objects.value = [];
+    selectedObjectId.value = null;
+    selectedAnnotationId.value = null;
+    currentObjectId.value = null;
     sliceImageUrl.value = null;
 
     await loadSlice(0);
@@ -228,8 +224,8 @@ export const useLabelRawStore = defineStore('label-raw', () => {
     if (!volumeId.value) return;
     if (index < 0 || index >= volumeInfo.value.totalSlices) return;
 
-    // Save current annotations before navigating away
-    saveCurrentAnnotations();
+    // Save current objects before navigating away
+    saveCurrentObjects();
 
     isLoadingSlice.value = true;
     try {
@@ -256,68 +252,53 @@ export const useLabelRawStore = defineStore('label-raw', () => {
       sliceMin.value = resp.min;
       sliceMax.value = resp.max;
 
-      // Restore annotations and mask from keyframe if exists
+      // Restore objects and mask from keyframe if exists
       const kf = keyframes.value.get(index);
       currentMaskUrl.value = kf?.maskUrl ?? null;
       if (kf) {
-        annotations.value = cloneDeep(kf.annotations);
+        objects.value = cloneDeep(kf.objects);
       } else {
-        annotations.value = [];
+        objects.value = [];
       }
-      selectedId.value = null;
+      selectedObjectId.value = null;
+      selectedAnnotationId.value = null;
+      currentObjectId.value = null;
     } finally {
       isLoadingSlice.value = false;
     }
   }
 
   // ─── Actions: Keyframes ────────────────────────────
-  function saveCurrentAnnotations() {
-    if (annotations.value.length === 0) return;
+  function saveCurrentObjects() {
+    if (objects.value.length === 0) return;
+    const annCount = objects.value.reduce((sum, o) => sum + o.points.length + o.boxes.length, 0);
+    if (annCount === 0) return;
     const idx = currentIndex.value;
     const kf = keyframes.value.get(idx);
     if (kf) {
-      kf.annotations = [...annotations.value];
+      kf.objects = cloneDeep(objects.value);
     } else {
       keyframes.value.set(idx, {
-        annotations: [...annotations.value],
+        objects: cloneDeep(objects.value),
         maskUrl: null,
         maskVisible: true,
         rawMaskHash: null,
-        manual: false,
       });
     }
     cloneKeyframes();
-  }
-
-  function toggleKeyframe() {
-    const idx = currentIndex.value;
-    if (keyframes.value.has(idx)) {
-      keyframes.value.delete(idx);
-      cloneKeyframes();
-    } else {
-      keyframes.value.set(idx, {
-        annotations: [...annotations.value],
-        maskUrl: null,
-        maskVisible: true,
-        rawMaskHash: null,
-        manual: true,
-      });
-      cloneKeyframes();
-    }
   }
 
   function removeKeyframe(index: number) {
     keyframes.value.delete(index);
     cloneKeyframes();
-    // If we're on the deleted keyframe, clear annotations
     if (currentIndex.value === index) {
-      annotations.value = [];
+      objects.value = [];
+      currentObjectId.value = null;
     }
   }
 
   function jumpToKeyframe(index: number) {
-    // Save current annotations to current keyframe before navigating
-    saveCurrentAnnotations();
+    saveCurrentObjects();
     loadSlice(index);
   }
 
@@ -333,25 +314,19 @@ export const useLabelRawStore = defineStore('label-raw', () => {
   const sharedActions = createAnnotationActions({
     mode,
     tool,
-    annotations,
-    selectedId,
+    objects,
+    selectedObjectId,
+    selectedAnnotationId,
+    currentObjectId,
     stageScale,
     stagePos,
   });
 
-  function addAnnotation(annotation: Annotation) {
-    if (!volumeId.value) return;
-    annotations.value.push(annotation);
-    const kf = keyframes.value.get(currentIndex.value);
-    if (kf) {
-      kf.annotations = [...annotations.value];
-      cloneKeyframes();
-    }
-  }
-
-  function clearAnnotations() {
-    annotations.value = [];
-    selectedId.value = null;
+  function clearObjects() {
+    objects.value = [];
+    selectedObjectId.value = null;
+    selectedAnnotationId.value = null;
+    currentObjectId.value = null;
   }
 
   // ─── Actions: Export ───────────────────────────────
@@ -398,45 +373,49 @@ export const useLabelRawStore = defineStore('label-raw', () => {
     // Keyframes
     keyframes,
     currentKeyframe,
-    isManualKeyframe,
-    manualKeyframes,
-    annotatedSlices,
+    batchRange,
+    allSlices,
     hasVolume,
     canRecognize,
     // Canvas state
     mode,
     tool,
-    annotations,
-    selectedId,
+    objects,
+    selectedObjectId,
+    selectedAnnotationId,
+    currentObjectId,
     stageScale,
     stagePos,
     // Mask settings
     maskSettings,
     cursorImagePos,
+    cursorScreenPos,
     // Fit image trigger
     fitImageTrigger,
+    // Name dialog
+    showNameDialog,
+    pendingAnnotation,
+    showSelectDialog,
     // Computed
-    positivePoints,
-    negativePoints,
-    boxes,
+    currentObject,
+    allPoints,
+    allBoxes,
+    allAnnotations,
     selectedAnnotation,
     // Actions
     openVolume,
     loadSlice,
-    toggleKeyframe,
     removeKeyframe,
     jumpToKeyframe,
     toggleMaskVisible,
     ...sharedActions,
-    addAnnotation,
-    clearAnnotations,
+    clearObjects,
     // Recognition (from composable)
     isRecognizing: recognize.isRecognizing,
     recognitionProgress: recognize.progress,
     stopRecognition: recognize.stopRecognition,
     recognizeCurrentSlice: recognize.recognizeCurrentSlice,
-    batchProcessKeyframes: recognize.batchProcessKeyframes,
-    recognizeAllSlices: recognize.recognizeAllSlices,
+    batchRecognize: recognize.batchRecognize,
     exportMaskVolume,
   };
 });

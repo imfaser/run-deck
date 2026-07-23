@@ -1,28 +1,28 @@
 <script setup lang="ts">
   import { ref } from 'vue';
-  import { match, P } from 'ts-pattern';
   import { useLabelRawStore } from '@/stores/label-raw';
 
   const store = useLabelRawStore();
   const expandedIndex = ref<number | null>(null);
 
-  function formatAnnotation(a: {
+  function formatAnnotation(ann: {
     id: string;
-    type: string;
     x?: number;
     y?: number;
+    label?: number;
     x1?: number;
     y1?: number;
     x2?: number;
     y2?: number;
   }) {
-    return match(a.type)
-      .with(P.union('p_point', 'n_point'), (type) => {
-        const icon = type === 'p_point' ? '⊕' : '⊖';
-        return `${icon} (${a.x}, ${a.y})`;
-      })
-      .with('box', () => `▭ (${a.x1},${a.y1})→(${a.x2},${a.y2})`)
-      .otherwise(() => '?');
+    if ('label' in ann) {
+      const icon = ann.label === 1 ? '✅' : '❌';
+      return `${icon} ${ann.x}, ${ann.y}`;
+    }
+    if ('x1' in ann) {
+      return `▭ ${ann.x1}, ${ann.y1} → ${ann.x2}, ${ann.y2}`;
+    }
+    return '?';
   }
 
   function handleToggleExpand(index: number, e: Event) {
@@ -44,68 +44,20 @@
     e.stopPropagation();
     store.removeKeyframe(index);
   }
+
+  function getKfObjects(index: number) {
+    return store.keyframes.get(index)?.objects ?? [];
+  }
 </script>
 
 <template>
   <div class="keyframe-panel">
-    <!-- 关键帧区域 -->
     <div class="panel-section">
-      <div class="panel-title">关键帧</div>
+      <div class="panel-title">Slices</div>
       <div class="section-list">
-        <div v-if="store.manualKeyframes.length === 0" class="empty-hint">暂无关键帧</div>
+        <div v-if="store.allSlices.length === 0" class="empty-hint">暂无标注或 mask</div>
         <div
-          v-for="kf in store.manualKeyframes"
-          :key="kf.index"
-          class="kf-item"
-          :class="{ active: store.currentIndex === kf.index }"
-          @click="handleClick(kf.index)"
-        >
-          <div class="kf-header">
-            <span class="kf-expand" @click="(e: Event) => handleToggleExpand(kf.index, e)">
-              {{ expandedIndex === kf.index ? '▼' : '▶' }}
-            </span>
-            <span class="kf-icon">{{ kf.hasMask ? '🎯' : '📌' }}</span>
-            <span class="kf-label">Slice {{ kf.index + 1 }}</span>
-            <span class="kf-count">({{ kf.annotationCount }})</span>
-            <span class="kf-actions">
-              <span
-                v-if="kf.hasMask"
-                class="kf-toggle"
-                :title="kf.maskVisible ? '隐藏 mask' : '显示 mask'"
-                @click="(e: Event) => handleToggleMask(kf.index, e)"
-              >
-                {{ kf.maskVisible ? '👁' : '👁‍🗨' }}
-              </span>
-              <span
-                class="kf-delete"
-                title="删除关键帧"
-                @click="(e: Event) => handleDelete(kf.index, e)"
-              >
-                ✕
-              </span>
-            </span>
-          </div>
-          <div v-if="expandedIndex === kf.index" class="kf-detail">
-            <div v-if="kf.annotationCount === 0" class="kf-empty">无标注</div>
-            <div
-              v-for="ann in store.keyframes.get(kf.index)?.annotations"
-              :key="ann.id"
-              class="kf-ann"
-            >
-              {{ formatAnnotation(ann) }}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 普通标注区域 -->
-    <div class="panel-section">
-      <div class="panel-title">标注</div>
-      <div class="section-list">
-        <div v-if="store.annotatedSlices.length === 0" class="empty-hint">暂无标注</div>
-        <div
-          v-for="sl in store.annotatedSlices"
+          v-for="sl in store.allSlices"
           :key="sl.index"
           class="kf-item"
           :class="{ active: store.currentIndex === sl.index }"
@@ -115,18 +67,34 @@
             <span class="kf-expand" @click="(e: Event) => handleToggleExpand(sl.index, e)">
               {{ expandedIndex === sl.index ? '▼' : '▶' }}
             </span>
-            <span class="kf-icon">{{ sl.hasMask ? '🔵' : '📝' }}</span>
+            <span class="kf-icon">{{ sl.hasMask ? '🎯' : '📝' }}</span>
             <span class="kf-label">Slice {{ sl.index + 1 }}</span>
             <span class="kf-count">({{ sl.annotationCount }})</span>
+            <span class="kf-actions">
+              <span
+                v-if="sl.hasMask"
+                class="kf-toggle"
+                :title="sl.maskVisible ? '隐藏 mask' : '显示 mask'"
+                @click="(e: Event) => handleToggleMask(sl.index, e)"
+              >
+                {{ sl.maskVisible ? '👁' : '👁‍🗨' }}
+              </span>
+              <span class="kf-delete" title="删除" @click="(e: Event) => handleDelete(sl.index, e)">
+                ✕
+              </span>
+            </span>
           </div>
           <div v-if="expandedIndex === sl.index" class="kf-detail">
-            <div
-              v-for="ann in store.keyframes.get(sl.index)?.annotations"
-              :key="ann.id"
-              class="kf-ann"
-            >
-              {{ formatAnnotation(ann) }}
-            </div>
+            <div v-if="sl.annotationCount === 0" class="kf-empty">无标注</div>
+            <template v-for="obj in getKfObjects(sl.index)" :key="obj.id">
+              <div class="kf-object-name" :style="{ color: obj.color }">
+                <span class="obj-dot" :style="{ background: obj.color }"></span>
+                {{ obj.name }}
+              </div>
+              <div v-for="ann in [...obj.boxes, ...obj.points]" :key="ann.id" class="kf-ann">
+                {{ formatAnnotation(ann) }}
+              </div>
+            </template>
           </div>
         </div>
       </div>
@@ -148,10 +116,6 @@
     flex-direction: column;
     overflow: hidden;
     min-height: 0;
-
-    &:first-child {
-      border-bottom: 1px solid var(--border-default);
-    }
   }
 
   .panel-title {
@@ -259,11 +223,29 @@
     font-style: italic;
   }
 
+  .kf-object-name {
+    font-size: 11px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 0;
+    margin-top: 2px;
+  }
+
+  .obj-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
   .kf-ann {
     font-size: 11px;
     font-family: monospace;
-    padding: 1px 0;
+    padding: 1px 0 1px 10px;
     opacity: 0.8;
+    white-space: nowrap;
   }
 
   .kf-item.active .kf-ann {
