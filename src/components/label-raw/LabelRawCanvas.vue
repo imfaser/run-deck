@@ -50,14 +50,25 @@
 
   const currentMaskVisible = computed(() => {
     const kf = store.currentKeyframeSummary;
-    return kf ? kf.maskVisible : false;
+    const hasMaskUrl = !!store.currentMaskUrl;
+    const prevMaskAssist = store.maskSettings.prevMaskAssist;
+
+    // 有 keyframe → 尊重 maskVisible 开关
+    // 无 keyframe + prevMaskAssist=true + 有 mask URL → 显示前序 mask
+    const visible = kf ? kf.maskVisible : prevMaskAssist && hasMaskUrl;
+
+    logMessage(
+      'debug',
+      `[prev-mask] currentMaskVisible: slice=${kf?.sliceIndex}, kfMaskVisible=${kf?.maskVisible}, hasMaskUrl=${hasMaskUrl}, prevMaskAssist=${prevMaskAssist} → visible=${visible}`
+    );
+    return visible;
   });
   const [maskImage] = useImage(computed(() => store.currentMaskUrl ?? ''));
 
   watch(maskImage, (img) => {
     logMessage(
       'debug',
-      `[canvas] maskImage changed: ${img ? `${img.width}x${img.height}` : 'null'}`
+      `[prev-mask] maskImage loaded: ${img ? `${img.width}x${img.height}` : 'null'}`
     );
     if (img) {
       mask.value = { width: img.width, height: img.height };
@@ -65,7 +76,10 @@
   });
 
   watch(currentMaskVisible, (visible) => {
-    logMessage('debug', `[canvas] currentMaskVisible changed: ${visible}`);
+    logMessage(
+      'debug',
+      `[prev-mask] display state: maskImage=${maskImage.value ? 'loaded' : 'null'}, visible=${visible}, prevMaskAssist=${store.maskSettings.prevMaskAssist}`
+    );
   });
 
   watch(

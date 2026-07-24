@@ -3,8 +3,9 @@ import { useDebounceFn } from '@vueuse/core';
 
 interface MaskSettings {
   color: string;
+  prevMaskColor: string;
   threshold: number;
-  showPrevMask: boolean;
+  prevMaskAssist: boolean;
 }
 
 interface MaskRenderStore {
@@ -23,20 +24,23 @@ export function useMaskRenderOnChange(options: MaskRenderOptions) {
   const debouncedRerender = useDebounceFn(renderFn, 300);
 
   let prevMaskColor = store.maskSettings.color;
+  let prevPrevMaskColor = store.maskSettings.prevMaskColor;
   let prevThreshold = store.maskSettings.threshold;
-  let prevShowPrevMask = store.maskSettings.showPrevMask;
+  let prevPrevMaskAssist = store.maskSettings.prevMaskAssist;
   let unsubscribe: () => void;
 
   onMounted(() => {
     unsubscribe = store.$subscribe(() => {
       if (
         store.maskSettings.color !== prevMaskColor ||
+        store.maskSettings.prevMaskColor !== prevPrevMaskColor ||
         store.maskSettings.threshold !== prevThreshold ||
-        store.maskSettings.showPrevMask !== prevShowPrevMask
+        store.maskSettings.prevMaskAssist !== prevPrevMaskAssist
       ) {
         prevMaskColor = store.maskSettings.color;
+        prevPrevMaskColor = store.maskSettings.prevMaskColor;
         prevThreshold = store.maskSettings.threshold;
-        prevShowPrevMask = store.maskSettings.showPrevMask;
+        prevPrevMaskAssist = store.maskSettings.prevMaskAssist;
         debouncedRerender();
       }
     });

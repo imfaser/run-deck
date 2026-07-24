@@ -34,14 +34,17 @@ export function useMaskRenderer() {
   ): Promise<string | null> {
     isRendering.value = true;
     try {
-      await logMessage('debug', `[mask-render] loading: ${grayImageUrl.slice(0, 100)}`);
+      await logMessage(
+        'debug',
+        `[prev-mask] renderMask entry: url=${grayImageUrl.slice(0, 80)}..., threshold=${threshold}, color=${color}`
+      );
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.src = grayImageUrl;
       await img.decode();
       await logMessage(
         'debug',
-        `[mask-render] decoded: ${img.naturalWidth}x${img.naturalHeight}, threshold=${threshold}`
+        `[prev-mask] renderMask decoded: ${img.naturalWidth}x${img.naturalHeight}`
       );
 
       const canvas = document.createElement('canvas');
@@ -49,7 +52,7 @@ export function useMaskRenderer() {
       canvas.height = img.naturalHeight;
       const ctx = canvas.getContext('2d');
       if (!ctx) {
-        await logMessage('warn', '[mask-render] failed to get 2d context');
+        await logMessage('warn', '[prev-mask] renderMask failed to get 2d context');
         return null;
       }
 
@@ -78,11 +81,11 @@ export function useMaskRenderer() {
       renderedMaskUrl.value = result;
       await logMessage(
         'debug',
-        `[mask-render] done: ${aboveThreshold}/${data.length / 4} pixels above threshold`
+        `[prev-mask] renderMask done: ${aboveThreshold}/${data.length / 4} pixels above threshold, outputLen=${result.length}`
       );
       return result;
     } catch (e) {
-      await logMessage('error', `[mask-render] failed: ${e}`);
+      await logMessage('error', `[prev-mask] renderMask failed: ${e}`);
       return null;
     } finally {
       isRendering.value = false;

@@ -36,9 +36,10 @@ export const useLabelStore = defineStore('label', () => {
   const maskVisible = ref(true);
   const maskSettings = ref<MaskSettings>({
     color: '#0096ff',
+    prevMaskColor: '#ef4444',
     opacity: 0.6,
     threshold: 128,
-    showPrevMask: true,
+    prevMaskAssist: true,
   });
   const rawMaskPath = ref<string | null>(null);
 

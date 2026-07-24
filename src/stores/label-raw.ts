@@ -47,9 +47,10 @@ export interface VolumeInfo {
 
 export interface MaskSettings {
   color: string;
+  prevMaskColor: string;
   opacity: number;
   threshold: number;
-  showPrevMask: boolean;
+  prevMaskAssist: boolean;
 }
 
 export interface Keyframe {
@@ -119,9 +120,10 @@ export const useLabelRawStore = defineStore('label-raw', () => {
   // ─── Mask settings ─────────────────────────────────
   const maskSettings = ref<MaskSettings>({
     color: '#0096ff',
+    prevMaskColor: '#ef4444',
     opacity: 0.6,
     threshold: 128,
-    showPrevMask: true,
+    prevMaskAssist: true,
   });
   const cursorImagePos = ref<{ x: number; y: number } | null>(null);
   const cursorScreenPos = ref<{ x: number; y: number } | null>(null);
@@ -205,20 +207,29 @@ export const useLabelRawStore = defineStore('label-raw', () => {
     try {
       const kf = await getKeyframe(volId, currentIndex.value);
       if (!kf?.rawMaskHash) {
-        if (maskSettings.value.showPrevMask) {
+        if (maskSettings.value.prevMaskAssist) {
           // Fallback to nearest previous slice's mask
+          await logMessage(
+            'debug',
+            `[prev-mask] renderCurrentMask search: slice=${currentIndex.value}, searching backwards`
+          );
           for (let i = currentIndex.value - 1; i >= 0; i--) {
             const prevKf = await getKeyframe(volId, i);
             if (prevKf?.rawMaskHash) {
+              await logMessage('debug', `[prev-mask] renderCurrentMask found prev: slice=${i}`);
               const { renderMask } = useMaskRenderer();
               currentMaskUrl.value = await renderMask(
                 prevKf.rawMaskHash,
                 maskSettings.value.threshold,
-                maskSettings.value.color
+                maskSettings.value.prevMaskColor
               );
               return;
             }
           }
+          await logMessage(
+            'debug',
+            `[prev-mask] renderCurrentMask search exhausted: no prev mask found`
+          );
         }
         currentMaskUrl.value = null;
         return;
@@ -379,9 +390,17 @@ export const useLabelRawStore = defineStore('label-raw', () => {
       // Restore objects and mask from keyframe if exists
       const kf = await getKeyframe(volumeId.value, index);
       if (kf?.maskUrl) {
+        await logMessage(
+          'debug',
+          `[prev-mask] loadSlice: using current mask from kf slice=${index}`
+        );
         currentMaskUrl.value = kf.maskUrl;
-      } else if (maskSettings.value.showPrevMask && kf?.rawMaskHash) {
+      } else if (maskSettings.value.prevMaskAssist && kf?.rawMaskHash) {
         // Current slice has rawMaskHash but no rendered maskUrl — render it
+        await logMessage(
+          'debug',
+          `[prev-mask] loadSlice: rendering current slice mask slice=${index}`
+        );
         const { useMaskRenderer } = await import('@/composables/useMaskRenderer');
         const { renderMask } = useMaskRenderer();
         currentMaskUrl.value = await renderMask(
@@ -389,21 +408,38 @@ export const useLabelRawStore = defineStore('label-raw', () => {
           maskSettings.value.threshold,
           maskSettings.value.color
         );
-      } else if (maskSettings.value.showPrevMask) {
+      } else if (maskSettings.value.prevMaskAssist) {
         // Fallback to nearest previous slice's mask
+        await logMessage('debug', `[prev-mask] search start: slice=${index}, searching backwards`);
         let prevMaskUrl: string | null = null;
         for (let i = index - 1; i >= 0; i--) {
           const prevKf = await getKeyframe(volumeId.value, i);
           if (prevKf?.rawMaskHash) {
+            await logMessage(
+              'debug',
+              `[prev-mask] found prev: slice=${i}, rawMaskHash=${prevKf.rawMaskHash.slice(0, 20)}...`
+            );
             const { useMaskRenderer } = await import('@/composables/useMaskRenderer');
             const { renderMask } = useMaskRenderer();
             prevMaskUrl = await renderMask(
               prevKf.rawMaskHash,
               maskSettings.value.threshold,
-              maskSettings.value.color
+              maskSettings.value.prevMaskColor
             );
             break;
           }
+        }
+        if (!prevMaskUrl) {
+          await logMessage(
+            'debug',
+            `[prev-mask] search exhausted: no prev mask found for slice=${index}`
+          );
+        }
+        if (prevMaskUrl) {
+          await logMessage(
+            'debug',
+            `[prev-mask] loadSlice: using prev mask as fallback for slice=${index}`
+          );
         }
         currentMaskUrl.value = prevMaskUrl;
       } else {

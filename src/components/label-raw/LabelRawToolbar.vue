@@ -137,14 +137,21 @@
 
     <div class="toolbar-right">
       <div class="mask-toggle">
-        <span class="slider-label">显示前序 Mask:</span>
-        <el-switch v-model="store.maskSettings.showPrevMask" size="small" />
+        <span class="slider-label">前序Mask辅助:</span>
+        <el-switch v-model="store.maskSettings.prevMaskAssist" size="small" />
       </div>
       <div class="mask-color-picker">
         <span class="slider-label">Mask 颜色:</span>
         <el-color-picker
           v-model="store.maskSettings.color"
           :predefine="['#0096ff', '#22c55e', '#ef4444', '#eab308', '#a855f7']"
+        />
+      </div>
+      <div v-if="store.maskSettings.prevMaskAssist" class="mask-color-picker">
+        <span class="slider-label">前序颜色:</span>
+        <el-color-picker
+          v-model="store.maskSettings.prevMaskColor"
+          :predefine="['#ef4444', '#f97316', '#eab308', '#a855f7', '#ec4899']"
         />
       </div>
       <div class="confidence-slider">
@@ -281,5 +288,11 @@
 
   .label-raw-toolbar {
     @include annotation-toolbar;
+  }
+
+  .mask-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
   }
 </style>
