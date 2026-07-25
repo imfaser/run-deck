@@ -59,12 +59,11 @@ describe('AnnotationObjectSchema', () => {
   it('parses valid object', () => {
     const obj = AnnotationObjectSchema.parse({
       id: 'obj-1',
-      name: 'car',
-      color: '#ff3b30',
+      labelId: 'label-car',
       points: [{ id: 'p1', x: 10, y: 20, label: 1 }],
       boxes: [{ id: 'b1', x1: 0, y1: 0, x2: 100, y2: 100 }],
     });
-    expect(obj.name).toBe('car');
+    expect(obj.labelId).toBe('label-car');
     expect(obj.points).toHaveLength(1);
     expect(obj.boxes).toHaveLength(1);
   });
@@ -72,25 +71,12 @@ describe('AnnotationObjectSchema', () => {
   it('parses object with empty arrays', () => {
     const obj = AnnotationObjectSchema.parse({
       id: 'obj-1',
-      name: 'car',
-      color: '#ff3b30',
+      labelId: 'label-car',
       points: [],
       boxes: [],
     });
     expect(obj.points).toHaveLength(0);
     expect(obj.boxes).toHaveLength(0);
-  });
-
-  it('rejects empty name', () => {
-    expect(() =>
-      AnnotationObjectSchema.parse({
-        id: 'obj-1',
-        name: '',
-        color: '#ff3b30',
-        points: [],
-        boxes: [],
-      })
-    ).toThrow();
   });
 });
 

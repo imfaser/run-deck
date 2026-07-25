@@ -23,8 +23,7 @@ describe('sam3 segmentImage', () => {
     const objects: AnnotationObject[] = [
       {
         id: 'obj-1',
-        name: 'car',
-        color: '#ff3b30',
+        labelId: 'label-car',
         points: [{ id: 'p1', x: 5, y: 5, label: 1 }],
         boxes: [],
       },
@@ -53,8 +52,7 @@ describe('sam3 segmentImage', () => {
     const objects: AnnotationObject[] = [
       {
         id: 'obj-1',
-        name: 'car',
-        color: '#ff3b30',
+        labelId: 'label-car',
         points: [
           { id: 'p1', x: 50, y: 50, label: 1 },
           { id: 'p2', x: 200, y: 200, label: 0 },

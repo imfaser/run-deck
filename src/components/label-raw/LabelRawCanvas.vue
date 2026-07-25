@@ -6,6 +6,7 @@
   import { clamp } from 'es-toolkit';
   import { match, P } from 'ts-pattern';
   import { useLabelRawStore } from '@/stores/label-raw';
+  import { useLabelDefStore } from '@/stores/label-def';
   import { logMessage } from '@/services/cmd';
   import { getPointerImagePos } from '@/utils/coordTransform';
   import { getPointConfig, getBoxConfig } from '@/utils/annotationConfig';
@@ -14,6 +15,7 @@
   import { useCanvasRefs } from '@/composables/useCanvasRefs';
 
   const store = useLabelRawStore();
+  const labelDefStore = useLabelDefStore();
   const containerRef = ref<HTMLDivElement | null>(null);
   const stageRef = ref<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
   const stage = ref({ width: 800, height: 600 });
@@ -259,7 +261,11 @@
               v-for="ann in obj.points"
               :key="ann.id"
               :config="{
-                ...getPointConfig(ann, store.selectedAnnotationId === ann.id, obj.color),
+                ...getPointConfig(
+                  ann,
+                  store.selectedAnnotationId === ann.id,
+                  labelDefStore.labelById(obj.labelId)?.color ?? '#888'
+                ),
                 draggable: store.mode === 'select',
                 scaleX: 1 / store.stageScale,
                 scaleY: 1 / store.stageScale,
@@ -271,7 +277,11 @@
               v-for="ann in obj.boxes"
               :key="ann.id"
               :config="{
-                ...getBoxConfig(ann, store.selectedAnnotationId === ann.id, obj.color),
+                ...getBoxConfig(
+                  ann,
+                  store.selectedAnnotationId === ann.id,
+                  labelDefStore.labelById(obj.labelId)?.color ?? '#888'
+                ),
                 draggable: store.mode === 'select',
               }"
               @click="(e: Konva.KonvaEventObject<MouseEvent>) => handleAnnotationClick(ann, e)"

@@ -23,8 +23,7 @@ export type PendingAnnotation =
 
 interface AnnotationObjectLike {
   id: string;
-  name: string;
-  color: string;
+  labelId: string;
   points: Array<PointAnnotation>;
   boxes: Array<BoxAnnotation>;
 }

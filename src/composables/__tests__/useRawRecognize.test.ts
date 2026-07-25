@@ -44,11 +44,10 @@ vi.mock('@/composables/useCanvasToBytes', () => ({
   }),
 }));
 
-function createTestObject(id = 'obj-1', name = 'car'): AnnotationObject {
+function createTestObject(id = 'obj-1', labelId = 'label-car'): AnnotationObject {
   return {
     id,
-    name,
-    color: '#ff3b30',
+    labelId,
     points: [],
     boxes: [],
   };

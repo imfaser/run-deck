@@ -60,14 +60,13 @@
             </div>
           </div>
         </div>
-        <div class="server-actions">
+        <div class="server-actions" @click.stop>
           <el-switch
             :model-value="server.config.enabled"
             @update:model-value="() => store.toggleServer(server.name)"
-            @click.stop
           />
-          <el-button :icon="Delete" circle @click.stop="store.removeServer(server.name)" />
-          <el-button :icon="Setting" circle @click.stop="store.editServer(server.name)" />
+          <el-button :icon="Delete" circle @click="store.removeServer(server.name)" />
+          <el-button :icon="Setting" circle @click="store.editServer(server.name)" />
         </div>
       </div>
     </div>

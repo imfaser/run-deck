@@ -1,15 +1,15 @@
 <script setup lang="ts">
   import { useLabelStore } from '@/stores/label';
-  import ObjectNameDialog from './ObjectNameDialog.vue';
+  import LabelPickerDialog from './LabelPickerDialog.vue';
   import ObjectSelectDialog from './ObjectSelectDialog.vue';
 
   const store = useLabelStore();
 
-  function handleConfirmName(name: string) {
+  function handleSelectLabel(labelId: string) {
     const pending = store.pendingAnnotation;
     if (!pending) return;
 
-    const obj = store.addObject(name);
+    const obj = store.addObject(labelId);
 
     if (pending.type === 'point') {
       store.addPointToObject(obj.id, pending.point);
@@ -40,11 +40,11 @@
     store.pendingAnnotation = null;
   }
 
-  function handleCreateNewObject(name: string) {
+  function handleCreateNewLabel(labelId: string) {
     const pending = store.pendingAnnotation;
     if (!pending) return;
 
-    const obj = store.addObject(name);
+    const obj = store.addObject(labelId);
 
     if (pending.type === 'point') {
       store.addPointToObject(obj.id, pending.point);
@@ -63,9 +63,9 @@
 </script>
 
 <template>
-  <ObjectNameDialog
+  <LabelPickerDialog
     :visible="store.showNameDialog"
-    @confirm="handleConfirmName"
+    @select="handleSelectLabel"
     @cancel="handleCancelName"
   />
   <ObjectSelectDialog
@@ -73,7 +73,7 @@
     :objects="store.objects"
     :pending-annotation="store.pendingAnnotation"
     @select="handleSelectObject"
-    @create-new="handleCreateNewObject"
+    @create-new="handleCreateNewLabel"
     @cancel="handleCancelSelect"
   />
 </template>

@@ -3,6 +3,7 @@
   import LabelRawToolbar from '@/components/label-raw/LabelRawToolbar.vue';
   import LabelRawModePanel from '@/components/shared/LabelModePanel.vue';
   import LabelRawToolPanel from '@/components/shared/LabelToolPanel.vue';
+  import LabelSettingsButton from '@/components/shared/LabelSettingsButton.vue';
   import LabelRawCanvas from '@/components/label-raw/LabelRawCanvas.vue';
   import LabelRawSliceSlider from '@/components/label-raw/LabelRawSliceSlider.vue';
   import LabelRawKeyframePanel from '@/components/label-raw/LabelRawKeyframePanel.vue';
@@ -22,6 +23,7 @@
       <el-aside width="80px" class="label-sidebar-left">
         <LabelRawModePanel store-type="raw" />
         <LabelRawToolPanel store-type="raw" />
+        <LabelSettingsButton />
       </el-aside>
 
       <el-main class="label-canvas-area">

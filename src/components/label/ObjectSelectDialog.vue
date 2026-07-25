@@ -1,6 +1,7 @@
 <script setup lang="ts">
   import { ref, computed, watch, nextTick } from 'vue';
   import type { AnnotationObject } from '@/schemas/annotation';
+  import { useLabelDefStore } from '@/stores/label-def';
 
   const props = defineProps<{
     visible: boolean;
@@ -14,26 +15,28 @@
 
   const emit = defineEmits<{
     select: [objectId: string];
-    createNew: [name: string];
+    createNew: [labelId: string];
     cancel: [];
   }>();
 
-  const inputRef = ref<{ input: HTMLInputElement } | null>(null);
+  const labelDefStore = useLabelDefStore();
   const selectedObjectId = ref<string | null>(null);
-  const newObjectName = ref('');
+  const selectedNewLabelId = ref<string | null>(null);
   const mode = ref<'select' | 'create'>('select');
 
   const canConfirm = computed(() => {
     if (mode.value === 'select') return selectedObjectId.value !== null;
-    return newObjectName.value.trim().length > 0;
+    return selectedNewLabelId.value !== null;
   });
+
+  const hasLabels = computed(() => labelDefStore.labels.length > 0);
 
   watch(
     () => props.visible,
     async (val) => {
       if (val) {
         selectedObjectId.value = null;
-        newObjectName.value = '';
+        selectedNewLabelId.value = null;
         await nextTick();
         mode.value = 'select';
       }
@@ -44,12 +47,16 @@
     selectedObjectId.value = id;
   }
 
+  function handleSelectNewLabel(labelId: string) {
+    selectedNewLabelId.value = labelId;
+  }
+
   function handleConfirm() {
     if (!canConfirm.value) return;
     if (mode.value === 'select' && selectedObjectId.value) {
       emit('select', selectedObjectId.value);
-    } else if (mode.value === 'create') {
-      emit('createNew', newObjectName.value.trim());
+    } else if (mode.value === 'create' && selectedNewLabelId.value) {
+      emit('createNew', selectedNewLabelId.value);
     }
   }
 
@@ -59,14 +66,12 @@
 
   function switchToCreate() {
     mode.value = 'create';
-    nextTick(() => {
-      inputRef.value?.input?.focus();
-    });
+    selectedNewLabelId.value = null;
   }
 
   function switchToSelect() {
     mode.value = 'select';
-    newObjectName.value = '';
+    selectedNewLabelId.value = null;
   }
 </script>
 
@@ -90,6 +95,7 @@
         </span>
       </div>
 
+      <!-- Existing objects on current slice -->
       <div v-if="mode === 'select' && objects.length > 0" class="object-list">
         <div
           v-for="obj in objects"
@@ -98,25 +104,35 @@
           :class="{ selected: selectedObjectId === obj.id }"
           @click="handleSelectObject(obj.id)"
         >
-          <span class="obj-color" :style="{ background: obj.color }"></span>
-          <span class="obj-name">{{ obj.name }}</span>
+          <span
+            class="obj-color"
+            :style="{ background: labelDefStore.labelById(obj.labelId)?.color ?? '#888' }"
+          ></span>
+          <span class="obj-name">
+            {{ labelDefStore.labelById(obj.labelId)?.name ?? 'Unknown' }}
+          </span>
           <span class="obj-count">({{ obj.points.length + obj.boxes.length }})</span>
           <span v-if="selectedObjectId === obj.id" class="check-icon">✓</span>
         </div>
       </div>
 
+      <!-- Pick a global label to create new object -->
       <div v-if="mode === 'create' || objects.length === 0" class="create-form">
-        <el-input
-          ref="inputRef"
-          v-model="newObjectName"
-          placeholder="输入新对象名称"
-          maxlength="50"
-          clearable
-          @keyup.enter="handleConfirm"
-        />
+        <div v-if="hasLabels" class="label-list">
+          <div
+            v-for="label in labelDefStore.sortedLabels"
+            :key="label.id"
+            class="label-option"
+            :class="{ selected: selectedNewLabelId === label.id }"
+            @click="handleSelectNewLabel(label.id)"
+          >
+            <span class="label-color" :style="{ background: label.color }"></span>
+            <span class="label-name">{{ label.name }}</span>
+            <span v-if="selectedNewLabelId === label.id" class="check-icon">✓</span>
+          </div>
+        </div>
+        <div v-else class="empty-hint">暂无 Label，请先在标注设置中创建</div>
       </div>
-
-      <div v-if="objects.length === 0" class="empty-hint">暂无标注对象，请新建一个</div>
     </div>
 
     <template #footer>
@@ -162,7 +178,8 @@
     }
   }
 
-  .object-list {
+  .object-list,
+  .label-list {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-1);
@@ -170,7 +187,8 @@
     overflow-y: auto;
   }
 
-  .object-option {
+  .object-option,
+  .label-option {
     display: flex;
     align-items: center;
     gap: var(--spacing-2);
@@ -189,14 +207,16 @@
     }
   }
 
-  .obj-color {
+  .obj-color,
+  .label-color {
     width: 12px;
     height: 12px;
     border-radius: 50%;
     flex-shrink: 0;
   }
 
-  .obj-name {
+  .obj-name,
+  .label-name {
     flex: 1;
     font-size: var(--text-sm);
     font-weight: 500;

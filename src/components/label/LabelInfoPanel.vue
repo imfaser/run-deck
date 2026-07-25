@@ -1,15 +1,38 @@
 <script setup lang="ts">
-  import { computed, ref } from 'vue';
+  import { computed, ref, watch } from 'vue';
   import { useLabelStore } from '@/stores/label';
+  import { useLabelDefStore } from '@/stores/label-def';
   import { ElMessage, ElMessageBox } from 'element-plus';
+  import { logMessage } from '@/services/cmd';
 
   const store = useLabelStore();
+  const labelDefStore = useLabelDefStore();
   const expandedObjects = ref<Set<string>>(
     new Set([store.currentObjectId].filter(Boolean) as string[])
   );
-  const showNewObjectInput = ref(false);
-  const newObjectName = ref('');
+  const showNewLabelPicker = ref(false);
   const pendingReassign = ref(false);
+
+  watch(
+    () => store.selectedAnnotationId,
+    (val, oldVal) => {
+      logMessage(
+        'debug',
+        `[info-panel] selectedAnnotationId changed: ${oldVal} → ${val} mode=${store.mode}`
+      );
+    }
+  );
+
+  watch(
+    () => store.objects.length,
+    (len) => {
+      logMessage(
+        'debug',
+        `[info-panel] objects count: ${len} ids=${store.objects.map((o) => o.id).join(',')} boxes=${store.objects.map((o) => o.boxes.length).join(',')} points=${store.objects.map((o) => o.points.length).join(',')}`
+      );
+    },
+    { immediate: true }
+  );
 
   const hasObjects = computed(() => store.objects.length > 0);
 
@@ -29,6 +52,10 @@
   });
 
   function toggleObjectExpand(id: string) {
+    logMessage(
+      'debug',
+      `[info-panel] toggleExpand id=${id} wasExpanded=${expandedObjects.value.has(id)} objects=${store.objects.length} boxes=${store.objects.find((o) => o.id === id)?.boxes.length ?? 0} points=${store.objects.find((o) => o.id === id)?.points.length ?? 0}`
+    );
     if (expandedObjects.value.has(id)) {
       expandedObjects.value.delete(id);
     } else {
@@ -37,11 +64,20 @@
   }
 
   function handleClickObject(id: string) {
+    logMessage('debug', `[info-panel] clickObject id=${id} mode=${store.mode}`);
     store.setCurrentObject(id);
   }
 
   function handleClickAnnotation(annId: string) {
+    logMessage(
+      'debug',
+      `[info-panel] clickAnnotation annId=${annId} currentSelected=${store.selectedAnnotationId} mode=${store.mode}`
+    );
     store.selectAnnotation(annId);
+    logMessage(
+      'debug',
+      `[info-panel] clickAnnotation after select selectedAnnotationId=${store.selectedAnnotationId}`
+    );
   }
 
   function handleDeleteSelected() {
@@ -53,8 +89,7 @@
   function handleReassign(targetId: string) {
     if (!store.selectedAnnotationId) return;
     if (targetId === '__create_new__') {
-      showNewObjectInput.value = true;
-      newObjectName.value = '';
+      showNewLabelPicker.value = true;
       pendingReassign.value = true;
       return;
     }
@@ -75,35 +110,24 @@
     }
   }
 
-  function handleShowNewObjectInput() {
-    showNewObjectInput.value = true;
-    newObjectName.value = '';
-  }
-
-  function handleCancelNewObject() {
-    showNewObjectInput.value = false;
-    newObjectName.value = '';
-    pendingReassign.value = false;
-  }
-
-  function handleCreateObject() {
-    const name = newObjectName.value.trim();
-    if (!name) {
-      ElMessage.warning('请输入对象名称');
-      return;
-    }
-    const obj = store.addObject(name);
+  function handlePickNewLabel(labelId: string) {
+    const obj = store.addObject(labelId);
     expandedObjects.value.add(obj.id);
-    showNewObjectInput.value = false;
-    newObjectName.value = '';
+    showNewLabelPicker.value = false;
 
     if (pendingReassign.value && store.selectedAnnotationId) {
       store.reassignAnnotation(store.selectedAnnotationId, obj.id);
       pendingReassign.value = false;
       ElMessage.success('已转移标注');
     } else {
+      const name = labelDefStore.labelById(labelId)?.name ?? 'Unknown';
       ElMessage.success(`已创建对象: ${name}`);
     }
+  }
+
+  function handleCancelNewObject() {
+    showNewLabelPicker.value = false;
+    pendingReassign.value = false;
   }
 </script>
 
@@ -112,25 +136,31 @@
     <div class="panel-header">
       <span class="panel-title">标注对象</span>
       <span
-        v-if="!showNewObjectInput"
+        v-if="!showNewLabelPicker"
         class="add-object-btn"
         title="新建对象"
-        @click="handleShowNewObjectInput"
+        @click="showNewLabelPicker = true"
       >
         ＋
       </span>
     </div>
 
-    <div v-if="showNewObjectInput" class="new-object-form">
-      <input
-        v-model="newObjectName"
-        class="new-object-input"
-        placeholder="输入对象名称"
-        @keyup.enter="handleCreateObject"
-        @keyup.escape="handleCancelNewObject"
-      />
+    <div v-if="showNewLabelPicker" class="new-object-form">
+      <div class="label-picker-inline">
+        <div
+          v-for="label in labelDefStore.sortedLabels"
+          :key="label.id"
+          class="label-pick-item"
+          @click="handlePickNewLabel(label.id)"
+        >
+          <span class="label-dot" :style="{ background: label.color }"></span>
+          <span>{{ label.name }}</span>
+        </div>
+        <div v-if="labelDefStore.labels.length === 0" class="empty-labels">
+          暂无 Label，请先在标注设置中创建
+        </div>
+      </div>
       <span class="form-actions">
-        <span class="form-btn confirm" title="确定" @click="handleCreateObject">✓</span>
         <span class="form-btn cancel" title="取消" @click="handleCancelNewObject">✕</span>
       </span>
     </div>
@@ -151,8 +181,13 @@
             >
               ▶
             </span>
-            <span class="object-color" :style="{ background: obj.color }"></span>
-            <span class="object-name">{{ obj.name }}</span>
+            <span
+              class="object-color"
+              :style="{ background: labelDefStore.labelById(obj.labelId)?.color ?? '#888' }"
+            ></span>
+            <span class="object-name">
+              {{ labelDefStore.labelById(obj.labelId)?.name ?? 'Unknown' }}
+            </span>
             <span class="object-count">({{ obj.points.length + obj.boxes.length }})</span>
             <span class="object-actions">
               <span class="obj-delete" title="删除对象" @click.stop="handleDeleteObject(obj.id)">
@@ -170,7 +205,12 @@
               @click="handleClickAnnotation(box.id)"
             >
               <span class="ann-coords box-coords">
-                <span class="ann-icon" :style="{ color: obj.color }">▭</span>
+                <span
+                  class="ann-icon"
+                  :style="{ color: labelDefStore.labelById(obj.labelId)?.color ?? '#888' }"
+                >
+                  ▭
+                </span>
                 <span class="coords-text">
                   {{ box.x1 }}, {{ box.y1 }} → {{ box.x2 }}, {{ box.y2 }}
                 </span>
@@ -197,29 +237,37 @@
       <el-empty v-else description="暂无标注对象" :image-size="60" />
     </div>
 
-    <div v-if="store.selectedAnnotationId" class="panel-footer">
+    <div class="panel-footer">
       <div class="footer-actions">
-        <el-dropdown trigger="click" @command="handleReassign">
-          <el-button size="small">
-            转移对象
-            <el-icon class="el-icon--right">
-              <svg viewBox="0 0 1024 1024">
-                <path
-                  d="M831.872 340.864 512 652.672 192.128 340.864a30.592 30.592 0 0 0-42.752 0 29.12 29.12 0 0 0 0 41.6l288 288a30.016 30.016 0 0 0 42.496 0l288-288a29.12 29.12 0 0 0 0-41.728 30.592 30.592 0 0 0-42.752 0z"
-                />
-              </svg>
-            </el-icon>
-          </el-button>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item v-for="obj in availableObjects" :key="obj.id" :command="obj.id">
-                <span class="dropdown-obj-color" :style="{ background: obj.color }"></span>
-                {{ obj.name }}
-              </el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
-        <el-button type="danger" size="small" @click="handleDeleteSelected">删除选中</el-button>
+        <el-select
+          :model-value="null"
+          :placeholder="availableObjects.length === 0 ? '无其他对象' : '转移对象'"
+          size="small"
+          :disabled="!store.selectedAnnotationId || availableObjects.length === 0"
+          style="width: 110px"
+          @change="(val: string) => val && handleReassign(val)"
+        >
+          <el-option
+            v-for="obj in availableObjects"
+            :key="obj.id"
+            :value="obj.id"
+            :label="labelDefStore.labelById(obj.labelId)?.name ?? 'Unknown'"
+          >
+            <span
+              class="dropdown-obj-color"
+              :style="{ background: labelDefStore.labelById(obj.labelId)?.color ?? '#888' }"
+            ></span>
+            {{ labelDefStore.labelById(obj.labelId)?.name ?? 'Unknown' }}
+          </el-option>
+        </el-select>
+        <el-button
+          type="danger"
+          size="small"
+          :disabled="!store.selectedAnnotationId"
+          @click="handleDeleteSelected"
+        >
+          删除标注
+        </el-button>
       </div>
     </div>
   </div>
@@ -262,31 +310,55 @@
 
   .new-object-form {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 4px;
     padding: var(--spacing-2);
     border-bottom: 1px solid var(--border-default);
     flex-shrink: 0;
   }
 
-  .new-object-input {
+  .label-picker-inline {
     flex: 1;
-    padding: 4px 8px;
-    font-size: var(--text-xs);
-    border: 1px solid var(--border-default);
-    border-radius: var(--radius-sm);
-    outline: none;
-    background: var(--bg-primary);
-    color: var(--text-primary);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 160px;
+    overflow-y: auto;
+  }
 
-    &:focus {
-      border-color: var(--accent-primary);
+  .label-pick-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: var(--text-xs);
+    transition: background var(--transition-fast);
+
+    &:hover {
+      background: var(--surface-hover);
     }
+  }
+
+  .label-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .empty-labels {
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    text-align: center;
+    padding: var(--spacing-2);
   }
 
   .form-actions {
     display: flex;
     gap: 2px;
+    flex-shrink: 0;
   }
 
   .form-btn {
@@ -295,14 +367,6 @@
     padding: 2px 4px;
     border-radius: var(--radius-sm);
     transition: background var(--transition-fast);
-
-    &.confirm {
-      color: var(--color-success);
-
-      &:hover {
-        background: var(--color-success-light);
-      }
-    }
 
     &.cancel {
       color: var(--color-danger);
@@ -455,11 +519,6 @@
     display: flex;
     gap: var(--spacing-2);
     justify-content: flex-end;
-  }
-
-  .reassign-option .obj-name {
-    font-size: var(--text-sm);
-    font-weight: 500;
   }
 
   .dropdown-obj-color {

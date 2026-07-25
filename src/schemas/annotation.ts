@@ -28,8 +28,7 @@ export type Annotation = z.infer<typeof AnnotationSchema>;
 
 export const AnnotationObjectSchema = z.object({
   id: z.string(),
-  name: z.string().min(1),
-  color: z.string(),
+  labelId: z.string(),
   points: z.array(PointAnnotationSchema),
   boxes: z.array(BoxAnnotationSchema),
 });

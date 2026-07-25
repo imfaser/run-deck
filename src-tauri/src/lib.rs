@@ -6,7 +6,7 @@ pub mod setup;
 
 use logging::{logging, Type};
 use std::sync::OnceLock;
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 use kernel::context::AppContext;
 use mcp::McpManager;
@@ -20,6 +20,18 @@ pub(crate) static MCP_MANAGER: OnceLock<McpManager> = OnceLock::new();
 pub fn run() {
     let builder = tauri::Builder::default();
     let builder = builder
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                if window.label() == "main" {
+                    let app = window.app_handle();
+                    for (label, w) in app.webview_windows() {
+                        if label != "main" {
+                            let _ = w.close();
+                        }
+                    }
+                }
+            }
+        })
         .setup(|app| {
             APP_HANDLE
                 .set(app.handle().clone())

@@ -4,6 +4,7 @@
   import LabelToolbar from '@/components/label/LabelToolbar.vue';
   import LabelModePanel from '@/components/shared/LabelModePanel.vue';
   import LabelToolPanel from '@/components/shared/LabelToolPanel.vue';
+  import LabelSettingsButton from '@/components/shared/LabelSettingsButton.vue';
   import LabelCanvas from '@/components/label/LabelCanvas.vue';
   import LabelInfoPanel from '@/components/label/LabelInfoPanel.vue';
   import LabelNameDialogHandler from '@/components/label/LabelNameDialogHandler.vue';
@@ -23,6 +24,7 @@
       <el-aside width="80px" class="label-sidebar-left">
         <LabelModePanel store-type="label" />
         <LabelToolPanel store-type="label" />
+        <LabelSettingsButton />
       </el-aside>
 
       <el-main class="label-canvas-area">

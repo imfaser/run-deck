@@ -9,18 +9,17 @@ import {
   setLogLevel,
   setLogLevelFilter,
   mcpServerStatus,
+  updateConfig,
   type McpServerConfig,
   type ServerStatus,
 } from '@/services/cmd';
 import type { Config } from '@/services/cmd';
 import { useConfigQuery } from '@/composables/useConfigQuery';
-import { useMcpMutation } from '@/composables/useMcpMutation';
 import { useTheme } from '@/composables/useTheme';
 
 export const useConfigStore = defineStore('config', () => {
   const queryClient = useQueryClient();
   const { data: config, isLoading: loading, isError, error } = useConfigQuery();
-  const configMutation = useMcpMutation();
   const { setTheme } = useTheme();
 
   const editingServer = ref<{ name: string; config: McpServerConfig; isNew?: boolean } | null>(
@@ -47,7 +46,7 @@ export const useConfigStore = defineStore('config', () => {
     const latest = queryClient.getQueryData<Config>(['config']);
     if (!latest) return;
     try {
-      await configMutation.mutateAsync(latest);
+      await updateConfig(latest);
     } catch (e) {
       await logMessage('error', `配置更新失败: ${e}`);
     }

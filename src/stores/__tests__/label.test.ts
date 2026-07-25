@@ -28,11 +28,10 @@ describe('label store', () => {
     const { useLabelStore } = await import('../label');
     const store = useLabelStore();
 
-    const obj = store.addObject('car');
+    const obj = store.addObject('test-label-id');
 
     expect(store.objects).toHaveLength(1);
-    expect(obj.name).toBe('car');
-    expect(obj.color).toBeTruthy();
+    expect(obj.labelId).toBe('test-label-id');
     expect(obj.points).toHaveLength(0);
     expect(obj.boxes).toHaveLength(0);
     expect(store.currentObjectId).toBe(obj.id);
@@ -42,7 +41,7 @@ describe('label store', () => {
     const { useLabelStore } = await import('../label');
     const store = useLabelStore();
 
-    const obj = store.addObject('car');
+    const obj = store.addObject('test-label-id');
     store.addPointToObject(obj.id, { id: 'p1', x: 10, y: 20, label: 1 });
 
     expect(store.objects[0].points).toHaveLength(1);
@@ -54,7 +53,7 @@ describe('label store', () => {
     const { useLabelStore } = await import('../label');
     const store = useLabelStore();
 
-    const obj = store.addObject('car');
+    const obj = store.addObject('test-label-id');
     store.addBoxToObject(obj.id, { id: 'b1', x1: 0, y1: 0, x2: 100, y2: 100 });
 
     expect(store.objects[0].boxes).toHaveLength(1);
@@ -65,30 +64,18 @@ describe('label store', () => {
     const { useLabelStore } = await import('../label');
     const store = useLabelStore();
 
-    const obj = store.addObject('car');
+    const obj = store.addObject('test-label-id');
     store.removeObject(obj.id);
 
     expect(store.objects).toHaveLength(0);
     expect(store.currentObjectId).toBeNull();
   });
 
-  it('renameObject updates name and color', async () => {
-    const { useLabelStore } = await import('../label');
-    const store = useLabelStore();
-
-    const obj = store.addObject('car');
-    store.renameObject(obj.id, 'book');
-
-    expect(store.objects[0].name).toBe('book');
-    // Color may or may not change depending on hash collision
-    expect(store.objects[0].color).toBeTruthy();
-  });
-
   it('removeAnnotationFromObject removes point', async () => {
     const { useLabelStore } = await import('../label');
     const store = useLabelStore();
 
-    const obj = store.addObject('car');
+    const obj = store.addObject('test-label-id');
     store.addPointToObject(obj.id, { id: 'p1', x: 10, y: 20, label: 1 });
     store.addPointToObject(obj.id, { id: 'p2', x: 30, y: 40, label: 0 });
 
@@ -102,7 +89,7 @@ describe('label store', () => {
     const { useLabelStore } = await import('../label');
     const store = useLabelStore();
 
-    const obj = store.addObject('car');
+    const obj = store.addObject('test-label-id');
     store.addPointToObject(obj.id, { id: 'p1', x: 10, y: 20, label: 1 });
 
     store.selectAnnotation('p1');
@@ -115,7 +102,7 @@ describe('label store', () => {
     const { useLabelStore } = await import('../label');
     const store = useLabelStore();
 
-    const obj = store.addObject('car');
+    const obj = store.addObject('test-label-id');
     store.addPointToObject(obj.id, { id: 'p1', x: 10, y: 20, label: 1 });
     store.selectAnnotation('p1');
 

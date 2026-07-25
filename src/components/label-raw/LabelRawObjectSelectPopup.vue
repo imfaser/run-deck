@@ -1,22 +1,32 @@
 <script setup lang="ts">
-  import { ref, nextTick, watch } from 'vue';
-  import { ElMessage } from 'element-plus';
+  import { ref, computed, watch } from 'vue';
   import { useLabelRawStore } from '@/stores/label-raw';
+  import { useLabelDefStore } from '@/stores/label-def';
 
   const store = useLabelRawStore();
-  const inputRef = ref<HTMLInputElement>();
+  const labelDefStore = useLabelDefStore();
 
   const ui = ref({
     visible: false,
-    isCreating: false,
-    name: '',
+    mode: 'select' as 'select' | 'create',
     x: 0,
     y: 0,
   });
 
+  const objectsWithLabel = computed(() =>
+    store.objects.map((obj) => {
+      const labelDef = labelDefStore.labelById(obj.labelId);
+      return {
+        ...obj,
+        labelName: labelDef?.name ?? 'Unknown',
+        labelColor: labelDef?.color ?? '#888',
+      };
+    })
+  );
+
   function show(x: number, y: number) {
-    ui.value = { visible: true, isCreating: false, name: '', x, y };
-    nextTick(() => inputRef.value?.focus());
+    const mode = objectsWithLabel.value.length > 0 ? 'select' : 'create';
+    ui.value = { visible: true, mode, x, y };
   }
 
   function handleSelectObject(id: string) {
@@ -24,27 +34,10 @@
     assignPending(id);
   }
 
-  function handleShowCreate() {
-    ui.value.isCreating = true;
-    nextTick(() => inputRef.value?.focus());
-  }
-
-  function handleCreateObject() {
-    const name = ui.value.name.trim();
-    if (!name) {
-      ElMessage.warning('请输入对象名称');
-      return;
-    }
-    const obj = store.addObject(name);
+  function handleSelectNewLabel(labelId: string) {
+    const obj = store.addObject(labelId);
     store.setCurrentObject(obj.id);
     assignPending(obj.id);
-    ElMessage.success(`已创建对象: ${name}`);
-  }
-
-  function handleCancelCreate() {
-    ui.value.isCreating = false;
-    ui.value.name = '';
-    nextTick(() => inputRef.value?.focus());
   }
 
   function assignPending(objectId: string) {
@@ -80,38 +73,52 @@
       :style="{ left: ui.x + 'px', top: ui.y + 'px' }"
       @click.stop
     >
-      <div class="popup-header">选择目标对象</div>
+      <!-- Existing objects: show select mode -->
+      <template v-if="ui.mode === 'select'">
+        <div class="popup-header">选择目标对象</div>
+        <div class="popup-body">
+          <div
+            v-for="obj in objectsWithLabel"
+            :key="obj.id"
+            class="popup-item"
+            @click="handleSelectObject(obj.id)"
+          >
+            <span class="item-dot" :style="{ background: obj.labelColor }"></span>
+            <span class="item-name">{{ obj.labelName }}</span>
+            <span class="item-count">({{ obj.points.length + obj.boxes.length }})</span>
+          </div>
+          <div class="popup-item create-item" @click="ui.mode = 'create'">
+            <span class="item-icon">+</span>
+            <span class="item-name">新建对象</span>
+          </div>
+        </div>
+      </template>
 
-      <div v-if="!ui.isCreating" class="popup-body">
-        <div
-          v-for="obj in store.objects"
-          :key="obj.id"
-          class="popup-item"
-          @click="handleSelectObject(obj.id)"
-        >
-          <span class="item-dot" :style="{ background: obj.color }"></span>
-          <span class="item-name">{{ obj.name }}</span>
+      <!-- Create mode: show label list directly -->
+      <template v-else>
+        <div class="popup-header">选择 Label 创建对象</div>
+        <div class="popup-body">
+          <div
+            v-for="label in labelDefStore.sortedLabels"
+            :key="label.id"
+            class="popup-item"
+            @click="handleSelectNewLabel(label.id)"
+          >
+            <span class="item-dot" :style="{ background: label.color }"></span>
+            <span class="item-name">{{ label.name }}</span>
+          </div>
+          <div v-if="labelDefStore.labels.length === 0" class="empty-hint">
+            暂无 Label，请先在标注设置中创建
+          </div>
+          <div
+            v-if="objectsWithLabel.length > 0"
+            class="popup-item cancel-item"
+            @click="ui.mode = 'select'"
+          >
+            <span class="item-name">返回选择</span>
+          </div>
         </div>
-        <div class="popup-item create-item" @click="handleShowCreate">
-          <span class="item-icon">+</span>
-          <span class="item-name">新建对象</span>
-        </div>
-      </div>
-
-      <div v-else class="popup-body create-form">
-        <input
-          ref="inputRef"
-          v-model="ui.name"
-          class="create-input"
-          placeholder="输入对象名称"
-          @keyup.enter="handleCreateObject"
-          @keyup.escape="handleCancelCreate"
-        />
-        <div class="create-actions">
-          <button class="create-btn confirm" @click="handleCreateObject">✓</button>
-          <button class="create-btn cancel" @click="handleCancelCreate">✕</button>
-        </div>
-      </div>
+      </template>
     </div>
   </Teleport>
 </template>
@@ -169,58 +176,28 @@
     color: var(--el-color-primary);
   }
 
+  .item-count {
+    font-size: 11px;
+    color: var(--el-text-color-secondary);
+  }
+
   .create-item {
     border-top: 1px solid var(--el-border-color-lighter);
     margin-top: 2px;
     padding-top: 8px;
   }
 
-  .create-form {
+  .cancel-item {
+    border-top: 1px solid var(--el-border-color-lighter);
+    margin-top: 2px;
+    padding-top: 8px;
+    color: var(--el-text-color-secondary);
+  }
+
+  .empty-hint {
     padding: 8px 10px;
-  }
-
-  .create-input {
-    width: 100%;
-    padding: 6px 8px;
-    border: 1px solid var(--el-border-color);
-    border-radius: 6px;
-    font-size: 13px;
-    outline: none;
-    background: var(--el-fill-color-blank);
-    color: var(--el-text-color-primary);
-    box-sizing: border-box;
-
-    &:focus {
-      border-color: var(--el-color-primary);
-    }
-  }
-
-  .create-actions {
-    display: flex;
-    gap: 6px;
-    margin-top: 6px;
-    justify-content: flex-end;
-  }
-
-  .create-btn {
-    width: 28px;
-    height: 28px;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    &.confirm {
-      background: var(--el-color-primary);
-      color: #fff;
-    }
-
-    &.cancel {
-      background: var(--el-fill-color-light);
-      color: var(--el-text-color-regular);
-    }
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+    text-align: center;
   }
 </style>

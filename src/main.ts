@@ -5,6 +5,7 @@ import { createPlugin } from '@tauri-store/pinia';
 import VueKonva from 'vue-konva';
 import { routes } from 'vue-router/auto-routes';
 import { ElMessage } from 'element-plus';
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { logMessage } from '@/services/cmd';
 import { installQuery } from './plugins/query';
 import App from './App.vue';
@@ -25,6 +26,18 @@ if (import.meta.env.DEV) {
 const router = createRouter({
   history: createWebHistory(),
   routes,
+});
+
+router.beforeEach((to) => {
+  if (to.path !== '/') return;
+  try {
+    const label = getCurrentWebviewWindow()?.label;
+    if (label && label !== 'main') {
+      return { path: `/${label}`, replace: true };
+    }
+  } catch {
+    // not in Tauri
+  }
 });
 
 const app = createApp(App);

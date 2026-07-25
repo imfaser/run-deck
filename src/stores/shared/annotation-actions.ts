@@ -6,7 +6,6 @@ import type {
   PointAnnotation,
   BoxAnnotation,
 } from '@/schemas/annotation';
-import { objectColor } from '@/utils/objectColor';
 
 export interface AnnotationState {
   mode: Ref<LabelMode>;
@@ -21,11 +20,10 @@ export interface AnnotationState {
 
 export function createAnnotationActions(state: AnnotationState) {
   // ─── Object CRUD ─────────────────────────────────
-  function addObject(name: string): AnnotationObject {
+  function addObject(labelId: string): AnnotationObject {
     const obj: AnnotationObject = {
       id: crypto.randomUUID(),
-      name,
-      color: objectColor(name),
+      labelId,
       points: [],
       boxes: [],
     };
@@ -46,19 +44,6 @@ export function createAnnotationActions(state: AnnotationState) {
       );
       if (!stillExists) state.selectedAnnotationId.value = null;
     }
-  }
-
-  function renameObject(id: string, newName: string) {
-    const obj = state.objects.value.find((o) => o.id === id);
-    if (obj) {
-      obj.name = newName;
-      obj.color = objectColor(newName);
-    }
-  }
-
-  function recolorObject(id: string, color: string) {
-    const obj = state.objects.value.find((o) => o.id === id);
-    if (obj) obj.color = color;
   }
 
   function setCurrentObject(id: string | null) {
@@ -202,8 +187,6 @@ export function createAnnotationActions(state: AnnotationState) {
   return {
     addObject,
     removeObject,
-    renameObject,
-    recolorObject,
     setCurrentObject,
     addPointToObject,
     addBoxToObject,

@@ -447,6 +447,13 @@ export const useLabelRawStore = defineStore('label-raw', () => {
       }
       if (kf) {
         objects.value = cloneDeep(kf.objects);
+        // Migrate old-format objects (name → labelId)
+        const { migrateObjects } = await import('@/composables/useLabelMigration');
+        const didMigrate = await migrateObjects(objects.value);
+        if (didMigrate) {
+          // Re-save to IDB with new format
+          await saveObjectsToIdb(index);
+        }
         await logMessage('debug', `[keyframe-db] loaded slice=${index} from IDB`);
       } else {
         objects.value = [];
