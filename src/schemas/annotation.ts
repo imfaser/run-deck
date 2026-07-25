@@ -1,8 +1,6 @@
 import { z } from 'zod';
 
-export const VISUAL_REF_SUB_LABEL_ID = '__visual_ref__';
-
-export const AnnotationTypeSchema = z.enum(['p_point', 'n_point', 'box', 'visual_box']);
+export const AnnotationTypeSchema = z.enum(['p_point', 'n_point', 'box']);
 export type AnnotationType = z.infer<typeof AnnotationTypeSchema>;
 
 export const LabelModeSchema = z.enum(['select', 'create', 'delete']);
@@ -22,6 +20,7 @@ export const BoxAnnotationSchema = z.object({
   y1: z.number(),
   x2: z.number(),
   y2: z.number(),
+  boxType: z.enum(['visual_ref']).optional(),
 });
 export type BoxAnnotation = z.infer<typeof BoxAnnotationSchema>;
 

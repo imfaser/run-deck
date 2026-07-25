@@ -2,7 +2,7 @@
   import { ref, computed, watch } from 'vue';
   import dayjs from 'dayjs';
   import { match } from 'ts-pattern';
-  import { ElMessage } from 'element-plus';
+  import { ElMessage } from 'element-plus/es/components/message/index.mjs';
   import { useWorktimeStore } from '@/stores/worktime';
 
   const props = defineProps<{

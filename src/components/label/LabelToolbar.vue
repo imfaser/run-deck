@@ -2,7 +2,9 @@
   import { ref, computed } from 'vue';
   import { open } from '@tauri-apps/plugin-dialog';
   import { convertFileSrc } from '@tauri-apps/api/core';
-  import { useLabelStore } from '@/stores/label';
+  import { ElMessage } from 'element-plus/es/components/message/index.mjs';
+  import { useCanvasStore } from '@/stores/canvas';
+  import { useLabel2dStore } from '@/stores/label-2d';
   import { useLabelDefStore } from '@/stores/label-def';
   import { segmentImage } from '@/services/sam3';
   import { useMaskRenderer } from '@/composables/useMaskRenderer';
@@ -10,20 +12,23 @@
   import { useLocateAnything } from '@/composables/useLocateAnything';
   import { logMessage } from '@/services/cmd';
 
-  const store = useLabelStore();
+  const props = defineProps<{ canvasId: string }>();
+
+  const canvas = useCanvasStore(props.canvasId);
+  const label2d = useLabel2dStore(props.canvasId);
   const labelDefStore = useLabelDefStore();
   const { renderMask } = useMaskRenderer();
 
   useMaskRenderOnChange({
-    store,
+    store: { ...canvas, ...label2d },
     renderFn: async () => {
-      if (!store.rawMaskPath) return;
+      if (!label2d.rawMaskPath) return;
       const maskUrl = await renderMask(
-        store.rawMaskPath,
-        store.maskSettings.threshold,
-        store.maskSettings.color
+        label2d.rawMaskPath,
+        label2d.maskSettings.threshold,
+        label2d.maskSettings.color
       );
-      store.maskUrl = maskUrl;
+      label2d.maskUrl = maskUrl;
     },
   });
 
@@ -31,8 +36,8 @@
   const isDetecting = ref(false);
 
   const cursorDisplay = computed(() => {
-    if (!store.cursorImagePos) return '坐标: -, -';
-    return `坐标: ${store.cursorImagePos.x}, ${store.cursorImagePos.y}`;
+    if (!canvas.cursorImagePos) return '坐标: -, -';
+    return `坐标: ${canvas.cursorImagePos.x}, ${canvas.cursorImagePos.y}`;
   });
 
   async function handleOpenImage() {
@@ -41,32 +46,32 @@
       filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'bmp', 'webp'] }],
     });
     if (selected) {
-      const imagePath = selected as string;
-      store.imagePath = imagePath;
-      store.imageUrl = convertFileSrc(imagePath);
-      store.clearObjects();
-      store.maskUrl = null;
-      store.rawMaskPath = null;
+      const path = selected as string;
+      label2d.imagePath = path;
+      label2d.imageUrl = convertFileSrc(path);
+      canvas.clearObjects();
+      label2d.maskUrl = null;
+      label2d.rawMaskPath = null;
     }
   }
 
   async function handleAIRecognize() {
-    if (!store.imagePath) return;
-    if (store.objects.length === 0) return;
+    if (!label2d.imagePath) return;
+    if (canvas.objects.length === 0) return;
 
     isLoadingMask.value = true;
     try {
-      const result = await segmentImage(store.imagePath, store.objects);
+      const result = await segmentImage(label2d.imagePath, canvas.objects);
 
       const imgBlock = result.content.find((b) => b.type === 'image');
       if (imgBlock && 'data' in imgBlock) {
-        store.rawMaskPath = imgBlock.data;
+        label2d.rawMaskPath = imgBlock.data;
         const maskUrl = await renderMask(
-          store.rawMaskPath,
-          store.maskSettings.threshold,
-          store.maskSettings.color
+          label2d.rawMaskPath,
+          label2d.maskSettings.threshold,
+          label2d.maskSettings.color
         );
-        store.maskUrl = maskUrl;
+        label2d.maskUrl = maskUrl;
       }
     } finally {
       isLoadingMask.value = false;
@@ -75,12 +80,12 @@
 
   async function handleAIDetect() {
     await logMessage('info', '[detect] handleAIDetect called');
-    if (!store.imagePath) {
+    if (!label2d.imagePath) {
       await logMessage('warn', '[detect] no image path, aborting');
       return;
     }
 
-    await logMessage('info', `[detect] imagePath=${store.imagePath.substring(0, 50)}...`);
+    await logMessage('info', `[detect] imagePath=${label2d.imagePath.substring(0, 50)}...`);
     await logMessage('info', `[detect] labels count=${labelDefStore.labels.length}`);
 
     const activeLabels = labelDefStore.labels.filter(
@@ -92,7 +97,6 @@
     );
 
     if (activeLabels.length === 0) {
-      const { ElMessage } = await import('element-plus');
       ElMessage.warning('请先在标注设置中配置检测模式');
       return;
     }
@@ -102,12 +106,13 @@
       const { runDetectForCurrentImage } = useLocateAnything({
         volumeId: ref(null),
         currentIndex: ref(0),
-        imageWidth: ref(store.imageWidth),
-        imageHeight: ref(store.imageHeight),
+        imageWidth: ref(canvas.imageWidth),
+        imageHeight: ref(canvas.imageHeight),
         getKeyframe: async () => undefined,
         putKeyframe: async () => {},
-        imagePath: ref(store.imagePath),
-        objects: computed(() => store.objects),
+        imagePath: ref(label2d.imagePath),
+        objects: computed(() => canvas.objects),
+        labelDefStore,
       });
 
       for (const label of activeLabels) {
@@ -117,7 +122,7 @@
             `[detect] starting detection for label "${label.name}" (id=${label.id})`
           );
           const results = await runDetectForCurrentImage(label.id);
-          store.objects.push(...results);
+          canvas.objects.push(...results);
           await logMessage(
             'info',
             `[detect] label="${label.name}" completed: ${results.length} objects detected`
@@ -133,7 +138,7 @@
   }
 
   function handleFitImage() {
-    store.fitImageTrigger++;
+    canvas.fitImageTrigger++;
   }
 </script>
 
@@ -149,7 +154,7 @@
       <el-button
         type="primary"
         :loading="isLoadingMask"
-        :disabled="!store.imagePath || store.objects.length === 0"
+        :disabled="!label2d.imagePath || canvas.objects.length === 0"
         @click="handleAIRecognize"
       >
         <template #icon>
@@ -160,7 +165,7 @@
       <el-button
         type="success"
         :loading="isDetecting"
-        :disabled="!store.imagePath"
+        :disabled="!label2d.imagePath"
         @click="handleAIDetect"
       >
         <template #icon>
@@ -168,7 +173,7 @@
         </template>
         AI 检测
       </el-button>
-      <el-button :disabled="!store.imageUrl" @click="handleFitImage">
+      <el-button :disabled="!label2d.imageUrl" @click="handleFitImage">
         <template #icon>
           <span>⊞</span>
         </template>
@@ -180,21 +185,21 @@
       <div class="mask-color-picker">
         <span class="slider-label">Mask 颜色:</span>
         <el-color-picker
-          v-model="store.maskSettings.color"
+          v-model="label2d.maskSettings.color"
           :predefine="['#0096ff', '#22c55e', '#ef4444', '#eab308', '#a855f7']"
         />
       </div>
       <div class="confidence-slider">
         <span class="slider-label">置信度阈值:</span>
         <el-slider
-          v-model="store.maskSettings.threshold"
+          v-model="label2d.maskSettings.threshold"
           :min="0"
           :max="255"
           :step="1"
           :show-tooltip="false"
           style="width: 120px"
         />
-        <span class="slider-value">{{ store.maskSettings.threshold }}</span>
+        <span class="slider-value">{{ label2d.maskSettings.threshold }}</span>
       </div>
       <span class="cursor-pos">{{ cursorDisplay }}</span>
     </div>

@@ -3,7 +3,7 @@
   import { match } from 'ts-pattern';
   import { McpServerConfigSchema } from '@/schemas/config';
   import type { McpServerConfig } from '@/services/cmd';
-  import type { FormInstance, FormRules } from 'element-plus';
+  import type { FormInstance, FormRules } from 'element-plus/es/components/form/index.mjs';
   import { useConfigStore } from '@/stores/config';
 
   const store = useConfigStore();

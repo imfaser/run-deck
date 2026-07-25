@@ -1,77 +1,79 @@
 <script setup lang="ts">
-  import { useLabelStore } from '@/stores/label';
+  import { useCanvasStore } from '@/stores/canvas';
   import LabelPickerDialog from './LabelPickerDialog.vue';
   import ObjectSelectDialog from './ObjectSelectDialog.vue';
 
-  const store = useLabelStore();
+  const props = defineProps<{ canvasId: string }>();
+
+  const canvas = useCanvasStore(props.canvasId);
 
   function handleSelectLabel(labelId: string) {
-    const pending = store.pendingAnnotation;
+    const pending = canvas.pendingAnnotation;
     if (!pending) return;
 
-    const obj = store.addObject(labelId);
+    const obj = canvas.addObject(labelId);
 
     if (pending.type === 'point') {
-      store.addPointToObject(obj.id, pending.point);
+      canvas.addPointToObject(obj.id, pending.point);
     } else if (pending.type === 'box') {
-      store.addBoxToObject(obj.id, pending.box);
+      canvas.addBoxToObject(obj.id, pending.box);
     }
 
-    store.showNameDialog = false;
-    store.pendingAnnotation = null;
+    canvas.showNameDialog = false;
+    canvas.pendingAnnotation = null;
   }
 
   function handleCancelName() {
-    store.showNameDialog = false;
-    store.pendingAnnotation = null;
+    canvas.showNameDialog = false;
+    canvas.pendingAnnotation = null;
   }
 
   function handleSelectObject(objectId: string) {
-    const pending = store.pendingAnnotation;
+    const pending = canvas.pendingAnnotation;
     if (!pending) return;
 
     if (pending.type === 'point') {
-      store.addPointToObject(objectId, pending.point);
+      canvas.addPointToObject(objectId, pending.point);
     } else if (pending.type === 'box') {
-      store.addBoxToObject(objectId, pending.box);
+      canvas.addBoxToObject(objectId, pending.box);
     }
 
-    store.showSelectDialog = false;
-    store.pendingAnnotation = null;
+    canvas.showSelectDialog = false;
+    canvas.pendingAnnotation = null;
   }
 
   function handleCreateNewLabel(labelId: string) {
-    const pending = store.pendingAnnotation;
+    const pending = canvas.pendingAnnotation;
     if (!pending) return;
 
-    const obj = store.addObject(labelId);
+    const obj = canvas.addObject(labelId);
 
     if (pending.type === 'point') {
-      store.addPointToObject(obj.id, pending.point);
+      canvas.addPointToObject(obj.id, pending.point);
     } else if (pending.type === 'box') {
-      store.addBoxToObject(obj.id, pending.box);
+      canvas.addBoxToObject(obj.id, pending.box);
     }
 
-    store.showSelectDialog = false;
-    store.pendingAnnotation = null;
+    canvas.showSelectDialog = false;
+    canvas.pendingAnnotation = null;
   }
 
   function handleCancelSelect() {
-    store.showSelectDialog = false;
-    store.pendingAnnotation = null;
+    canvas.showSelectDialog = false;
+    canvas.pendingAnnotation = null;
   }
 </script>
 
 <template>
   <LabelPickerDialog
-    :visible="store.showNameDialog"
+    :visible="canvas.showNameDialog"
     @select="handleSelectLabel"
     @cancel="handleCancelName"
   />
   <ObjectSelectDialog
-    :visible="store.showSelectDialog"
-    :objects="store.objects"
-    :pending-annotation="store.pendingAnnotation"
+    :visible="canvas.showSelectDialog"
+    :objects="canvas.objects"
+    :pending-annotation="canvas.pendingAnnotation"
     @select="handleSelectObject"
     @create-new="handleCreateNewLabel"
     @cancel="handleCancelSelect"

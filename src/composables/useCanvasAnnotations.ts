@@ -1,6 +1,7 @@
 import type Konva from 'konva';
 import { match, P } from 'ts-pattern';
 import { flatMap } from 'es-toolkit';
+import { ElMessage } from 'element-plus/es/components/message/index.mjs';
 import type {
   PointAnnotation,
   BoxAnnotation,
@@ -17,10 +18,6 @@ export type PendingAnnotation =
     }
   | {
       type: 'box';
-      box: BoxAnnotation;
-    }
-  | {
-      type: 'visual_box';
       box: BoxAnnotation;
     }
   | null;
@@ -101,7 +98,7 @@ function resolveDims(input: CanvasDimensionsInput): CanvasDimensions {
     .otherwise(() => input as CanvasDimensions);
 }
 
-interface CanvasAnnotationsOptions {
+interface UseCanvasAnnotationsOpts {
   store: AnnotationStore;
   refs: StageRefs;
   dims: CanvasDimensionsInput;
@@ -110,7 +107,7 @@ interface CanvasAnnotationsOptions {
   canCreate?: () => boolean;
 }
 
-export function useCanvasAnnotations(options: CanvasAnnotationsOptions) {
+export function useCanvasAnnotations(options: UseCanvasAnnotationsOpts) {
   const { store, refs, maxScale = 10, clampPosition, canCreate } = options;
   const dims = resolveDims(options.dims);
   const { getStage, getGroup, getTransformer, getPointerImagePos } = refs;
@@ -192,7 +189,6 @@ export function useCanvasAnnotations(options: CanvasAnnotationsOptions) {
     match(store.tool)
       .with(P.union('p_point', 'n_point'), () => handlePointCreate(e, stage))
       .with('box', () => {})
-      .with('visual_box', () => {})
       .exhaustive();
   }
 
@@ -227,9 +223,7 @@ export function useCanvasAnnotations(options: CanvasAnnotationsOptions) {
     const currentObj = store.objects.find((o) => o.id === store.currentObjectId);
     if (currentObj && currentObj.boxes.length > 0) {
       if (!isPointInAnyBox({ x: final.x, y: final.y }, currentObj.boxes)) {
-        import('element-plus').then(({ ElMessage }) => {
-          ElMessage.warning('点必须在边界框内');
-        });
+        ElMessage.warning('点必须在边界框内');
         return;
       }
     }
@@ -347,7 +341,6 @@ export function useCanvasAnnotations(options: CanvasAnnotationsOptions) {
 
   return {
     handleWheel,
-    isOnAnnotation,
     handleStageClick,
     handleAnnotationClick,
     handleDragEnd,

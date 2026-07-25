@@ -1,24 +1,25 @@
 <script setup lang="ts">
   import { ref, computed } from 'vue';
   import { open } from '@tauri-apps/plugin-dialog';
-  import { useLabelRawStore, type VolumeConfig } from '@/stores/label-raw';
-  import { useMaskRenderOnChange } from '@/composables/useMaskRenderOnChange';
+  import { ElMessage } from 'element-plus/es/components/message/index.mjs';
+  import { useCanvasStore } from '@/stores/canvas';
+  import { useLabel3dStore } from '@/stores/label-3d';
+  import type { VolumeConfig } from '@/schemas/volume';
+  import { useMaskStore } from '@/stores/mask';
+  import { useRecognizeStore } from '@/stores/recognize';
   import { logMessage } from '@/services/cmd';
 
-  const store = useLabelRawStore();
+  const props = defineProps<{ canvasId: string }>();
 
-  useMaskRenderOnChange({
-    store,
-    renderFn: async () => {
-      await store.renderCurrentMask();
-    },
-  });
+  const canvas = useCanvasStore(props.canvasId);
+  const label3d = useLabel3dStore(props.canvasId, canvas);
+  const mask = useMaskStore(props.canvasId, label3d);
+  const recognize = useRecognizeStore(props.canvasId, canvas, label3d, mask);
 
   const isLoadingMask = ref(false);
   const showConfigDialog = ref(false);
   const showBatchDialog = ref(false);
 
-  // Config dialog state
   const configForm = ref<VolumeConfig>({
     x: 100,
     y: 100,
@@ -29,8 +30,8 @@
   });
 
   const cursorDisplay = computed(() => {
-    if (!store.cursorImagePos) return '坐标: -, -';
-    return `坐标: ${store.cursorImagePos.x}, ${store.cursorImagePos.y}`;
+    if (!canvas.cursorImagePos) return '坐标: -, -';
+    return `坐标: ${canvas.cursorImagePos.x}, ${canvas.cursorImagePos.y}`;
   });
 
   async function handleOpenRaw() {
@@ -40,22 +41,25 @@
     });
     if (!selected) return;
 
-    store.filePath = selected as string;
+    label3d.filePath = selected as string;
     showConfigDialog.value = true;
   }
 
   async function handleConfirmConfig() {
-    store.volumeConfig = { ...configForm.value };
+    label3d.volumeConfig = { ...configForm.value };
     showConfigDialog.value = false;
-    await store.openVolume();
+    await label3d.openVolume();
   }
 
   async function handleAIRecognize() {
-    await logMessage('debug', `[toolbar] handleAIRecognize clicked, hasVolume=${store.hasVolume}`);
-    if (!store.hasVolume) return;
+    await logMessage(
+      'debug',
+      `[toolbar] handleAIRecognize clicked, hasVolume=${label3d.hasVolume}`
+    );
+    if (!label3d.hasVolume) return;
     isLoadingMask.value = true;
     try {
-      await store.recognizeCurrentSlice();
+      await recognize.recognizeCurrentSlice();
     } finally {
       isLoadingMask.value = false;
     }
@@ -64,34 +68,33 @@
   const batchForm = ref({ start: 0, end: 0 });
 
   function handleOpenBatchDialog() {
-    batchForm.value = { start: store.batchRange.start, end: store.batchRange.end };
+    batchForm.value = { start: label3d.batchRange.start, end: label3d.batchRange.end };
     showBatchDialog.value = true;
   }
 
   async function handleConfirmBatch() {
     const { start, end } = batchForm.value;
     if (start >= end) {
-      const { ElMessage } = await import('element-plus');
       ElMessage.error('起始 slice 必须小于结束 slice');
       return;
     }
     showBatchDialog.value = false;
-    store.batchRange = { start, end };
+    label3d.batchRange = { start, end };
     isLoadingMask.value = true;
     try {
-      await store.batchRecognize(start, end);
+      await recognize.batchRecognize(start, end);
     } finally {
       isLoadingMask.value = false;
     }
   }
 
   const recognizeProgressDisplay = computed(() => {
-    if (!store.isRecognizing) return '';
-    return `${store.recognitionProgress.current}/${store.recognitionProgress.total}`;
+    if (!recognize.isRecognizing) return '';
+    return `${recognize.progress.current}/${recognize.progress.total}`;
   });
 
   function handleFitImage() {
-    store.fitImageTrigger++;
+    canvas.fitImageTrigger++;
   }
 </script>
 
@@ -107,7 +110,7 @@
       <el-button
         type="primary"
         :loading="isLoadingMask"
-        :disabled="!store.canRecognize"
+        :disabled="!label3d.canRecognize"
         @click="handleAIRecognize"
       >
         <template #icon>
@@ -115,19 +118,19 @@
         </template>
         AI 识别
       </el-button>
-      <el-button v-if="store.isRecognizing" type="danger" @click="store.stopRecognition()">
+      <el-button v-if="recognize.isRecognizing" type="danger" @click="recognize.stopRecognition()">
         <template #icon>
           <span>⏹</span>
         </template>
         停止 {{ recognizeProgressDisplay }}
       </el-button>
-      <el-button v-else :disabled="!store.hasVolume" @click="handleOpenBatchDialog">
+      <el-button v-else :disabled="!label3d.hasVolume" @click="handleOpenBatchDialog">
         <template #icon>
           <span>🔄</span>
         </template>
         批量识别
       </el-button>
-      <el-button :disabled="!store.sliceImageUrl" @click="handleFitImage">
+      <el-button :disabled="!label3d.sliceImageUrl" @click="handleFitImage">
         <template #icon>
           <span>⊞</span>
         </template>
@@ -138,35 +141,35 @@
     <div class="toolbar-right">
       <div class="mask-toggle">
         <span class="slider-label">前序Mask辅助:</span>
-        <el-switch v-model="store.maskSettings.prevMaskAssist" size="small" />
+        <el-switch v-model="mask.maskSettings.prevMaskAssist" size="small" />
       </div>
       <div class="mask-color-picker">
         <span class="slider-label">Mask 颜色:</span>
         <el-color-picker
-          v-model="store.maskSettings.color"
+          v-model="mask.maskSettings.color"
           :predefine="['#0096ff', '#22c55e', '#ef4444', '#eab308', '#a855f7']"
         />
       </div>
-      <div v-if="store.maskSettings.prevMaskAssist" class="mask-color-picker">
+      <div v-if="mask.maskSettings.prevMaskAssist" class="mask-color-picker">
         <span class="slider-label">前序颜色:</span>
         <el-color-picker
-          v-model="store.maskSettings.prevMaskColor"
+          v-model="mask.maskSettings.prevMaskColor"
           :predefine="['#ef4444', '#f97316', '#eab308', '#a855f7', '#ec4899']"
         />
       </div>
       <div class="confidence-slider">
         <span class="slider-label">置信度阈值:</span>
         <el-slider
-          v-model="store.maskSettings.threshold"
+          v-model="mask.maskSettings.threshold"
           :min="0"
           :max="255"
           :step="1"
           :show-tooltip="false"
           style="width: 120px"
         />
-        <span class="slider-value">{{ store.maskSettings.threshold }}</span>
+        <span class="slider-value">{{ mask.maskSettings.threshold }}</span>
       </div>
-      <el-button :disabled="!store.hasVolume" @click="store.exportMaskVolume()">
+      <el-button :disabled="!label3d.hasVolume" @click="label3d.exportMaskVolume()">
         <template #icon>
           <span>💾</span>
         </template>
@@ -230,14 +233,14 @@
           <el-input-number
             v-model="batchForm.start"
             :min="0"
-            :max="store.volumeInfo.totalSlices - 1"
+            :max="label3d.volumeInfo.totalSlices - 1"
           />
         </el-form-item>
         <el-form-item label="结束">
           <el-input-number
             v-model="batchForm.end"
             :min="0"
-            :max="store.volumeInfo.totalSlices - 1"
+            :max="label3d.volumeInfo.totalSlices - 1"
           />
         </el-form-item>
       </el-form>
@@ -249,7 +252,7 @@
 
     <!-- Recognize all progress dialog -->
     <el-dialog
-      v-model="store.isRecognizing"
+      v-model="recognize.isRecognizing"
       title="批量识别"
       width="360px"
       :close-on-click-modal="false"
@@ -260,24 +263,18 @@
       <div style="text-align: center; padding: 16px 0">
         <el-progress
           :percentage="
-            store.volumeInfo.totalSlices > 0
-              ? Math.round(
-                  (store.recognitionProgress.current / store.recognitionProgress.total) * 100
-                )
+            label3d.volumeInfo.totalSlices > 0
+              ? Math.round((recognize.progress.current / recognize.progress.total) * 100)
               : 0
           "
-          :status="
-            store.recognitionProgress.current >= store.recognitionProgress.total
-              ? 'success'
-              : undefined
-          "
+          :status="recognize.progress.current >= recognize.progress.total ? 'success' : undefined"
         />
         <p style="margin-top: 12px; color: var(--text-secondary)">
-          {{ store.recognitionProgress.current + 1 }} / {{ store.recognitionProgress.total }}
+          {{ recognize.progress.current + 1 }} / {{ recognize.progress.total }}
         </p>
       </div>
       <template #footer>
-        <el-button type="danger" @click="store.stopRecognition()">停止识别</el-button>
+        <el-button type="danger" @click="recognize.stopRecognition()">停止识别</el-button>
       </template>
     </el-dialog>
   </div>

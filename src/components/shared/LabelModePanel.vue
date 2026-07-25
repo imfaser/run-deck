@@ -3,18 +3,14 @@
   import { Pointer, Edit, Delete } from '@element-plus/icons-vue';
   import type { Component } from 'vue';
   import type { LabelMode } from '@/schemas/annotation';
-  import { useLabelRawStore } from '@/stores/label-raw';
-  import { useLabelStore } from '@/stores/label';
+  import { useCanvasStore } from '@/stores/canvas';
 
   const props = defineProps<{
-    storeType: 'raw' | 'label';
+    canvasId: string;
   }>();
 
-  const rawStore = useLabelRawStore();
-  const labelStore = useLabelStore();
-
-  const activeStore = computed(() => (props.storeType === 'raw' ? rawStore : labelStore));
-  const currentMode = computed(() => activeStore.value.mode);
+  const canvas = useCanvasStore(props.canvasId);
+  const currentMode = computed(() => canvas.mode);
 
   const modes: { value: LabelMode; label: string; icon: Component }[] = [
     { value: 'select', label: '选择', icon: Pointer },
@@ -23,7 +19,7 @@
   ];
 
   function handleModeChange(mode: LabelMode) {
-    activeStore.value.setMode(mode);
+    canvas.setMode(mode);
   }
 </script>
 

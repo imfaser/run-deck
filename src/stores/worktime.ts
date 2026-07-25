@@ -3,13 +3,14 @@ import { ref, computed } from 'vue';
 import dayjs from 'dayjs';
 import { keyBy } from 'es-toolkit';
 import type { WorkRecord, WorktimeSettings } from '@/schemas/worktime';
+import {
+  roundHours,
+  generateId,
+  calculateWorkHours,
+  isPredictedWorkTime,
+} from '@/utils/worktime-calc';
 
 export type { WorkRecord, WorktimeSettings };
-
-const PRECISION = 1e8;
-function roundHours(hours: number): number {
-  return Math.round(hours * PRECISION) / PRECISION;
-}
 
 const DEFAULT_SETTINGS: WorktimeSettings = {
   workPeriod1Start: '08:00',
@@ -24,44 +25,6 @@ const DEFAULT_SETTINGS: WorktimeSettings = {
   autoSync: false,
   lastSyncTime: '',
 };
-
-function generateId(): string {
-  return crypto.randomUUID();
-}
-
-function calculateWorkHours(clockIn: string, clockOut: string, settings: WorktimeSettings): number {
-  const [inH, inM] = clockIn.split(':').map(Number);
-  const [outH, outM] = clockOut.split(':').map(Number);
-  const inMinutes = inH * 60 + inM;
-  const outMinutes = outH * 60 + outM;
-
-  let totalMinutes = outMinutes - inMinutes;
-
-  function subtractBreak(bStart: string, bEnd: string) {
-    if (!bStart || !bEnd) return;
-    const [bsH, bsM] = bStart.split(':').map(Number);
-    const [beH, beM] = bEnd.split(':').map(Number);
-    const bStartMin = bsH * 60 + bsM;
-    const bEndMin = beH * 60 + beM;
-    const overlapStart = Math.max(inMinutes, bStartMin);
-    const overlapEnd = Math.min(outMinutes, bEndMin);
-    const overlap = overlapEnd - overlapStart;
-    if (overlap > 0) {
-      totalMinutes -= overlap;
-    }
-  }
-
-  subtractBreak(settings.breakPeriod1Start, settings.breakPeriod1End);
-  subtractBreak(settings.breakPeriod2Start, settings.breakPeriod2End);
-
-  return roundHours(totalMinutes / 60);
-}
-
-function isPredictedWorkTime(date: string, _clockOut: string): boolean {
-  const now = dayjs();
-  const recordDate = dayjs(date);
-  return recordDate.isAfter(now, 'day');
-}
 
 export const useWorktimeStore = defineStore(
   'worktime',

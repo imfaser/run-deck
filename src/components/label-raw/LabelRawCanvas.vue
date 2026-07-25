@@ -1,13 +1,23 @@
 <script setup lang="ts">
   import { ref, computed, watch, onUnmounted } from 'vue';
   import { useImage } from 'vue-konva';
+  import {
+    Stage as VStage,
+    Layer as VLayer,
+    Group as VGroup,
+    Image as VImage,
+    Circle as VCircle,
+    Rect as VRect,
+    Transformer as VTransformer,
+  } from 'vue-konva';
   import { useResizeObserver, useEventListener } from '@vueuse/core';
   import Konva from 'konva';
   import { clamp } from 'es-toolkit';
   import { match, P } from 'ts-pattern';
-  import { useLabelRawStore } from '@/stores/label-raw';
+  import { useCanvasStore } from '@/stores/canvas';
+  import { useLabel3dStore } from '@/stores/label-3d';
+  import { useMaskStore } from '@/stores/mask';
   import { useLabelDefStore } from '@/stores/label-def';
-  import { VISUAL_REF_SUB_LABEL_ID } from '@/schemas/annotation';
   import { logMessage } from '@/services/cmd';
   import { getPointerImagePos } from '@/utils/coordTransform';
   import { getPointConfig, getBoxConfig } from '@/utils/annotationConfig';
@@ -15,14 +25,18 @@
   import { useCanvasAnnotations } from '@/composables/useCanvasAnnotations';
   import { useCanvasRefs } from '@/composables/useCanvasRefs';
 
-  const store = useLabelRawStore();
+  const props = defineProps<{ canvasId: string }>();
+
+  const canvas = useCanvasStore(props.canvasId);
+  const label3d = useLabel3dStore(props.canvasId, canvas);
+  const mask = useMaskStore(props.canvasId, label3d);
   const labelDefStore = useLabelDefStore();
 
   const containerRef = ref<HTMLDivElement | null>(null);
   const stageRef = ref<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
   const stage = ref({ width: 800, height: 600 });
   const image = ref({ width: 0, height: 0 });
-  const mask = ref({ width: 0, height: 0 });
+  const maskSize = ref({ width: 0, height: 0 });
 
   const { getStage, getGroup, getTransformer, getLayer } = useCanvasRefs(stageRef);
 
@@ -35,30 +49,31 @@
     handleStageMouseUp: machineMouseUp,
     handleKeyDown,
     handleKeyUp,
-  } = useCanvasInteraction(store, {
-    getStage: () =>
-      getStage() as unknown as { container: () => { style: { cursor: string } } } | null,
-    getGroup: () => getGroup() as unknown as { x: () => number; y: () => number } | null,
-    getPointerImagePos: (s: unknown, g: unknown) =>
-      getPointerImagePos(s as Konva.Stage, g as Konva.Group),
+  } = useCanvasInteraction({
+    store: canvas,
+    refs: {
+      getStage: () =>
+        getStage() as unknown as { container: () => { style: { cursor: string } } } | null,
+      getGroup: () => getGroup() as unknown as { x: () => number; y: () => number } | null,
+      getPointerImagePos: (s: unknown, g: unknown) =>
+        getPointerImagePos(s as Konva.Stage, g as Konva.Group),
+    },
   });
 
   watch(
-    () => store.pendingAnnotation,
+    () => canvas.pendingAnnotation,
     (val) => {
       if (!val) send({ type: 'CLEAR_TEMP_BOX' });
     }
   );
 
-  const [baseImage] = useImage(computed(() => store.sliceImageUrl ?? ''));
+  const [baseImage] = useImage(computed(() => label3d.sliceImageUrl ?? ''));
 
   const currentMaskVisible = computed(() => {
-    const kf = store.currentKeyframeSummary;
-    const hasMaskUrl = !!store.currentMaskUrl;
-    const prevMaskAssist = store.maskSettings.prevMaskAssist;
+    const kf = label3d.currentKeyframeSummary;
+    const hasMaskUrl = !!mask.currentMaskUrl;
+    const prevMaskAssist = mask.maskSettings.prevMaskAssist;
 
-    // 有 keyframe → 尊重 maskVisible 开关
-    // 无 keyframe + prevMaskAssist=true + 有 mask URL → 显示前序 mask
     const visible = kf ? kf.maskVisible : prevMaskAssist && hasMaskUrl;
 
     logMessage(
@@ -67,7 +82,7 @@
     );
     return visible;
   });
-  const [maskImage] = useImage(computed(() => store.currentMaskUrl ?? ''));
+  const [maskImage] = useImage(computed(() => mask.currentMaskUrl ?? ''));
 
   watch(maskImage, (img) => {
     logMessage(
@@ -75,19 +90,19 @@
       `[prev-mask] maskImage loaded: ${img ? `${img.width}x${img.height}` : 'null'}`
     );
     if (img) {
-      mask.value = { width: img.width, height: img.height };
+      maskSize.value = { width: img.width, height: img.height };
     }
   });
 
   watch(currentMaskVisible, (visible) => {
     logMessage(
       'debug',
-      `[prev-mask] display state: maskImage=${maskImage.value ? 'loaded' : 'null'}, visible=${visible}, prevMaskAssist=${store.maskSettings.prevMaskAssist}`
+      `[prev-mask] display state: maskImage=${maskImage.value ? 'loaded' : 'null'}, visible=${visible}, prevMaskAssist=${mask.maskSettings.prevMaskAssist}`
     );
   });
 
   watch(
-    () => store.currentMaskUrl,
+    () => mask.currentMaskUrl,
     (url) => {
       logMessage(
         'debug',
@@ -111,7 +126,7 @@
     handleTransformEnd,
     fitToImage,
   } = useCanvasAnnotations({
-    store,
+    store: canvas,
     refs: {
       getStage: () => getStage() as unknown as Konva.Stage | undefined,
       getGroup: () => getGroup() as unknown as Konva.Group | undefined,
@@ -125,15 +140,15 @@
     dims: { image, stage },
     maxScale: 5,
     clampPosition: clampToImage,
-    canCreate: () => store.hasVolume,
+    canCreate: () => label3d.hasVolume,
   });
 
   const groupConfig = computed(() => ({
     name: 'annotation-group',
-    x: store.stagePos.x,
-    y: store.stagePos.y,
-    scaleX: store.stageScale,
-    scaleY: store.stageScale,
+    x: canvas.stagePos.x,
+    y: canvas.stagePos.y,
+    scaleX: canvas.stageScale,
+    scaleY: canvas.stageScale,
   }));
 
   const tempBoxConfig = computed(() => {
@@ -153,7 +168,7 @@
   });
 
   const pendingBoxConfig = computed(() =>
-    match(store.pendingAnnotation)
+    match(canvas.pendingAnnotation)
       .with({ type: 'box', box: P.select() }, (b) => ({
         x: b.x1,
         y: b.y1,
@@ -171,14 +186,8 @@
   watch(baseImage, (img) => {
     if (img) {
       image.value = { width: img.width, height: img.height };
-      store.imageWidth = img.width;
-      store.imageHeight = img.height;
-    }
-  });
-
-  watch(maskImage, (img) => {
-    if (img) {
-      mask.value = { width: img.width, height: img.height };
+      canvas.imageWidth = img.width;
+      canvas.imageHeight = img.height;
     }
   });
 
@@ -186,7 +195,7 @@
   useEventListener(window, 'keyup', handleKeyUp);
 
   watch(
-    () => store.fitImageTrigger,
+    () => canvas.fitImageTrigger,
     () => fitToImage()
   );
 
@@ -206,33 +215,33 @@
   });
 
   function handleStageMouseDown(e: Konva.KonvaEventObject<MouseEvent>) {
-    if (store.mode === 'create' && !store.hasVolume) return;
+    if (canvas.mode === 'create' && !label3d.hasVolume) return;
     machineMouseDown({ evt: e.evt });
   }
 
   function handleStageMouseMove(e: Konva.KonvaEventObject<MouseEvent>) {
     machineMouseMove({ evt: e.evt });
-    const stage = getStage();
-    if (stage) {
-      const pos = stage.getPointerPosition();
-      if (pos) store.cursorScreenPos = pos;
+    const s = getStage();
+    if (s) {
+      const pos = s.getPointerPosition();
+      if (pos) canvas.cursorScreenPos = pos;
     }
   }
 
   function handleStageMouseUp(_e: Konva.KonvaEventObject<MouseEvent>) {
     machineMouseUp();
-    const stage = getStage();
-    if (stage) {
-      const pos = stage.getPointerPosition();
-      if (pos) store.cursorScreenPos = pos;
+    const s = getStage();
+    if (s) {
+      const pos = s.getPointerPosition();
+      if (pos) canvas.cursorScreenPos = pos;
     }
   }
 
   defineExpose({ fitToImage });
 
   const visualBoxes = computed(() => {
-    return store.objects
-      .filter((obj) => obj.subLabelId === VISUAL_REF_SUB_LABEL_ID)
+    return canvas.objects
+      .filter((obj) => obj.boxes.some((b) => b.boxType === 'visual_ref'))
       .flatMap((obj) => obj.boxes.map((box) => ({ box, obj })));
   });
 </script>
@@ -259,25 +268,25 @@
             v-if="maskImage && currentMaskVisible"
             :config="{
               image: maskImage,
-              width: mask.width,
-              height: mask.height,
-              opacity: store.maskSettings.opacity,
+              width: maskSize.width,
+              height: maskSize.height,
+              opacity: mask.maskSettings.opacity,
             }"
           />
-          <template v-for="obj in store.objects" :key="obj.id">
-            <template v-if="obj.subLabelId !== VISUAL_REF_SUB_LABEL_ID">
+          <template v-for="obj in canvas.objects" :key="obj.id">
+            <template v-if="!obj.boxes.some((b) => b.boxType === 'visual_ref')">
               <v-circle
                 v-for="ann in obj.points"
                 :key="ann.id"
                 :config="{
                   ...getPointConfig(
                     ann,
-                    store.selectedAnnotationId === ann.id,
+                    canvas.selectedAnnotationId === ann.id,
                     labelDefStore.labelById(obj.labelId)?.color ?? '#888'
                   ),
-                  draggable: store.mode === 'select',
-                  scaleX: 1 / store.stageScale,
-                  scaleY: 1 / store.stageScale,
+                  draggable: canvas.mode === 'select',
+                  scaleX: 1 / canvas.stageScale,
+                  scaleY: 1 / canvas.stageScale,
                 }"
                 @click="(e: Konva.KonvaEventObject<MouseEvent>) => handleAnnotationClick(ann, e)"
                 @dragend="(e: Konva.KonvaEventObject<DragEvent>) => handleDragEnd(ann, e)"
@@ -288,10 +297,10 @@
                 :config="{
                   ...getBoxConfig(
                     ann,
-                    store.selectedAnnotationId === ann.id,
+                    canvas.selectedAnnotationId === ann.id,
                     labelDefStore.labelById(obj.labelId)?.color ?? '#888'
                   ),
-                  draggable: store.mode === 'select',
+                  draggable: canvas.mode === 'select',
                 }"
                 @click="(e: Konva.KonvaEventObject<MouseEvent>) => handleAnnotationClick(ann, e)"
                 @dragend="(e: Konva.KonvaEventObject<DragEvent>) => handleDragEnd(ann, e)"
@@ -314,7 +323,7 @@
               strokeDash: [8, 4],
               strokeScaleEnabled: false,
               fill: 'rgba(139, 92, 246, 0.08)',
-              draggable: store.mode === 'select',
+              draggable: canvas.mode === 'select',
             }"
             @click="(e: Konva.KonvaEventObject<MouseEvent>) => handleAnnotationClick(box, e)"
             @dragend="(e: Konva.KonvaEventObject<DragEvent>) => handleDragEnd(box, e)"

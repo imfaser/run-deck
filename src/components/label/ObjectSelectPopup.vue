@@ -1,9 +1,11 @@
 <script setup lang="ts">
   import { ref, computed, watch } from 'vue';
-  import { useLabelStore } from '@/stores/label';
+  import { useCanvasStore } from '@/stores/canvas';
   import { useLabelDefStore } from '@/stores/label-def';
 
-  const store = useLabelStore();
+  const props = defineProps<{ canvasId: string }>();
+
+  const canvas = useCanvasStore(props.canvasId);
   const labelDefStore = useLabelDefStore();
 
   const ui = ref({
@@ -14,7 +16,7 @@
   });
 
   const objectsWithLabel = computed(() =>
-    store.objects.map((obj) => {
+    canvas.objects.map((obj) => {
       const labelDef = labelDefStore.labelById(obj.labelId);
       return {
         ...obj,
@@ -30,32 +32,32 @@
   }
 
   function handleSelectObject(id: string) {
-    store.setCurrentObject(id);
+    canvas.setCurrentObject(id);
     assignPending(id);
   }
 
   function handleSelectNewLabel(labelId: string) {
-    const obj = store.addObject(labelId);
-    store.setCurrentObject(obj.id);
+    const obj = canvas.addObject(labelId);
+    canvas.setCurrentObject(obj.id);
     assignPending(obj.id);
   }
 
   function assignPending(objectId: string) {
-    const pending = store.pendingAnnotation;
+    const pending = canvas.pendingAnnotation;
     if (!pending) return;
     if (pending.type === 'point') {
-      store.addPointToObject(objectId, pending.point!);
+      canvas.addPointToObject(objectId, pending.point!);
     } else if (pending.type === 'box') {
-      store.addBoxToObject(objectId, pending.box!);
+      canvas.addBoxToObject(objectId, pending.box!);
     }
-    store.pendingAnnotation = null;
+    canvas.pendingAnnotation = null;
     ui.value.visible = false;
   }
 
   watch(
-    () => store.pendingAnnotation,
+    () => canvas.pendingAnnotation,
     (val) => {
-      const pos = store.cursorScreenPos;
+      const pos = canvas.cursorScreenPos;
       if (val && pos) {
         show(pos.x, pos.y);
       } else if (!val) {

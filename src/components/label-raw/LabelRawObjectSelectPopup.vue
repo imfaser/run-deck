@@ -1,10 +1,11 @@
 <script setup lang="ts">
   import { ref, computed, watch } from 'vue';
-  import { useLabelRawStore } from '@/stores/label-raw';
+  import { useCanvasStore } from '@/stores/canvas';
   import { useLabelDefStore } from '@/stores/label-def';
-  import { VISUAL_REF_SUB_LABEL_ID } from '@/schemas/annotation';
 
-  const store = useLabelRawStore();
+  const props = defineProps<{ canvasId: string }>();
+
+  const canvas = useCanvasStore(props.canvasId);
   const labelDefStore = useLabelDefStore();
 
   const ui = ref({
@@ -15,8 +16,8 @@
   });
 
   const objectsWithLabel = computed(() =>
-    store.objects
-      .filter((obj) => obj.subLabelId !== VISUAL_REF_SUB_LABEL_ID)
+    canvas.objects
+      .filter((obj) => !obj.boxes.some((b) => b.boxType === 'visual_ref'))
       .map((obj) => {
         const labelDef = labelDefStore.labelById(obj.labelId);
         return {
@@ -33,56 +34,32 @@
   }
 
   function handleSelectObject(id: string) {
-    const pending = store.pendingAnnotation;
-    if (pending?.type === 'visual_box') {
-      // Visual box must be a new object, not added to existing one
-      return;
-    }
-    store.setCurrentObject(id);
+    canvas.setCurrentObject(id);
     assignPending(id);
   }
 
   function handleSelectNewLabel(labelId: string) {
-    const pending = store.pendingAnnotation;
-    if (pending?.type === 'visual_box') {
-      // Enforce one visual box per label: remove existing one for same label
-      const existingIdx = store.objects.findIndex(
-        (o) => o.subLabelId === VISUAL_REF_SUB_LABEL_ID && o.labelId === labelId
-      );
-      if (existingIdx >= 0) {
-        store.objects.splice(existingIdx, 1);
-      }
-      // Create visual box with labelId
-      const obj = store.addObject(labelId);
-      store.objects[store.objects.length - 1].subLabelId = VISUAL_REF_SUB_LABEL_ID;
-      store.objects[store.objects.length - 1].boxes = [pending.box];
-      // Update locate config
-      labelDefStore.updateLocateConfig(labelId, { visualRefObjectId: obj.id });
-      store.pendingAnnotation = null;
-      ui.value.visible = false;
-      return;
-    }
-    const obj = store.addObject(labelId);
-    store.setCurrentObject(obj.id);
+    const obj = canvas.addObject(labelId);
+    canvas.setCurrentObject(obj.id);
     assignPending(obj.id);
   }
 
   function assignPending(objectId: string) {
-    const pending = store.pendingAnnotation;
+    const pending = canvas.pendingAnnotation;
     if (!pending) return;
     if (pending.type === 'point') {
-      store.addPointToObject(objectId, pending.point!);
+      canvas.addPointToObject(objectId, pending.point!);
     } else if (pending.type === 'box') {
-      store.addBoxToObject(objectId, pending.box!);
+      canvas.addBoxToObject(objectId, pending.box!);
     }
-    store.pendingAnnotation = null;
+    canvas.pendingAnnotation = null;
     ui.value.visible = false;
   }
 
   watch(
-    () => store.pendingAnnotation,
+    () => canvas.pendingAnnotation,
     (val) => {
-      const pos = store.cursorScreenPos;
+      const pos = canvas.cursorScreenPos;
       if (val && pos) {
         show(pos.x, pos.y);
       } else if (!val) {

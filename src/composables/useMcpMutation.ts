@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/vue-query';
 import { updateConfig, type Config } from '@/services/cmd';
-import { ElMessage } from 'element-plus';
+import { ElMessage } from 'element-plus/es/components/message/index.mjs';
 
 export function useMcpMutation() {
   const queryClient = useQueryClient();

@@ -2,7 +2,7 @@ import { useEventListener } from '@vueuse/core';
 import { match } from 'ts-pattern';
 import type { LabelMode, AnnotationType } from '@/schemas/annotation';
 
-interface LabelKeyboardStore {
+export interface UseLabelKeyboardSharedOpts {
   selectedAnnotationId: string | null;
   setMode: (mode: LabelMode) => void;
   setTool: (tool: AnnotationType) => void;
@@ -11,7 +11,7 @@ interface LabelKeyboardStore {
   resetCanvas: () => void;
 }
 
-export function useLabelKeyboardShared(store: LabelKeyboardStore) {
+export function useLabelKeyboardShared(store: UseLabelKeyboardSharedOpts) {
   function handleKeyDown(e: KeyboardEvent) {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 

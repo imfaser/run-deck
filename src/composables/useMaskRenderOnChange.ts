@@ -13,12 +13,12 @@ interface MaskRenderStore {
   $subscribe: (callback: () => void) => () => void;
 }
 
-interface MaskRenderOptions {
+interface UseMaskRenderOnChangeOpts {
   store: MaskRenderStore;
   renderFn: () => Promise<void>;
 }
 
-export function useMaskRenderOnChange(options: MaskRenderOptions) {
+export function useMaskRenderOnChange(options: UseMaskRenderOnChangeOpts) {
   const { store, renderFn } = options;
 
   const debouncedRerender = useDebounceFn(renderFn, 300);

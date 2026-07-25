@@ -2,24 +2,9 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { objectColor } from '@/utils/objectColor';
 import type { LabelDef, SubLabel } from '@/schemas/label';
+import type { LocateConfig, DetectProgress } from '@/schemas/locate';
 
-export interface LocateConfig {
-  labelId: string;
-  mode: 'detect' | 'detect_visual';
-  visualType: 'slice_crop' | 'external_image';
-  visualRefObjectId: string | null;
-  visualRefImagePath: string | null;
-  rangeStart: number;
-  rangeEnd: number;
-}
-
-export interface DetectProgress {
-  labelId: string;
-  current: number;
-  total: number;
-  status: 'idle' | 'running' | 'done' | 'error';
-  error?: string;
-}
+export type { LocateConfig, DetectProgress };
 
 export const useLabelDefStore = defineStore(
   'label-def',

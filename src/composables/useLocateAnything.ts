@@ -23,6 +23,7 @@ export interface UseLocateAnythingOpts {
   ) => Promise<void>;
   imagePath: Ref<string | null>;
   objects: Ref<AnnotationObject[]>;
+  labelDefStore: ReturnType<typeof useLabelDefStore>;
 }
 
 export function boxesToAnnotationObjects(
@@ -69,7 +70,7 @@ export function boxesToAnnotationObjects(
 }
 
 export function useLocateAnything(opts: UseLocateAnythingOpts) {
-  const labelDefStore = useLabelDefStore();
+  const { labelDefStore } = opts;
 
   async function runDetectForImage(
     imagePath: string,

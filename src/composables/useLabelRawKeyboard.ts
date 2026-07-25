@@ -1,7 +1,6 @@
-import { useLabelRawStore } from '@/stores/label-raw';
+import type { useCanvasStore } from '@/stores/canvas';
 import { useLabelKeyboardShared } from './useLabelKeyboard.shared';
 
-export function useLabelRawKeyboard() {
-  const store = useLabelRawStore();
+export function useLabelRawKeyboard(store: ReturnType<typeof useCanvasStore>) {
   useLabelKeyboardShared(store);
 }

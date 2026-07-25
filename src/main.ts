@@ -2,15 +2,14 @@ import { createApp } from 'vue';
 import { createRouter, createWebHistory } from 'vue-router';
 import { createPinia } from 'pinia';
 import { createPlugin } from '@tauri-store/pinia';
-import VueKonva from 'vue-konva';
 import { routes } from 'vue-router/auto-routes';
-import { ElMessage } from 'element-plus';
+import { ElMessage } from 'element-plus/es/components/message/index.mjs';
 import { logMessage } from '@/services/cmd';
 import { installQuery } from './plugins/query';
 import App from './App.vue';
-import 'element-plus/theme-chalk/src/message.scss';
-import 'element-plus/theme-chalk/src/message-box.scss';
-import 'element-plus/theme-chalk/src/button.scss';
+import 'element-plus/es/components/message/style/css';
+import 'element-plus/es/components/message-box/style/css';
+import 'element-plus/es/components/button/style/css';
 import './styles/main.scss';
 
 if (import.meta.env.DEV) {
@@ -32,7 +31,6 @@ const pinia = createPinia();
 pinia.use(createPlugin());
 app.use(pinia);
 app.use(router);
-app.use(VueKonva);
 installQuery(app);
 
 // Global error handler — catches sync errors in renders, event handlers, lifecycle hooks, etc.

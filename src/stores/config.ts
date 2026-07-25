@@ -2,7 +2,8 @@ import { defineStore } from 'pinia';
 import { ref, watch } from 'vue';
 import { useQueryClient } from '@tanstack/vue-query';
 import { match } from 'ts-pattern';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage } from 'element-plus/es/components/message/index.mjs';
+import { ElMessageBox } from 'element-plus/es/components/message-box/index.mjs';
 import { FrontendConfigSchema, ShellTypeSchema } from '@/schemas/config';
 import {
   logMessage,

@@ -41,11 +41,10 @@ export default defineConfig({
   /* ========= 2️⃣ 让 TAURI_DEBUG / TAURI_PLATFORM 等变量能传到前端代码 ========= */
   envPrefix: ['VITE_', 'TAURI_'],
 
-  /* ========= 3️⃣ Sass（你现在没做主题定制，先保持简单） ========= */
+  /* ========= 3️⃣ Sass + Element Plus 主题定制 ========= */
   css: {
     preprocessorOptions: {
       scss: {
-        api: 'modern-compiler',
         additionalData: `@use "@/styles/element/index.scss" as *;`,
       },
     },
@@ -78,5 +77,16 @@ export default defineConfig({
         : 'safari13',
     minify: !process.env.TAURI_DEBUG ? 'oxc' : false,
     sourcemap: !!process.env.TAURI_DEBUG,
+    rollupOptions: {
+      output: {
+        manualChunks(id: string) {
+          if (id.includes('node_modules/echarts')) return 'vendor-echarts';
+          if (id.includes('node_modules/element-plus')) return 'vendor-element-plus';
+          if (id.includes('node_modules/konva') || id.includes('node_modules/vue-konva'))
+            return 'vendor-konva';
+          if (id.includes('node_modules/xstate')) return 'vendor-xstate';
+        },
+      },
+    },
   },
 });

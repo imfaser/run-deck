@@ -1,7 +1,8 @@
 <script setup lang="ts">
-  // ========== 1. 第三方 / 内部模块引入 ==========
   import { onMounted, onBeforeUnmount } from 'vue';
+  import { useRoute } from 'vue-router';
   import { useLabelKeyboard } from '@/composables/useLabelKeyboard';
+  import { useCanvasStore } from '@/stores/canvas';
   import { useLabelDefStore } from '@/stores/label-def';
   import LabelToolbar from '@/components/label/LabelToolbar.vue';
   import LabelModePanel from '@/components/shared/LabelModePanel.vue';
@@ -12,11 +13,14 @@
   import LabelNameDialogHandler from '@/components/label/LabelNameDialogHandler.vue';
   import ObjectSelectPopup from '@/components/label/ObjectSelectPopup.vue';
 
-  // ========== 2. 组合式函数（Composables）调用 ==========
-  useLabelKeyboard();
+  const route = useRoute();
+  const canvasId = route.path === '/label-raw' ? 'label-raw' : 'label';
 
-  // ========== 3. 设置应用模式 ==========
+  const canvas = useCanvasStore(canvasId);
   const labelDefStore = useLabelDefStore();
+
+  useLabelKeyboard(canvas);
+
   onMounted(() => {
     labelDefStore.appMode = '2d';
   });
@@ -26,24 +30,24 @@
 </script>
 
 <template>
-  <LabelNameDialogHandler />
-  <ObjectSelectPopup />
+  <LabelNameDialogHandler :canvas-id="canvasId" />
+  <ObjectSelectPopup :canvas-id="canvasId" />
   <el-container direction="vertical" class="label-page">
-    <LabelToolbar />
+    <LabelToolbar :canvas-id="canvasId" />
 
     <el-container class="label-body">
       <el-aside width="80px" class="label-sidebar-left">
-        <LabelModePanel store-type="label" />
-        <LabelToolPanel store-type="label" />
+        <LabelModePanel :canvas-id="canvasId" />
+        <LabelToolPanel :canvas-id="canvasId" />
         <LabelSettingsButton />
       </el-aside>
 
       <el-main class="label-canvas-area">
-        <LabelCanvas />
+        <LabelCanvas :canvas-id="canvasId" />
       </el-main>
 
       <el-aside width="220px" class="label-sidebar-right">
-        <LabelInfoPanel />
+        <LabelInfoPanel :canvas-id="canvasId" />
       </el-aside>
     </el-container>
   </el-container>

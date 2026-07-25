@@ -24,7 +24,13 @@ interface CanvasRefs {
   getPointerImagePos: (stage: unknown, group: unknown) => { x: number; y: number } | null;
 }
 
-export function useCanvasInteraction(store: CanvasStore, refs?: CanvasRefs) {
+interface UseCanvasInteractionOpts {
+  store: CanvasStore;
+  refs?: CanvasRefs;
+}
+
+export function useCanvasInteraction(options: UseCanvasInteractionOpts) {
+  const { store, refs } = options;
   const { snapshot, send } = useMachine(canvasMachine, {
     input: { store },
   });

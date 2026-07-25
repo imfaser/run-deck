@@ -1,16 +1,24 @@
 <script setup lang="ts">
   import { computed } from 'vue';
   import { useDebounceFn } from '@vueuse/core';
-  import { useLabelRawStore } from '@/stores/label-raw';
+  import { useCanvasStore } from '@/stores/canvas';
+  import { useLabel3dStore } from '@/stores/label-3d';
+  import { useMaskStore } from '@/stores/mask';
+  import { useRecognizeStore } from '@/stores/recognize';
 
-  const store = useLabelRawStore();
+  const props = defineProps<{ canvasId: string }>();
+
+  const canvas = useCanvasStore(props.canvasId);
+  const label3d = useLabel3dStore(props.canvasId, canvas);
+  const mask = useMaskStore(props.canvasId, label3d);
+  const recognize = useRecognizeStore(props.canvasId, canvas, label3d, mask);
 
   const debouncedLoad = useDebounceFn((val: number) => {
-    store.loadSlice(val);
+    label3d.loadSlice(val);
   }, 50);
 
   const sliderModel = computed({
-    get: () => store.currentIndex,
+    get: () => label3d.currentIndex,
     set: (val: number) => {
       debouncedLoad(val);
     },
@@ -18,32 +26,32 @@
 
   function handleInput(val: number | undefined) {
     if (val === undefined || val === null) return;
-    const idx = Math.max(0, Math.min(val, store.volumeInfo.totalSlices - 1));
-    store.loadSlice(idx);
+    const idx = Math.max(0, Math.min(val, label3d.volumeInfo.totalSlices - 1));
+    label3d.loadSlice(idx);
   }
 </script>
 
 <template>
-  <div v-if="store.hasVolume" class="slice-slider">
-    <span class="axis-badge">{{ store.volumeConfig.axis }}</span>
+  <div v-if="label3d.hasVolume" class="slice-slider">
+    <span class="axis-badge">{{ label3d.volumeConfig.axis }}</span>
     <el-input-number
-      :model-value="store.currentIndex"
+      :model-value="label3d.currentIndex"
       :min="0"
-      :max="store.volumeInfo.totalSlices - 1"
+      :max="label3d.volumeInfo.totalSlices - 1"
       :step="1"
       size="small"
       controls-position="right"
-      :disabled="store.isRecognizing"
+      :disabled="recognize.isRecognizing"
       @change="handleInput"
     />
-    <span class="slice-total">/ {{ store.volumeInfo.totalSlices - 1 }}</span>
+    <span class="slice-total">/ {{ label3d.volumeInfo.totalSlices - 1 }}</span>
     <el-slider
       v-model="sliderModel"
       :min="0"
-      :max="Math.max(0, store.volumeInfo.totalSlices - 1)"
+      :max="Math.max(0, label3d.volumeInfo.totalSlices - 1)"
       :step="1"
       :show-tooltip="false"
-      :disabled="store.isRecognizing"
+      :disabled="recognize.isRecognizing"
       class="slider"
     />
   </div>
@@ -53,32 +61,26 @@
   .slice-slider {
     display: flex;
     align-items: center;
-    gap: var(--spacing-3);
+    gap: var(--spacing-2);
     padding: var(--spacing-2) var(--spacing-4);
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-default);
-    flex-shrink: 0;
   }
 
   .axis-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
     font-size: var(--text-xs);
     font-weight: 600;
-    color: var(--text-inverse);
-    background: var(--color-primary);
+    color: var(--accent-primary);
+    background: var(--accent-muted);
+    padding: 2px 6px;
     border-radius: var(--radius-sm);
     text-transform: uppercase;
   }
 
   .slice-total {
-    font-size: var(--text-sm);
+    font-size: var(--text-xs);
     color: var(--text-secondary);
     white-space: nowrap;
-    min-width: 40px;
   }
 
   .slider {

@@ -1,19 +1,27 @@
 <script setup lang="ts">
   import { ref, computed } from 'vue';
-  import { ElMessage, ElMessageBox } from 'element-plus';
+  import { ElMessage } from 'element-plus/es/components/message/index.mjs';
+  import { ElMessageBox } from 'element-plus/es/components/message-box/index.mjs';
   import { Plus, Delete, Edit } from '@element-plus/icons-vue';
+  import { useRoute } from 'vue-router';
   import { useLabelDefStore } from '@/stores/label-def';
-  import type { LocateConfig } from '@/stores/label-def';
-  import { useLabelStore } from '@/stores/label';
-  import { useLabelRawStore } from '@/stores/label-raw';
+  import type { LocateConfig } from '@/schemas/locate';
+  import { useCanvasStore } from '@/stores/canvas';
+  import { useLabel2dStore } from '@/stores/label-2d';
+  import { useLabel3dStore } from '@/stores/label-3d';
   import type { LabelDef, SubLabel } from '@/schemas/label';
   import { useLocateAnything } from '@/composables/useLocateAnything';
   import { useLabelSettings } from '@/composables/useLabelSettings';
+  import { getKeyframe, putKeyframe } from '@/db/keyframe-repo';
   import { logMessage } from '@/services/cmd';
 
+  const route = useRoute();
+  const canvasId = route.path === '/label-raw' ? 'label-raw' : 'label';
+
   const store = useLabelDefStore();
-  const labelStore = useLabelStore();
-  const labelRawStore = useLabelRawStore();
+  const canvas = useCanvasStore(canvasId);
+  const label2d = useLabel2dStore(canvasId);
+  const label3d = useLabel3dStore(canvasId, canvas);
   const { showDrawer } = useLabelSettings();
 
   const is3dMode = computed(() => store.appMode === '3d');
@@ -240,56 +248,58 @@
     try {
       if (store.appMode === '3d') {
         // 3D volume mode: use batchDetect with volume data
-        if (!labelRawStore.filePath) {
+        if (!label3d.filePath) {
           ElMessage.warning('请先打开 Raw 文件');
           return;
         }
 
         await logMessage(
           'info',
-          `[label-settings] starting 3d detection: mode=${config.mode} volume=${labelRawStore.filePath.substring(0, 50)}...`
+          `[label-settings] starting 3d detection: mode=${config.mode} volume=${label3d.filePath.substring(0, 50)}...`
         );
         store.updateDetectProgress(labelId, { status: 'running', current: 0, total: 1 });
 
         const locate = useLocateAnything({
-          volumeId: computed(() => labelRawStore.volumeId),
-          currentIndex: computed(() => labelRawStore.currentIndex),
-          imageWidth: computed(() => labelRawStore.volumeInfo.sliceWidth),
-          imageHeight: computed(() => labelRawStore.volumeInfo.sliceHeight),
-          getKeyframe: labelRawStore.getKeyframe,
-          putKeyframe: labelRawStore.putKeyframe,
-          imagePath: computed(() => labelRawStore.filePath),
-          objects: computed(() => labelRawStore.objects),
+          volumeId: computed(() => label3d.volumeId),
+          currentIndex: computed(() => label3d.currentIndex),
+          imageWidth: computed(() => label3d.volumeInfo.sliceWidth),
+          imageHeight: computed(() => label3d.volumeInfo.sliceHeight),
+          getKeyframe,
+          putKeyframe,
+          imagePath: computed(() => label3d.filePath),
+          objects: computed(() => canvas.objects),
+          labelDefStore: store,
         });
 
         await locate.batchDetect(labelId);
         ElMessage.success('批量检测完成');
       } else {
         // 2D image mode: use runDetectForCurrentImage with label data
-        if (!labelStore.imagePath) {
+        if (!label2d.imagePath) {
           ElMessage.warning('请先在标注页面打开图片');
           return;
         }
 
         await logMessage(
           'info',
-          `[label-settings] starting 2d detection: mode=${config.mode} image=${labelStore.imagePath.substring(0, 50)}...`
+          `[label-settings] starting 2d detection: mode=${config.mode} image=${label2d.imagePath.substring(0, 50)}...`
         );
         store.updateDetectProgress(labelId, { status: 'running', current: 0, total: 1 });
 
         const locate = useLocateAnything({
           volumeId: ref(null),
           currentIndex: ref(0),
-          imageWidth: computed(() => labelStore.imageWidth),
-          imageHeight: computed(() => labelStore.imageHeight),
+          imageWidth: computed(() => canvas.imageWidth),
+          imageHeight: computed(() => canvas.imageHeight),
           getKeyframe: async () => undefined,
           putKeyframe: async () => {},
-          imagePath: computed(() => labelStore.imagePath),
-          objects: computed(() => labelStore.objects),
+          imagePath: computed(() => label2d.imagePath),
+          objects: computed(() => canvas.objects),
+          labelDefStore: store,
         });
 
         const results = await locate.runDetectForCurrentImage(labelId);
-        labelStore.objects.push(...results);
+        canvas.objects.push(...results);
         ElMessage.success(`检测完成，发现 ${results.length} 个对象`);
       }
 

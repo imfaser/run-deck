@@ -1,7 +1,6 @@
-import { useLabelStore } from '@/stores/label';
+import type { useCanvasStore } from '@/stores/canvas';
 import { useLabelKeyboardShared } from './useLabelKeyboard.shared';
 
-export function useLabelKeyboard() {
-  const store = useLabelStore();
+export function useLabelKeyboard(store: ReturnType<typeof useCanvasStore>) {
   useLabelKeyboardShared(store);
 }

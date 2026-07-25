@@ -7,7 +7,7 @@
     visible: boolean;
     objects: AnnotationObject[];
     pendingAnnotation?: {
-      type: 'point' | 'box' | 'visual_box';
+      type: 'point' | 'box';
       point?: Record<string, unknown>;
       box?: Record<string, unknown>;
     } | null;

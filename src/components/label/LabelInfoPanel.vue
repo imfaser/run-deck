@@ -1,60 +1,63 @@
 <script setup lang="ts">
   import { computed, ref, watch } from 'vue';
-  import { useLabelStore } from '@/stores/label';
+  import { useCanvasStore } from '@/stores/canvas';
   import { useLabelDefStore } from '@/stores/label-def';
-  import { ElMessage, ElMessageBox } from 'element-plus';
+  import { ElMessage } from 'element-plus/es/components/message/index.mjs';
+  import { ElMessageBox } from 'element-plus/es/components/message-box/index.mjs';
   import { logMessage } from '@/services/cmd';
 
-  const store = useLabelStore();
+  const props = defineProps<{ canvasId: string }>();
+
+  const canvas = useCanvasStore(props.canvasId);
   const labelDefStore = useLabelDefStore();
   const expandedObjects = ref<Set<string>>(
-    new Set([store.currentObjectId].filter(Boolean) as string[])
+    new Set([canvas.currentObjectId].filter(Boolean) as string[])
   );
   const showNewLabelPicker = ref(false);
   const pendingReassign = ref(false);
 
   watch(
-    () => store.selectedAnnotationId,
+    () => canvas.selectedAnnotationId,
     (val, oldVal) => {
       logMessage(
         'debug',
-        `[info-panel] selectedAnnotationId changed: ${oldVal} → ${val} mode=${store.mode}`
+        `[info-panel] selectedAnnotationId changed: ${oldVal} → ${val} mode=${canvas.mode}`
       );
     }
   );
 
   watch(
-    () => store.objects.length,
+    () => canvas.objects.length,
     (len) => {
       logMessage(
         'debug',
-        `[info-panel] objects count: ${len} ids=${store.objects.map((o) => o.id).join(',')} boxes=${store.objects.map((o) => o.boxes.length).join(',')} points=${store.objects.map((o) => o.points.length).join(',')}`
+        `[info-panel] objects count: ${len} ids=${canvas.objects.map((o) => o.id).join(',')} boxes=${canvas.objects.map((o) => o.boxes.length).join(',')} points=${canvas.objects.map((o) => o.points.length).join(',')}`
       );
     },
     { immediate: true }
   );
 
-  const hasObjects = computed(() => store.objects.length > 0);
+  const hasObjects = computed(() => canvas.objects.length > 0);
 
   const sourceObjectId = computed(() => {
-    if (!store.selectedAnnotationId) return null;
-    const sourceObj = store.objects.find(
+    if (!canvas.selectedAnnotationId) return null;
+    const sourceObj = canvas.objects.find(
       (o) =>
-        o.points.some((p) => p.id === store.selectedAnnotationId) ||
-        o.boxes.some((b) => b.id === store.selectedAnnotationId)
+        o.points.some((p) => p.id === canvas.selectedAnnotationId) ||
+        o.boxes.some((b) => b.id === canvas.selectedAnnotationId)
     );
     return sourceObj?.id ?? null;
   });
 
   const availableObjects = computed(() => {
     if (!sourceObjectId.value) return [];
-    return store.objects.filter((o) => o.id !== sourceObjectId.value);
+    return canvas.objects.filter((o) => o.id !== sourceObjectId.value);
   });
 
   function toggleObjectExpand(id: string) {
     logMessage(
       'debug',
-      `[info-panel] toggleExpand id=${id} wasExpanded=${expandedObjects.value.has(id)} objects=${store.objects.length} boxes=${store.objects.find((o) => o.id === id)?.boxes.length ?? 0} points=${store.objects.find((o) => o.id === id)?.points.length ?? 0}`
+      `[info-panel] toggleExpand id=${id} wasExpanded=${expandedObjects.value.has(id)} objects=${canvas.objects.length} boxes=${canvas.objects.find((o) => o.id === id)?.boxes.length ?? 0} points=${canvas.objects.find((o) => o.id === id)?.points.length ?? 0}`
     );
     if (expandedObjects.value.has(id)) {
       expandedObjects.value.delete(id);
@@ -64,36 +67,36 @@
   }
 
   function handleClickObject(id: string) {
-    logMessage('debug', `[info-panel] clickObject id=${id} mode=${store.mode}`);
-    store.setCurrentObject(id);
+    logMessage('debug', `[info-panel] clickObject id=${id} mode=${canvas.mode}`);
+    canvas.setCurrentObject(id);
   }
 
   function handleClickAnnotation(annId: string) {
     logMessage(
       'debug',
-      `[info-panel] clickAnnotation annId=${annId} currentSelected=${store.selectedAnnotationId} mode=${store.mode}`
+      `[info-panel] clickAnnotation annId=${annId} currentSelected=${canvas.selectedAnnotationId} mode=${canvas.mode}`
     );
-    store.selectAnnotation(annId);
+    canvas.selectAnnotation(annId);
     logMessage(
       'debug',
-      `[info-panel] clickAnnotation after select selectedAnnotationId=${store.selectedAnnotationId}`
+      `[info-panel] clickAnnotation after select selectedAnnotationId=${canvas.selectedAnnotationId}`
     );
   }
 
   function handleDeleteSelected() {
-    if (store.selectedAnnotationId) {
-      store.removeAnnotationFromObject(store.selectedAnnotationId);
+    if (canvas.selectedAnnotationId) {
+      canvas.removeAnnotationFromObject(canvas.selectedAnnotationId);
     }
   }
 
   function handleReassign(targetId: string) {
-    if (!store.selectedAnnotationId) return;
+    if (!canvas.selectedAnnotationId) return;
     if (targetId === '__create_new__') {
       showNewLabelPicker.value = true;
       pendingReassign.value = true;
       return;
     }
-    store.reassignAnnotation(store.selectedAnnotationId, targetId);
+    canvas.reassignAnnotation(canvas.selectedAnnotationId, targetId);
     ElMessage.success('已转移标注');
   }
 
@@ -104,19 +107,19 @@
         cancelButtonText: '取消',
         type: 'warning',
       });
-      store.removeObject(id);
+      canvas.removeObject(id);
     } catch {
       // cancelled
     }
   }
 
   function handlePickNewLabel(labelId: string) {
-    const obj = store.addObject(labelId);
+    const obj = canvas.addObject(labelId);
     expandedObjects.value.add(obj.id);
     showNewLabelPicker.value = false;
 
-    if (pendingReassign.value && store.selectedAnnotationId) {
-      store.reassignAnnotation(store.selectedAnnotationId, obj.id);
+    if (pendingReassign.value && canvas.selectedAnnotationId) {
+      canvas.reassignAnnotation(canvas.selectedAnnotationId, obj.id);
       pendingReassign.value = false;
       ElMessage.success('已转移标注');
     } else {
@@ -168,10 +171,10 @@
     <div class="annotation-content">
       <template v-if="hasObjects">
         <div
-          v-for="obj in store.objects"
+          v-for="obj in canvas.objects"
           :key="obj.id"
           class="object-group"
-          :class="{ active: store.currentObjectId === obj.id }"
+          :class="{ active: canvas.currentObjectId === obj.id }"
         >
           <div class="object-header" @click="handleClickObject(obj.id)">
             <span
@@ -201,7 +204,7 @@
               v-for="box in obj.boxes"
               :key="box.id"
               class="annotation-item"
-              :class="{ selected: store.selectedAnnotationId === box.id }"
+              :class="{ selected: canvas.selectedAnnotationId === box.id }"
               @click="handleClickAnnotation(box.id)"
             >
               <span class="ann-coords box-coords">
@@ -220,7 +223,7 @@
               v-for="point in obj.points"
               :key="point.id"
               class="annotation-item"
-              :class="{ selected: store.selectedAnnotationId === point.id }"
+              :class="{ selected: canvas.selectedAnnotationId === point.id }"
               @click="handleClickAnnotation(point.id)"
             >
               <span class="ann-coords point-coords">
@@ -243,7 +246,7 @@
           :model-value="null"
           :placeholder="availableObjects.length === 0 ? '无其他对象' : '转移对象'"
           size="small"
-          :disabled="!store.selectedAnnotationId || availableObjects.length === 0"
+          :disabled="!canvas.selectedAnnotationId || availableObjects.length === 0"
           style="width: 110px"
           @change="(val: string) => val && handleReassign(val)"
         >
@@ -263,7 +266,7 @@
         <el-button
           type="danger"
           size="small"
-          :disabled="!store.selectedAnnotationId"
+          :disabled="!canvas.selectedAnnotationId"
           @click="handleDeleteSelected"
         >
           删除标注

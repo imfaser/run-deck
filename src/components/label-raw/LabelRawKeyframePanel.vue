@@ -1,27 +1,34 @@
 <script setup lang="ts">
   import { ref, computed, watch } from 'vue';
-  import { useLabelRawStore } from '@/stores/label-raw';
+  import { useCanvasStore } from '@/stores/canvas';
+  import { useLabel3dStore } from '@/stores/label-3d';
+  import { useMaskStore } from '@/stores/mask';
+  import { useRecognizeStore } from '@/stores/recognize';
   import { useLabelDefStore } from '@/stores/label-def';
-  import { ElMessage } from 'element-plus';
-  import { db } from '@/db/label-raw-db';
+  import { ElMessage } from 'element-plus/es/components/message/index.mjs';
+  import { getKeyframe } from '@/db/keyframe-repo';
   import { logMessage } from '@/services/cmd';
   import type { AnnotationObject } from '@/schemas/annotation';
-  import { VISUAL_REF_SUB_LABEL_ID } from '@/schemas/annotation';
 
-  const store = useLabelRawStore();
+  const props = defineProps<{ canvasId: string }>();
+
+  const canvas = useCanvasStore(props.canvasId);
+  const label3d = useLabel3dStore(props.canvasId, canvas);
+  const mask = useMaskStore(props.canvasId, label3d);
+  const recognize = useRecognizeStore(props.canvasId, canvas, label3d, mask);
   const labelDefStore = useLabelDefStore();
   const expandedIndex = ref<number | null>(null);
   const expandedObjects = ref<AnnotationObject[]>([]);
 
   const isCurrentSlice = computed(
-    () => expandedIndex.value !== null && expandedIndex.value === store.currentIndex
+    () => expandedIndex.value !== null && expandedIndex.value === label3d.currentIndex
   );
 
-  const selectedAnnotationId = computed(() => store.selectedAnnotationId);
+  const selectedAnnotationId = computed(() => canvas.selectedAnnotationId);
 
   const selectedAnnotationInfo = computed(() => {
     if (!selectedAnnotationId.value) return null;
-    for (const obj of store.objects) {
+    for (const obj of canvas.objects) {
       const point = obj.points.find((p) => p.id === selectedAnnotationId.value);
       if (point) return { objectId: obj.id, type: 'point' as const };
       const box = obj.boxes.find((b) => b.id === selectedAnnotationId.value);
@@ -32,22 +39,20 @@
 
   const availableObjects = computed(() => {
     if (!selectedAnnotationInfo.value) return [];
-    return store.objects.filter(
+    return canvas.objects.filter(
       (o) =>
-        o.id !== selectedAnnotationInfo.value!.objectId && o.subLabelId !== VISUAL_REF_SUB_LABEL_ID
+        o.id !== selectedAnnotationInfo.value!.objectId &&
+        !o.boxes.some((b) => b.boxType === 'visual_ref')
     );
   });
 
   watch(expandedIndex, async (idx) => {
-    if (idx === null || !store.volumeId) {
+    if (idx === null || !label3d.volumeId) {
       expandedObjects.value = [];
       return;
     }
     try {
-      const kf = await db.keyframes
-        .where('[volumeId+sliceIndex]')
-        .equals([store.volumeId, idx])
-        .first();
+      const kf = await getKeyframe(label3d.volumeId, idx);
       expandedObjects.value = kf?.objects ?? [];
     } catch (e) {
       expandedObjects.value = [];
@@ -81,18 +86,18 @@
   }
 
   function handleClick(index: number) {
-    if (store.isRecognizing) return;
-    store.jumpToKeyframe(index);
+    if (recognize.isRecognizing) return;
+    label3d.jumpToKeyframe(index);
   }
 
   function handleToggleMask(index: number, e: Event) {
     e.stopPropagation();
-    store.toggleMaskVisible(index);
+    label3d.toggleMaskVisible(index);
   }
 
   function handleDelete(index: number, e: Event) {
     e.stopPropagation();
-    store.removeKeyframe(index);
+    label3d.removeKeyframe(index);
   }
 
   function handleAnnotationClick(annId: string) {
@@ -102,21 +107,21 @@
     }
     logMessage(
       'debug',
-      `[keyframe-panel] annClick annId=${annId} currentSelected=${store.selectedAnnotationId}`
+      `[keyframe-panel] annClick annId=${annId} currentSelected=${canvas.selectedAnnotationId}`
     );
-    store.selectAnnotation(annId);
+    canvas.selectAnnotation(annId);
   }
 
   function handleDeleteSelected() {
-    if (store.selectedAnnotationId) {
-      store.removeAnnotationFromObject(store.selectedAnnotationId);
+    if (canvas.selectedAnnotationId) {
+      canvas.removeAnnotationFromObject(canvas.selectedAnnotationId);
       ElMessage.success('已删除标注');
     }
   }
 
   function handleReassign(targetId: string) {
-    if (!store.selectedAnnotationId) return;
-    store.reassignAnnotation(store.selectedAnnotationId, targetId);
+    if (!canvas.selectedAnnotationId) return;
+    canvas.reassignAnnotation(canvas.selectedAnnotationId, targetId);
     ElMessage.success('已转移标注');
   }
 </script>
@@ -126,12 +131,12 @@
     <div class="panel-section">
       <div class="panel-title">Slices</div>
       <div class="section-list">
-        <div v-if="store.allSlices.length === 0" class="empty-hint">暂无标注或 mask</div>
+        <div v-if="label3d.allSlices.length === 0" class="empty-hint">暂无标注或 mask</div>
         <div
-          v-for="sl in store.allSlices"
+          v-for="sl in label3d.allSlices"
           :key="sl.index"
           class="kf-item"
-          :class="{ active: store.currentIndex === sl.index }"
+          :class="{ active: label3d.currentIndex === sl.index }"
           @click="handleClick(sl.index)"
         >
           <div class="kf-header">
@@ -158,7 +163,9 @@
           <div v-if="expandedIndex === sl.index" class="kf-detail">
             <div v-if="sl.annotationCount === 0" class="kf-empty">无标注</div>
             <template
-              v-for="obj in expandedObjects.filter((o) => o.subLabelId !== VISUAL_REF_SUB_LABEL_ID)"
+              v-for="obj in expandedObjects.filter(
+                (o) => !o.boxes.some((b) => b.boxType === 'visual_ref')
+              )"
               :key="obj.id"
             >
               <div
