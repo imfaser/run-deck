@@ -1,5 +1,7 @@
 <script setup lang="ts">
+  import { onMounted, onBeforeUnmount } from 'vue';
   import { useLabelRawKeyboard } from '@/composables/useLabelRawKeyboard';
+  import { useLabelDefStore } from '@/stores/label-def';
   import LabelRawToolbar from '@/components/label-raw/LabelRawToolbar.vue';
   import LabelRawModePanel from '@/components/shared/LabelModePanel.vue';
   import LabelRawToolPanel from '@/components/shared/LabelToolPanel.vue';
@@ -10,6 +12,15 @@
   import LabelRawNameDialogHandler from '@/components/label-raw/LabelRawNameDialogHandler.vue';
   import LabelRawObjectSelectPopup from '@/components/label-raw/LabelRawObjectSelectPopup.vue';
   useLabelRawKeyboard();
+
+  // ========== 设置应用模式 ==========
+  const labelDefStore = useLabelDefStore();
+  onMounted(() => {
+    labelDefStore.appMode = '3d';
+  });
+  onBeforeUnmount(() => {
+    labelDefStore.appMode = '2d';
+  });
 </script>
 
 <template>

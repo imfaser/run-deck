@@ -66,13 +66,6 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
-    '/label-settings': RouteRecordInfo<
-      '/label-settings',
-      '/label-settings',
-      Record<never, never>,
-      Record<never, never>,
-      | never
-    >,
     '/mcp-panel': RouteRecordInfo<
       '/mcp-panel',
       '/mcp-panel',
@@ -142,14 +135,6 @@ declare module 'vue-router/auto-routes' {
     'src/pages/label-raw.vue': {
       routes:
         | '/label-raw'
-      views:
-        | never
-      pathParamNames:
-        | never
-    }
-    'src/pages/label-settings.vue': {
-      routes:
-        | '/label-settings'
       views:
         | never
       pathParamNames:

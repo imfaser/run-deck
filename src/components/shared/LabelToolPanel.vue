@@ -1,6 +1,6 @@
 <script setup lang="ts">
   import { computed } from 'vue';
-  import { Aim, CircleClose, Crop } from '@element-plus/icons-vue';
+  import { Aim, CircleClose, Crop, Picture } from '@element-plus/icons-vue';
   import type { Component } from 'vue';
   import type { AnnotationType } from '@/schemas/annotation';
   import { useLabelRawStore } from '@/stores/label-raw';
@@ -21,6 +21,7 @@
     { value: 'p_point', label: '正向点', icon: Aim, color: '#22c55e' },
     { value: 'n_point', label: '负向点', icon: CircleClose, color: '#ef4444' },
     { value: 'box', label: '矩形框', icon: Crop, color: '#eab308' },
+    { value: 'visual_box', label: '视觉参考', icon: Picture, color: '#8b5cf6' },
   ];
 
   function handleToolChange(tool: AnnotationType) {

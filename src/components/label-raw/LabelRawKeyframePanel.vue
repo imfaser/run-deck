@@ -6,6 +6,7 @@
   import { db } from '@/db/label-raw-db';
   import { logMessage } from '@/services/cmd';
   import type { AnnotationObject } from '@/schemas/annotation';
+  import { VISUAL_REF_SUB_LABEL_ID } from '@/schemas/annotation';
 
   const store = useLabelRawStore();
   const labelDefStore = useLabelDefStore();
@@ -31,7 +32,10 @@
 
   const availableObjects = computed(() => {
     if (!selectedAnnotationInfo.value) return [];
-    return store.objects.filter((o) => o.id !== selectedAnnotationInfo.value!.objectId);
+    return store.objects.filter(
+      (o) =>
+        o.id !== selectedAnnotationInfo.value!.objectId && o.subLabelId !== VISUAL_REF_SUB_LABEL_ID
+    );
   });
 
   watch(expandedIndex, async (idx) => {
@@ -135,7 +139,7 @@
               {{ expandedIndex === sl.index ? '▼' : '▶' }}
             </span>
             <span class="kf-icon">{{ sl.hasMask ? '🎯' : '📝' }}</span>
-            <span class="kf-label">Slice {{ sl.index + 1 }}</span>
+            <span class="kf-label">Slice {{ sl.index }}</span>
             <span class="kf-count">({{ sl.annotationCount }})</span>
             <span class="kf-actions">
               <span
@@ -153,7 +157,10 @@
           </div>
           <div v-if="expandedIndex === sl.index" class="kf-detail">
             <div v-if="sl.annotationCount === 0" class="kf-empty">无标注</div>
-            <template v-for="obj in expandedObjects" :key="obj.id">
+            <template
+              v-for="obj in expandedObjects.filter((o) => o.subLabelId !== VISUAL_REF_SUB_LABEL_ID)"
+              :key="obj.id"
+            >
               <div
                 class="kf-object-name"
                 :style="{ color: labelDefStore.labelById(obj.labelId)?.color ?? '#888' }"

@@ -2,6 +2,7 @@
   import { ref, computed, watch } from 'vue';
   import { useLabelRawStore } from '@/stores/label-raw';
   import { useLabelDefStore } from '@/stores/label-def';
+  import { VISUAL_REF_SUB_LABEL_ID } from '@/schemas/annotation';
 
   const store = useLabelRawStore();
   const labelDefStore = useLabelDefStore();
@@ -14,14 +15,16 @@
   });
 
   const objectsWithLabel = computed(() =>
-    store.objects.map((obj) => {
-      const labelDef = labelDefStore.labelById(obj.labelId);
-      return {
-        ...obj,
-        labelName: labelDef?.name ?? 'Unknown',
-        labelColor: labelDef?.color ?? '#888',
-      };
-    })
+    store.objects
+      .filter((obj) => obj.subLabelId !== VISUAL_REF_SUB_LABEL_ID)
+      .map((obj) => {
+        const labelDef = labelDefStore.labelById(obj.labelId);
+        return {
+          ...obj,
+          labelName: labelDef?.name ?? 'Unknown',
+          labelColor: labelDef?.color ?? '#888',
+        };
+      })
   );
 
   function show(x: number, y: number) {
@@ -30,11 +33,35 @@
   }
 
   function handleSelectObject(id: string) {
+    const pending = store.pendingAnnotation;
+    if (pending?.type === 'visual_box') {
+      // Visual box must be a new object, not added to existing one
+      return;
+    }
     store.setCurrentObject(id);
     assignPending(id);
   }
 
   function handleSelectNewLabel(labelId: string) {
+    const pending = store.pendingAnnotation;
+    if (pending?.type === 'visual_box') {
+      // Enforce one visual box per label: remove existing one for same label
+      const existingIdx = store.objects.findIndex(
+        (o) => o.subLabelId === VISUAL_REF_SUB_LABEL_ID && o.labelId === labelId
+      );
+      if (existingIdx >= 0) {
+        store.objects.splice(existingIdx, 1);
+      }
+      // Create visual box with labelId
+      const obj = store.addObject(labelId);
+      store.objects[store.objects.length - 1].subLabelId = VISUAL_REF_SUB_LABEL_ID;
+      store.objects[store.objects.length - 1].boxes = [pending.box];
+      // Update locate config
+      labelDefStore.updateLocateConfig(labelId, { visualRefObjectId: obj.id });
+      store.pendingAnnotation = null;
+      ui.value.visible = false;
+      return;
+    }
     const obj = store.addObject(labelId);
     store.setCurrentObject(obj.id);
     assignPending(obj.id);

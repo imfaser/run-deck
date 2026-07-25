@@ -54,10 +54,8 @@ export const useLabelStore = defineStore('label', () => {
   const showNameDialog = ref(false);
   const pendingAnnotation = ref<
     | { type: 'point'; point: PointAnnotation }
-    | {
-        type: 'box';
-        box: BoxAnnotation;
-      }
+    | { type: 'box'; box: BoxAnnotation }
+    | { type: 'visual_box'; box: BoxAnnotation }
     | null
   >(null);
 

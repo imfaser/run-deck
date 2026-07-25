@@ -19,6 +19,10 @@ export type PendingAnnotation =
       type: 'box';
       box: BoxAnnotation;
     }
+  | {
+      type: 'visual_box';
+      box: BoxAnnotation;
+    }
   | null;
 
 interface AnnotationObjectLike {
@@ -188,6 +192,7 @@ export function useCanvasAnnotations(options: CanvasAnnotationsOptions) {
     match(store.tool)
       .with(P.union('p_point', 'n_point'), () => handlePointCreate(e, stage))
       .with('box', () => {})
+      .with('visual_box', () => {})
       .exhaustive();
   }
 

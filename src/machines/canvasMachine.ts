@@ -1,5 +1,10 @@
 import { setup, assign } from 'xstate';
-import type { LabelMode, AnnotationType, BoxAnnotation } from '@/schemas/annotation';
+import {
+  type LabelMode,
+  type AnnotationType,
+  type BoxAnnotation,
+  AnnotationObject,
+} from '@/schemas/annotation';
 import type { PendingAnnotation } from '@/composables/useCanvasAnnotations';
 
 interface Point {
@@ -20,8 +25,10 @@ interface CanvasStore {
   stagePos: Point;
   currentObjectId: string | null;
   addBoxToObject: (objectId: string, box: BoxAnnotation) => void;
+  setTool: (tool: AnnotationType) => void;
   showNameDialog: boolean;
   pendingAnnotation: PendingAnnotation;
+  objects: AnnotationObject[];
   cursorScreenPos: { value: Point | null } | null;
   imageWidth: number;
   imageHeight: number;
@@ -58,7 +65,10 @@ export const canvasMachine = setup({
   },
   guards: {
     isCreateBoxMode: ({ context }) => {
-      return context.store.mode === 'create' && context.store.tool === 'box';
+      return (
+        context.store.mode === 'create' &&
+        (context.store.tool === 'box' || context.store.tool === 'visual_box')
+      );
     },
     isLargeEnough: ({ context }) => {
       if (!context.tempBox) return false;
@@ -111,26 +121,37 @@ export const canvasMachine = setup({
       if (!context.tempBox) return;
       const { x, y, w, h } = context.tempBox;
       if (w > 2 && h > 2) {
-        if (!context.store.currentObjectId) {
-          context.store.pendingAnnotation = {
-            type: 'box',
-            box: {
-              id: crypto.randomUUID(),
-              x1: Math.round(x),
-              y1: Math.round(y),
-              x2: Math.round(x + w),
-              y2: Math.round(y + h),
-            },
-          };
-          return;
-        }
-        context.store.addBoxToObject(context.store.currentObjectId, {
+        const box = {
           id: crypto.randomUUID(),
           x1: Math.round(x),
           y1: Math.round(y),
           x2: Math.round(x + w),
           y2: Math.round(y + h),
-        });
+        };
+
+        // Visual box: same flow as regular box — go through pendingAnnotation
+        if (context.store.tool === 'visual_box') {
+          if (!context.store.currentObjectId) {
+            context.store.pendingAnnotation = {
+              type: 'visual_box',
+              box,
+            };
+            return;
+          }
+          // If an object is already selected, add box directly
+          context.store.addBoxToObject(context.store.currentObjectId, box);
+          context.tempBox = null;
+          return;
+        }
+
+        if (!context.store.currentObjectId) {
+          context.store.pendingAnnotation = {
+            type: 'box',
+            box,
+          };
+          return;
+        }
+        context.store.addBoxToObject(context.store.currentObjectId, box);
         context.tempBox = null;
       }
     },

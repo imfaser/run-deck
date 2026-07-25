@@ -3,11 +3,15 @@
   import { open } from '@tauri-apps/plugin-dialog';
   import { convertFileSrc } from '@tauri-apps/api/core';
   import { useLabelStore } from '@/stores/label';
+  import { useLabelDefStore } from '@/stores/label-def';
   import { segmentImage } from '@/services/sam3';
   import { useMaskRenderer } from '@/composables/useMaskRenderer';
   import { useMaskRenderOnChange } from '@/composables/useMaskRenderOnChange';
+  import { useLocateAnything } from '@/composables/useLocateAnything';
+  import { logMessage } from '@/services/cmd';
 
   const store = useLabelStore();
+  const labelDefStore = useLabelDefStore();
   const { renderMask } = useMaskRenderer();
 
   useMaskRenderOnChange({
@@ -24,6 +28,7 @@
   });
 
   const isLoadingMask = ref(false);
+  const isDetecting = ref(false);
 
   const cursorDisplay = computed(() => {
     if (!store.cursorImagePos) return '坐标: -, -';
@@ -36,8 +41,9 @@
       filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'bmp', 'webp'] }],
     });
     if (selected) {
-      store.imagePath = selected as string;
-      store.imageUrl = convertFileSrc(selected as string);
+      const imagePath = selected as string;
+      store.imagePath = imagePath;
+      store.imageUrl = convertFileSrc(imagePath);
       store.clearObjects();
       store.maskUrl = null;
       store.rawMaskPath = null;
@@ -67,6 +73,65 @@
     }
   }
 
+  async function handleAIDetect() {
+    await logMessage('info', '[detect] handleAIDetect called');
+    if (!store.imagePath) {
+      await logMessage('warn', '[detect] no image path, aborting');
+      return;
+    }
+
+    await logMessage('info', `[detect] imagePath=${store.imagePath.substring(0, 50)}...`);
+    await logMessage('info', `[detect] labels count=${labelDefStore.labels.length}`);
+
+    const activeLabels = labelDefStore.labels.filter(
+      (l) => labelDefStore.getLocateConfig(l.id)?.mode
+    );
+    await logMessage(
+      'info',
+      `[detect] active labels with config: ${activeLabels.map((l) => l.name).join(', ')}`
+    );
+
+    if (activeLabels.length === 0) {
+      const { ElMessage } = await import('element-plus');
+      ElMessage.warning('请先在标注设置中配置检测模式');
+      return;
+    }
+
+    isDetecting.value = true;
+    try {
+      const { runDetectForCurrentImage } = useLocateAnything({
+        volumeId: ref(null),
+        currentIndex: ref(0),
+        imageWidth: ref(store.imageWidth),
+        imageHeight: ref(store.imageHeight),
+        getKeyframe: async () => undefined,
+        putKeyframe: async () => {},
+        imagePath: ref(store.imagePath),
+        objects: computed(() => store.objects),
+      });
+
+      for (const label of activeLabels) {
+        try {
+          await logMessage(
+            'info',
+            `[detect] starting detection for label "${label.name}" (id=${label.id})`
+          );
+          const results = await runDetectForCurrentImage(label.id);
+          store.objects.push(...results);
+          await logMessage(
+            'info',
+            `[detect] label="${label.name}" completed: ${results.length} objects detected`
+          );
+        } catch (e) {
+          await logMessage('error', `[detect] label="${label.name}" failed: ${e}`);
+        }
+      }
+    } finally {
+      isDetecting.value = false;
+      await logMessage('info', '[detect] handleAIDetect finished');
+    }
+  }
+
   function handleFitImage() {
     store.fitImageTrigger++;
   }
@@ -91,6 +156,17 @@
           <span>🤖</span>
         </template>
         AI 识别
+      </el-button>
+      <el-button
+        type="success"
+        :loading="isDetecting"
+        :disabled="!store.imagePath"
+        @click="handleAIDetect"
+      >
+        <template #icon>
+          <span>🔍</span>
+        </template>
+        AI 检测
       </el-button>
       <el-button :disabled="!store.imageUrl" @click="handleFitImage">
         <template #icon>

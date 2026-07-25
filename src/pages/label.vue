@@ -1,6 +1,8 @@
 <script setup lang="ts">
   // ========== 1. 第三方 / 内部模块引入 ==========
+  import { onMounted, onBeforeUnmount } from 'vue';
   import { useLabelKeyboard } from '@/composables/useLabelKeyboard';
+  import { useLabelDefStore } from '@/stores/label-def';
   import LabelToolbar from '@/components/label/LabelToolbar.vue';
   import LabelModePanel from '@/components/shared/LabelModePanel.vue';
   import LabelToolPanel from '@/components/shared/LabelToolPanel.vue';
@@ -12,6 +14,15 @@
 
   // ========== 2. 组合式函数（Composables）调用 ==========
   useLabelKeyboard();
+
+  // ========== 3. 设置应用模式 ==========
+  const labelDefStore = useLabelDefStore();
+  onMounted(() => {
+    labelDefStore.appMode = '2d';
+  });
+  onBeforeUnmount(() => {
+    labelDefStore.appMode = '2d';
+  });
 </script>
 
 <template>

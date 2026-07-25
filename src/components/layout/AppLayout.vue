@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import TitleBar from './TitleBar.vue';
+  import LabelSettingsDrawer from '@/components/label/LabelSettingsDrawer.vue';
 </script>
 
 <template>
@@ -12,6 +13,7 @@
         </KeepAlive>
       </RouterView>
     </main>
+    <LabelSettingsDrawer />
   </div>
 </template>
 

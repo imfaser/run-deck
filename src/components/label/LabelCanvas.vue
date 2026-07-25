@@ -7,6 +7,7 @@
   import { clamp } from 'es-toolkit';
   import { useLabelStore } from '@/stores/label';
   import { useLabelDefStore } from '@/stores/label-def';
+  import { VISUAL_REF_SUB_LABEL_ID } from '@/schemas/annotation';
   import { getPointerImagePos } from '@/utils/coordTransform';
   import { getPointConfig, getBoxConfig } from '@/utils/annotationConfig';
   import { useCanvasInteraction } from '@/composables/useCanvasInteraction';
@@ -15,6 +16,24 @@
 
   const store = useLabelStore();
   const labelDefStore = useLabelDefStore();
+
+  // Watch for visual box creation and update config
+  watch(
+    () => store.objects.filter((o) => o.subLabelId === VISUAL_REF_SUB_LABEL_ID),
+    (visualBoxes) => {
+      if (visualBoxes.length > 0) {
+        // Find the config for the current label (if any)
+        for (const config of labelDefStore.locateConfigs) {
+          if (config.visualType === 'slice_crop') {
+            labelDefStore.updateLocateConfig(config.labelId, {
+              visualRefObjectId: visualBoxes[0].id,
+            });
+          }
+        }
+      }
+    },
+    { deep: true }
+  );
   const containerRef = ref<HTMLDivElement | null>(null);
   const stageRef = ref<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
   const stage = ref({ width: 800, height: 600 });
@@ -182,6 +201,12 @@
   }
 
   defineExpose({ fitToImage });
+
+  const visualBoxes = computed(() => {
+    return store.objects
+      .filter((obj) => obj.subLabelId === VISUAL_REF_SUB_LABEL_ID)
+      .flatMap((obj) => obj.boxes.map((box) => ({ box, obj })));
+  });
 </script>
 
 <template>
@@ -212,36 +237,59 @@
             }"
           />
           <template v-for="obj in store.objects" :key="obj.id">
-            <v-circle
-              v-for="ann in obj.points"
-              :key="ann.id"
-              :config="{
-                ...getPointConfig(
-                  ann,
-                  store.selectedAnnotationId === ann.id,
-                  labelDefStore.labelById(obj.labelId)?.color ?? '#888'
-                ),
-                draggable: store.mode === 'select',
-              }"
-              @click="(e: Konva.KonvaEventObject<MouseEvent>) => handleAnnotationClick(ann, e)"
-              @dragend="(e: Konva.KonvaEventObject<DragEvent>) => handleDragEnd(ann, e)"
-            />
-            <v-rect
-              v-for="ann in obj.boxes"
-              :key="ann.id"
-              :config="{
-                ...getBoxConfig(
-                  ann,
-                  store.selectedAnnotationId === ann.id,
-                  labelDefStore.labelById(obj.labelId)?.color ?? '#888'
-                ),
-                draggable: store.mode === 'select',
-              }"
-              @click="(e: Konva.KonvaEventObject<MouseEvent>) => handleAnnotationClick(ann, e)"
-              @dragend="(e: Konva.KonvaEventObject<DragEvent>) => handleDragEnd(ann, e)"
-              @transformend="handleTransformEnd"
-            />
+            <template v-if="obj.subLabelId !== VISUAL_REF_SUB_LABEL_ID">
+              <v-circle
+                v-for="ann in obj.points"
+                :key="ann.id"
+                :config="{
+                  ...getPointConfig(
+                    ann,
+                    store.selectedAnnotationId === ann.id,
+                    labelDefStore.labelById(obj.labelId)?.color ?? '#888'
+                  ),
+                  draggable: store.mode === 'select',
+                }"
+                @click="(e: Konva.KonvaEventObject<MouseEvent>) => handleAnnotationClick(ann, e)"
+                @dragend="(e: Konva.KonvaEventObject<DragEvent>) => handleDragEnd(ann, e)"
+              />
+              <v-rect
+                v-for="ann in obj.boxes"
+                :key="ann.id"
+                :config="{
+                  ...getBoxConfig(
+                    ann,
+                    store.selectedAnnotationId === ann.id,
+                    labelDefStore.labelById(obj.labelId)?.color ?? '#888'
+                  ),
+                  draggable: store.mode === 'select',
+                }"
+                @click="(e: Konva.KonvaEventObject<MouseEvent>) => handleAnnotationClick(ann, e)"
+                @dragend="(e: Konva.KonvaEventObject<DragEvent>) => handleDragEnd(ann, e)"
+                @transformend="handleTransformEnd"
+              />
+            </template>
           </template>
+          <!-- Visual Box rendering (dashed, purple) -->
+          <v-rect
+            v-for="{ box } in visualBoxes"
+            :key="box.id"
+            :config="{
+              x: box.x1,
+              y: box.y1,
+              width: box.x2 - box.x1,
+              height: box.y2 - box.y1,
+              stroke: '#8b5cf6',
+              strokeWidth: 2,
+              strokeDashEnabled: true,
+              strokeDash: [8, 4],
+              strokeScaleEnabled: false,
+              fill: 'rgba(139, 92, 246, 0.08)',
+              draggable: store.mode === 'select',
+            }"
+            @click="(e: Konva.KonvaEventObject<MouseEvent>) => handleAnnotationClick(box, e)"
+            @dragend="(e: Konva.KonvaEventObject<DragEvent>) => handleDragEnd(box, e)"
+            @transformend="handleTransformEnd"
+          />
           <v-rect v-if="tempBoxConfig.stroke" :config="tempBoxConfig" />
           <v-rect v-if="pendingBoxConfig" :config="pendingBoxConfig" />
           <v-transformer :config="{ name: 'transformer-handle' }" />

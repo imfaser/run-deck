@@ -16,11 +16,9 @@
     },
   });
 
-  const displayIndex = computed(() => store.currentIndex + 1);
-
   function handleInput(val: number | undefined) {
     if (val === undefined || val === null) return;
-    const idx = Math.max(1, Math.min(val, store.volumeInfo.totalSlices)) - 1;
+    const idx = Math.max(0, Math.min(val, store.volumeInfo.totalSlices - 1));
     store.loadSlice(idx);
   }
 </script>
@@ -29,16 +27,16 @@
   <div v-if="store.hasVolume" class="slice-slider">
     <span class="axis-badge">{{ store.volumeConfig.axis }}</span>
     <el-input-number
-      :model-value="displayIndex"
-      :min="1"
-      :max="store.volumeInfo.totalSlices"
+      :model-value="store.currentIndex"
+      :min="0"
+      :max="store.volumeInfo.totalSlices - 1"
       :step="1"
       size="small"
       controls-position="right"
       :disabled="store.isRecognizing"
       @change="handleInput"
     />
-    <span class="slice-total">/ {{ store.volumeInfo.totalSlices }}</span>
+    <span class="slice-total">/ {{ store.volumeInfo.totalSlices - 1 }}</span>
     <el-slider
       v-model="sliderModel"
       :min="0"
@@ -47,28 +45,6 @@
       :show-tooltip="false"
       :disabled="store.isRecognizing"
       class="slider"
-    />
-    <span class="range-label">范围:</span>
-    <el-input-number
-      v-model="store.batchRange.start"
-      :min="0"
-      :max="store.volumeInfo.totalSlices - 1"
-      :step="1"
-      size="small"
-      controls-position="right"
-      :disabled="store.isRecognizing"
-      class="range-input"
-    />
-    <span class="range-sep">~</span>
-    <el-input-number
-      v-model="store.batchRange.end"
-      :min="0"
-      :max="store.volumeInfo.totalSlices - 1"
-      :step="1"
-      size="small"
-      controls-position="right"
-      :disabled="store.isRecognizing"
-      class="range-input"
     />
   </div>
 </template>
@@ -107,20 +83,5 @@
 
   .slider {
     flex: 1;
-  }
-
-  .range-label {
-    font-size: var(--text-xs);
-    color: var(--text-secondary);
-    white-space: nowrap;
-  }
-
-  .range-sep {
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
-  }
-
-  .range-input {
-    width: 80px;
   }
 </style>

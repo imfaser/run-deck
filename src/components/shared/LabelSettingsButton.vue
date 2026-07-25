@@ -1,10 +1,8 @@
 <script setup lang="ts">
   import { Setting } from '@element-plus/icons-vue';
-  import { invoke } from '@tauri-apps/api/core';
+  import { useLabelSettings } from '@/composables/useLabelSettings';
 
-  async function openSettings() {
-    await invoke('open_label_settings_window');
-  }
+  const { openSettings } = useLabelSettings();
 </script>
 
 <template>
