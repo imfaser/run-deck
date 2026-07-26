@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import { logMessage } from '@/services/cmd';
 import { useMaskRenderer } from '@/composables/useMaskRenderer';
-import { getKeyframe } from '@/db/keyframe-repo';
+import { getKeyframe, putKeyframe } from '@/db/keyframe-repo';
 import { useLabel3dStore } from '@/stores/label-3d';
 import type { MaskSettings } from '@/schemas/volume';
 
@@ -43,6 +43,13 @@ export const useLabel3dMaskStore = defineStore('mask-3d', () => {
                 maskSettings.value.threshold,
                 maskSettings.value.prevMaskColor
               );
+              await putKeyframe(volId, label3d.currentIndex, {
+                rawMaskHash: prevKf.rawMaskHash,
+              });
+              await logMessage(
+                'debug',
+                `[prev-mask] synced rawMaskHash from slice=${i} to slice=${label3d.currentIndex}`
+              );
               return;
             }
           }
@@ -68,6 +75,14 @@ export const useLabel3dMaskStore = defineStore('mask-3d', () => {
       );
     }
   }
+
+  watch(
+    () => label3d.currentIndex,
+    async () => {
+      if (!label3d.volumeId) return;
+      await renderCurrentMask();
+    }
+  );
 
   return {
     maskSettings,

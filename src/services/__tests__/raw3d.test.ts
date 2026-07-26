@@ -64,27 +64,74 @@ describe('raw3d service', () => {
     expect(result.data).toHaveLength(256);
   });
 
-  it('rawExportMasks calls invoke with correct args', async () => {
-    mockInvoke.mockResolvedValue('/output/exported.raw');
-    const { rawExportMasks } = await import('../raw3d');
+  it('rawExportParquet calls invoke with correct args', async () => {
+    mockInvoke.mockResolvedValue('/output/exported.parquet');
+    const { rawExportParquet } = await import('../raw3d');
 
-    const result = await rawExportMasks(
+    const meta = {
+      axis: 'z',
+      dtype: 'u16',
+      endian: 'little',
+      xSize: 512,
+      ySize: 512,
+      zSize: 100,
+    };
+
+    const result = await rawExportParquet(
       'vol-1',
       [
-        { index: 0, maskPngPath: 'mcp://hash0' },
-        { index: 5, maskPngPath: 'mcp://hash5' },
+        {
+          id: 'uuid-1',
+          layer: 0,
+          labels: [
+            {
+              name: '圆形',
+              subNames: [],
+              boxes: [{ x1: 100, y1: 200, x2: 300, y2: 400 }],
+              points: [],
+            },
+          ],
+          maskPngPath: 'http://mcp.localhost/hash0',
+          meta,
+        },
+        {
+          id: 'uuid-2',
+          layer: 5,
+          labels: [],
+          maskPngPath: 'http://mcp.localhost/hash5',
+          meta,
+        },
       ],
-      '/output/exported.raw'
+      '/output/exported.parquet'
     );
 
-    expect(mockInvoke).toHaveBeenCalledWith('raw_export_masks', {
+    expect(mockInvoke).toHaveBeenCalledWith('parquet_export_masks', {
       volumeId: 'vol-1',
       masks: [
-        { index: 0, maskPngPath: 'mcp://hash0' },
-        { index: 5, maskPngPath: 'mcp://hash5' },
+        {
+          id: 'uuid-1',
+          layer: 0,
+          labels: [
+            {
+              name: '圆形',
+              subNames: [],
+              boxes: [{ x1: 100, y1: 200, x2: 300, y2: 400 }],
+              points: [],
+            },
+          ],
+          maskPngPath: 'http://mcp.localhost/hash0',
+          meta,
+        },
+        {
+          id: 'uuid-2',
+          layer: 5,
+          labels: [],
+          maskPngPath: 'http://mcp.localhost/hash5',
+          meta,
+        },
       ],
-      outputPath: '/output/exported.raw',
+      outputPath: '/output/exported.parquet',
     });
-    expect(result).toBe('/output/exported.raw');
+    expect(result).toBe('/output/exported.parquet');
   });
 });

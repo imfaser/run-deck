@@ -25,9 +25,41 @@ export interface RawSliceResponse {
   max: number;
 }
 
-export interface MaskEntry {
-  index: number;
+export interface BoxCoord {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
+export interface PointCoord {
+  x: number;
+  y: number;
+  label: 0 | 1;
+}
+
+export interface LabelEntry {
+  name: string;
+  subNames: string[];
+  boxes: BoxCoord[];
+  points: PointCoord[];
+}
+
+export interface VolumeMeta {
+  axis: string;
+  dtype: string;
+  endian: string;
+  xSize: number;
+  ySize: number;
+  zSize: number;
+}
+
+export interface ParquetMaskEntry {
+  id: string;
+  layer: number;
+  labels: LabelEntry[];
   maskPngPath: string;
+  meta: VolumeMeta;
 }
 
 export async function rawOpen(req: RawOpenRequest): Promise<RawOpenResponse> {
@@ -38,10 +70,10 @@ export async function rawSlice(volumeId: string, index: number): Promise<RawSlic
   return invoke<RawSliceResponse>('raw_slice', { volumeId, index });
 }
 
-export async function rawExportMasks(
+export async function rawExportParquet(
   volumeId: string,
-  masks: MaskEntry[],
+  masks: ParquetMaskEntry[],
   outputPath: string
 ): Promise<string> {
-  return invoke<string>('raw_export_masks', { volumeId, masks, outputPath });
+  return invoke<string>('parquet_export_masks', { volumeId, masks, outputPath });
 }

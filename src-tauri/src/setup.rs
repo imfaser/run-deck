@@ -36,7 +36,7 @@ pub fn generate_handlers() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         crate::cmd::config::update_config,
         crate::cmd::raw3d::raw_open,
         crate::cmd::raw3d::raw_slice,
-        crate::cmd::raw3d::raw_export_masks,
+        crate::cmd::raw3d::parquet_export_masks,
         crate::cmd::raw3d::raw_close
     ]
 }

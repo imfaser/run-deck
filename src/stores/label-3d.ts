@@ -4,7 +4,7 @@ import { cloneDeep, sortBy, debounce } from 'es-toolkit';
 import { useExtractedObservable } from '@vueuse/rxjs';
 import { liveQuery } from 'dexie';
 import { from } from 'rxjs';
-import { rawOpen, rawSlice, rawExportMasks, type RawOpenResponse } from '@/services/raw3d';
+import { rawOpen, rawSlice, rawExportParquet, type RawOpenResponse } from '@/services/raw3d';
 import { logMessage } from '@/services/cmd';
 import {
   getKeyframe,
@@ -296,7 +296,7 @@ export const useLabel3dStore = defineStore('label-3d', () => {
 
     const { save } = await import('@tauri-apps/plugin-dialog');
     const outputPath = await save({
-      filters: [{ name: 'Raw', extensions: ['raw'] }],
+      filters: [{ name: 'Parquet', extensions: ['parquet'] }],
     });
     if (!outputPath) return;
 
@@ -306,20 +306,53 @@ export const useLabel3dStore = defineStore('label-3d', () => {
       `[export] queried ${rows.length} keyframes from IDB for volId=${volId}`
     );
 
-    const masks = sortBy(
-      rows
-        .filter((r) => r.rawMaskHash !== null)
-        .map((r) => ({
-          index: r.sliceIndex,
-          maskPngPath: r.rawMaskHash!,
-        })),
-      [(m) => m.index]
+    const sorted = sortBy(
+      rows.filter((r) => r.rawMaskHash !== null),
+      [(r) => r.sliceIndex]
     );
 
-    if (masks.length === 0) return;
+    if (sorted.length === 0) {
+      const { ElMessage } = await import('element-plus');
+      ElMessage.warning('没有可导出的 mask');
+      return;
+    }
+
+    const meta = {
+      axis: volumeConfig.value.axis,
+      dtype: volumeConfig.value.dtype,
+      endian: volumeConfig.value.endian,
+      xSize: volumeInfo.value.sliceWidth,
+      ySize: volumeInfo.value.sliceHeight,
+      zSize: volumeConfig.value.z,
+    };
+
+    const w = volumeInfo.value.sliceWidth;
+    const h = volumeInfo.value.sliceHeight;
+
+    const masks = sorted.map((r) => ({
+      id: crypto.randomUUID(),
+      layer: r.sliceIndex,
+      labels: r.objects.map((obj) => ({
+        name: obj.labelId,
+        subNames: obj.subLabelId ? [obj.subLabelId] : [],
+        boxes: obj.boxes.map((b) => ({
+          x1: Math.round((b.x1 / w) * 1000),
+          y1: Math.round((b.y1 / h) * 1000),
+          x2: Math.round((b.x2 / w) * 1000),
+          y2: Math.round((b.y2 / h) * 1000),
+        })),
+        points: obj.points.map((p) => ({
+          x: Math.round((p.x / w) * 1000),
+          y: Math.round((p.y / h) * 1000),
+          label: p.label,
+        })),
+      })),
+      maskPngPath: r.rawMaskHash!,
+      meta,
+    }));
 
     await logMessage('info', `[export] ${masks.length} masks to ${outputPath}`);
-    await rawExportMasks(volId, masks, outputPath);
+    await rawExportParquet(volId, masks, outputPath);
     await logMessage('info', `[export] done`);
   }
 

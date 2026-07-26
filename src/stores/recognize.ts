@@ -48,11 +48,14 @@ export const useLabel3dRecognizeStore = defineStore('recognize-3d', () => {
           }
         }
       }
-      if (!hasObjects && !hasPrevMask) return false;
+      if (!hasObjects && !hasPrevMask) {
+        await logMessage('debug', `[recognize] slice=${sliceIndex} early return: no objects & no prevMask`);
+        return false;
+      }
 
       await logMessage(
-        'debug',
-        `[recognize] slice=${sliceIndex} prompts=${hasObjects ? 'objects' : ''} ${hasPrevMask ? 'prevMask' : ''}`
+        'info',
+        `[recognize] slice=${sliceIndex} START: objects=${kf.objects.length} hasObjects=${hasObjects} hasPrevMask=${hasPrevMask} skipPrevMask=${skipPrevMask} prevMaskHash=${prevMaskHash ? prevMaskHash.slice(0, 40) : 'none'}`
       );
 
       const resp = await rawSlice(volId, sliceIndex);
@@ -71,6 +74,7 @@ export const useLabel3dRecognizeStore = defineStore('recognize-3d', () => {
       );
 
       const mcpUrl = await mcpStoreImageBytes(bytes, 'image/png');
+      await logMessage('debug', `[recognize] slice=${sliceIndex} mcpUrl=${mcpUrl.slice(0, 80)}`);
 
       // Find prev_mask: use provided hash or search nearest previous slice
       let prevMask: string | undefined = prevMaskHash ? prevMaskHash : undefined;
@@ -88,9 +92,13 @@ export const useLabel3dRecognizeStore = defineStore('recognize-3d', () => {
         }
       }
 
-      const result = await segmentImage(mcpUrl, kf.objects, prevMask);
       await logMessage(
         'debug',
+        `[recognize] slice=${sliceIndex} calling segmentImage: objects=${kf.objects.length} prevMask=${prevMask ? prevMask.slice(0, 40) : 'none'}`
+      );
+      const result = await segmentImage(mcpUrl, kf.objects, prevMask);
+      await logMessage(
+        'info',
         `[recognize] slice=${sliceIndex} SAM3 returned: isError=${result.isError}, content=[${result.content.map((b) => b.type).join(',')}]`
       );
 
@@ -262,7 +270,7 @@ export const useLabel3dRecognizeStore = defineStore('recognize-3d', () => {
       }
     }
 
-    await logMessage('info', `[batchRecognize] start=${start} end=${end}`);
+      await logMessage('info', `[batchRecognize] start=${start} end=${end}`);
     isRecognizing.value = true;
     progress.value = { current: 0, total: end - start + 1 };
 
@@ -277,31 +285,41 @@ export const useLabel3dRecognizeStore = defineStore('recognize-3d', () => {
         let kf = await getKeyframe(volId, i);
 
         if (kf?.rawMaskHash) {
-          // Already has mask — update local tracking
-          prevMaskHash = kf.rawMaskHash;
-
-          // If this is the current slice, render its mask for display
-          if (i === label3d.currentIndex) {
-            try {
-              const { renderMask } = useMaskRenderer();
-              mask.setCurrentMaskUrl(
-                await renderMask(
-                  kf.rawMaskHash,
-                  mask.maskSettings.threshold,
-                  mask.maskSettings.color
-                )
-              );
-            } catch (e) {
-              await logMessage(
-                'warn',
-                `[batchRecognize] slice=${i} failed to render existing mask: ${e}`
-              );
+          await logMessage(
+            'debug',
+            `[batchRecognize] slice=${i} has rawMaskHash=${kf.rawMaskHash.slice(0, 40)}..., trying render`
+          );
+          // Has mask reference — try to render for display
+          try {
+            const { renderMask } = useMaskRenderer();
+            const url = await renderMask(
+              kf.rawMaskHash,
+              mask.maskSettings.threshold,
+              mask.maskSettings.color
+            );
+            prevMaskHash = kf.rawMaskHash;
+            if (i === label3d.currentIndex) {
+              mask.setCurrentMaskUrl(url);
             }
+            await putKeyframe(volId, i, { maskUrl: url });
+            await logMessage('debug', `[batchRecognize] slice=${i} render OK, skip`);
+            continue;
+          } catch (e) {
+            await logMessage(
+              'warn',
+              `[batchRecognize] slice=${i} mask render failed (stale hash?), re-recognizing: ${e}`
+            );
+            // Mask data not available — fall through to re-recognize
           }
-          continue;
         }
 
         if (!kf) {
+          if (!prevMaskHash) {
+            await logMessage('debug', `[batchRecognize] slice=${i} no keyframe & no prevMaskHash, skip`);
+            continue;
+          }
+          // No keyframe but has prevMask — create temp keyframe for prev-mask-only recognition
+          await logMessage('debug', `[batchRecognize] slice=${i} no keyframe, using prevMask only`);
           kf = {
             volumeId: volId,
             sliceIndex: i,
@@ -310,20 +328,33 @@ export const useLabel3dRecognizeStore = defineStore('recognize-3d', () => {
             maskVisible: true,
             rawMaskHash: null,
           };
-          // Write to IDB so doRecognize can find it as prevMask for next slices
-          await putKeyframe(volId, i, { objects: [] });
         }
 
         const hasObjects = kf.objects.some((o) => o.points.length > 0 || o.boxes.length > 0);
 
         if (!hasObjects && !prevMaskHash) {
+          await logMessage('debug', `[batchRecognize] slice=${i} no objects & no prevMaskHash, skip`);
           continue;
         }
 
-        await doRecognize(i, kf, !prevMaskHash, prevMaskHash);
+        await logMessage(
+          'info',
+          `[batchRecognize] slice=${i} calling doRecognize: hasObjects=${hasObjects} prevMaskHash=${prevMaskHash ? prevMaskHash.slice(0, 40) : 'none'}`
+        );
+        const recognized = await doRecognize(i, kf, !prevMaskHash, prevMaskHash);
         // Re-fetch to get updated rawMaskHash after doRecognize wrote it
         const updatedKf = await getKeyframe(volId, i);
         prevMaskHash = updatedKf?.rawMaskHash ?? prevMaskHash;
+
+        // Update currentMaskUrl for display when navigating to this slice
+        if (recognized && updatedKf?.maskUrl) {
+          mask.setCurrentMaskUrl(updatedKf.maskUrl);
+        }
+
+        await logMessage(
+          'debug',
+          `[batchRecognize] slice=${i} done, recognized=${recognized}, prevMaskHash=${prevMaskHash ? prevMaskHash.slice(0, 40) : 'none'}`
+        );
       }
     } finally {
       isRecognizing.value = false;
