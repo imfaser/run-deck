@@ -2,19 +2,14 @@
   import { ref, computed } from 'vue';
   import { open } from '@tauri-apps/plugin-dialog';
   import { convertFileSrc } from '@tauri-apps/api/core';
-  import { ElMessage } from 'element-plus/es/components/message/index.mjs';
   import { useLabel2dCanvasStore } from '@/stores/canvas-2d';
   import { useLabel2dStore } from '@/stores/label-2d';
-  import { useLabel2dDefStore } from '@/stores/label-def-2d';
   import { segmentImage } from '@/services/sam3';
   import { useMaskRenderer } from '@/composables/useMaskRenderer';
   import { useMaskRenderOnChange } from '@/composables/useMaskRenderOnChange';
-  import { useLocateAnything } from '@/composables/useLocateAnything';
-  import { logMessage } from '@/services/cmd';
 
   const canvas = useLabel2dCanvasStore();
   const label2d = useLabel2dStore();
-  const labelDefStore = useLabel2dDefStore();
   const { renderMask } = useMaskRenderer();
 
   useMaskRenderOnChange({
@@ -31,7 +26,6 @@
   });
 
   const isLoadingMask = ref(false);
-  const isDetecting = ref(false);
 
   const cursorDisplay = computed(() => {
     if (!canvas.cursorImagePos) return '坐标: -, -';
@@ -76,65 +70,6 @@
     }
   }
 
-  async function handleAIDetect() {
-    await logMessage('info', '[detect] handleAIDetect called');
-    if (!label2d.imagePath) {
-      await logMessage('warn', '[detect] no image path, aborting');
-      return;
-    }
-
-    await logMessage('info', `[detect] imagePath=${label2d.imagePath.substring(0, 50)}...`);
-    await logMessage('info', `[detect] labels count=${labelDefStore.labels.length}`);
-
-    const activeLabels = labelDefStore.labels.filter(
-      (l) => labelDefStore.getLocateConfig(l.id)?.mode
-    );
-    await logMessage(
-      'info',
-      `[detect] active labels with config: ${activeLabels.map((l) => l.name).join(', ')}`
-    );
-
-    if (activeLabels.length === 0) {
-      ElMessage.warning('请先在标注设置中配置检测模式');
-      return;
-    }
-
-    isDetecting.value = true;
-    try {
-      const { runDetectForCurrentImage } = useLocateAnything({
-        volumeId: ref(null),
-        currentIndex: ref(0),
-        imageWidth: ref(canvas.imageWidth),
-        imageHeight: ref(canvas.imageHeight),
-        getKeyframe: async () => undefined,
-        putKeyframe: async () => {},
-        imagePath: ref(label2d.imagePath),
-        objects: computed(() => canvas.objects),
-        labelDefStore,
-      });
-
-      for (const label of activeLabels) {
-        try {
-          await logMessage(
-            'info',
-            `[detect] starting detection for label "${label.name}" (id=${label.id})`
-          );
-          const results = await runDetectForCurrentImage(label.id);
-          canvas.objects.push(...results);
-          await logMessage(
-            'info',
-            `[detect] label="${label.name}" completed: ${results.length} objects detected`
-          );
-        } catch (e) {
-          await logMessage('error', `[detect] label="${label.name}" failed: ${e}`);
-        }
-      }
-    } finally {
-      isDetecting.value = false;
-      await logMessage('info', '[detect] handleAIDetect finished');
-    }
-  }
-
   function handleFitImage() {
     canvas.fitImageTrigger++;
   }
@@ -159,17 +94,6 @@
           <span>🤖</span>
         </template>
         AI 识别
-      </el-button>
-      <el-button
-        type="success"
-        :loading="isDetecting"
-        :disabled="!label2d.imagePath"
-        @click="handleAIDetect"
-      >
-        <template #icon>
-          <span>🔍</span>
-        </template>
-        AI 检测
       </el-button>
       <el-button :disabled="!label2d.imageUrl" @click="handleFitImage">
         <template #icon>

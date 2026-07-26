@@ -268,7 +268,7 @@
           :status="recognize.progress.current >= recognize.progress.total ? 'success' : undefined"
         />
         <p style="margin-top: 12px; color: var(--text-secondary)">
-          {{ recognize.progress.current + 1 }} / {{ recognize.progress.total }}
+          {{ recognize.progress.current }} / {{ recognize.progress.total }}
         </p>
       </div>
       <template #footer>

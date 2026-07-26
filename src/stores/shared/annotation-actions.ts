@@ -109,6 +109,17 @@ export function createAnnotationActions(state: AnnotationState) {
     }
   }
 
+  function setAsVisualBox(annotationId: string): boolean {
+    for (const obj of state.objects.value) {
+      const box = obj.boxes.find((b) => b.id === annotationId);
+      if (box) {
+        box.boxType = 'visual_ref';
+        return true;
+      }
+    }
+    return false;
+  }
+
   function reassignAnnotation(annotationId: string, targetObjectId: string) {
     let annotation: PointAnnotation | BoxAnnotation | null = null;
     let sourceType: 'point' | 'box' | null = null;
@@ -198,6 +209,7 @@ export function createAnnotationActions(state: AnnotationState) {
     addBoxToObject,
     removeAnnotationFromObject,
     updateAnnotationInObject,
+    setAsVisualBox,
     reassignAnnotation,
     selectAnnotation,
     selectObject,

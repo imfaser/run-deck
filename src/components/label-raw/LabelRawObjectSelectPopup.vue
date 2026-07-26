@@ -14,16 +14,14 @@
   });
 
   const objectsWithLabel = computed(() =>
-    canvas.objects
-      .filter((obj) => !obj.boxes.some((b) => b.boxType === 'visual_ref'))
-      .map((obj) => {
-        const labelDef = labelDefStore.labelById(obj.labelId);
-        return {
-          ...obj,
-          labelName: labelDef?.name ?? 'Unknown',
-          labelColor: labelDef?.color ?? '#888',
-        };
-      })
+    canvas.objects.map((obj) => {
+      const labelDef = labelDefStore.labelById(obj.labelId);
+      return {
+        ...obj,
+        labelName: labelDef?.name ?? 'Unknown',
+        labelColor: labelDef?.color ?? '#888',
+      };
+    })
   );
 
   function show(x: number, y: number) {

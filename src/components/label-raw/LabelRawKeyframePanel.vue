@@ -120,6 +120,53 @@
     canvas.reassignAnnotation(canvas.selectedAnnotationId, targetId);
     ElMessage.success('已转移标注');
   }
+
+  const isSelectedBox = computed(() => {
+    if (!selectedAnnotationInfo.value) return false;
+    return selectedAnnotationInfo.value.type === 'box';
+  });
+
+  const isSelectedVisualBox = computed(() => {
+    if (!selectedAnnotationInfo.value || selectedAnnotationInfo.value.type !== 'box') return false;
+    for (const obj of canvas.objects) {
+      const box = obj.boxes.find((b) => b.id === canvas.selectedAnnotationId);
+      if (box) return box.boxType === 'visual_ref';
+    }
+    return false;
+  });
+
+  function handleSetAsVisualBox() {
+    if (!canvas.selectedAnnotationId) return;
+
+    for (const obj of canvas.objects) {
+      const box = obj.boxes.find((b) => b.id === canvas.selectedAnnotationId);
+      if (box) {
+        for (const otherObj of canvas.objects) {
+          if (otherObj.id !== obj.id && otherObj.labelId === obj.labelId) {
+            for (const otherBox of otherObj.boxes) {
+              if (otherBox.boxType === 'visual_ref') {
+                otherBox.boxType = undefined;
+              }
+            }
+          }
+        }
+        for (const sameObjBox of obj.boxes) {
+          if (sameObjBox.id !== box.id && sameObjBox.boxType === 'visual_ref') {
+            sameObjBox.boxType = undefined;
+          }
+        }
+
+        const success = canvas.setAsVisualBox(canvas.selectedAnnotationId);
+        if (success) {
+          labelDefStore.updateLocateConfig(obj.labelId, {
+            visualRefObjectId: obj.id,
+          });
+          ElMessage.success('已设为 Visual Box');
+        }
+        break;
+      }
+    }
+  }
 </script>
 
 <template>
@@ -158,12 +205,7 @@
           </div>
           <div v-if="expandedIndex === sl.index" class="kf-detail">
             <div v-if="sl.annotationCount === 0" class="kf-empty">无标注</div>
-            <template
-              v-for="obj in expandedObjects.filter(
-                (o) => !o.boxes.some((b) => b.boxType === 'visual_ref')
-              )"
-              :key="obj.id"
-            >
+            <template v-for="obj in expandedObjects" :key="obj.id">
               <div
                 class="kf-object-name"
                 :style="{ color: labelDefStore.labelById(obj.labelId)?.color ?? '#888' }"
@@ -194,6 +236,14 @@
 
     <div v-if="selectedAnnotationId" class="panel-footer">
       <div class="footer-actions">
+        <el-button
+          v-if="isSelectedBox && !isSelectedVisualBox"
+          size="small"
+          title="设为 Visual Box"
+          @click="handleSetAsVisualBox"
+        >
+          📷
+        </el-button>
         <el-select
           :model-value="null"
           placeholder="转移对象"
