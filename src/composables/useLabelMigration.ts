@@ -1,5 +1,5 @@
 import type { AnnotationObject } from '@/schemas/annotation';
-import { useLabelDefStore } from '@/stores/label-def';
+import { useLabel3dDefStore } from '@/stores/label-def-3d';
 import { objectColor } from '@/utils/objectColor';
 import { logMessage } from '@/services/cmd';
 
@@ -13,7 +13,7 @@ export async function migrateObjects(objects: AnnotationObject[]): Promise<boole
   const hasOldFormat = objects.some((o) => 'name' in o && !('labelId' in o));
   if (!hasOldFormat) return false;
 
-  const labelDefStore = useLabelDefStore();
+  const labelDefStore = useLabel3dDefStore();
   let migrated = 0;
 
   for (const obj of objects) {
@@ -25,7 +25,7 @@ export async function migrateObjects(objects: AnnotationObject[]): Promise<boole
     // Find or create LabelDef
     let labelDef = labelDefStore.labelByName(name);
     if (!labelDef) {
-      labelDef = labelDefStore.addLabel(name, oldObj.color ?? objectColor(name));
+      labelDef = await labelDefStore.addLabel(name, oldObj.color ?? objectColor(name));
     }
 
     // Convert to new format

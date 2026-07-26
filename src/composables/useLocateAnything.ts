@@ -5,10 +5,19 @@ import {
   cropImageRegion,
   type BoundingBox,
 } from '@/services/locate-anything';
-import { useLabelDefStore } from '@/stores/label-def';
 import { logMessage } from '@/services/cmd';
 import type { AnnotationObject, BoxAnnotation } from '@/schemas/annotation';
 import type { SubLabel } from '@/schemas/label';
+import type { LocateConfig, DetectProgress } from '@/schemas/locate';
+
+export interface LabelDefStoreLike {
+  labels: { id: string; name: string }[];
+  labelById: (id: string) => { id: string; name: string } | undefined;
+  subLabelsByParent: (parentId: string) => SubLabel[];
+  getLocateConfig: (labelId: string) => LocateConfig | undefined;
+  getDetectProgress: (labelId: string) => DetectProgress | undefined;
+  updateDetectProgress: (labelId: string, patch: Partial<Omit<DetectProgress, 'labelId'>>) => void;
+}
 
 export interface UseLocateAnythingOpts {
   volumeId: Ref<string | null>;
@@ -23,14 +32,14 @@ export interface UseLocateAnythingOpts {
   ) => Promise<void>;
   imagePath: Ref<string | null>;
   objects: Ref<AnnotationObject[]>;
-  labelDefStore: ReturnType<typeof useLabelDefStore>;
+  labelDefStore: LabelDefStoreLike;
 }
 
 export function boxesToAnnotationObjects(
   boxes: BoundingBox[],
   parentLabelName: string,
   sublabels: SubLabel[],
-  labelDefStore: ReturnType<typeof useLabelDefStore>,
+  labelDefStore: LabelDefStoreLike,
   imageWidth: number,
   imageHeight: number
 ): AnnotationObject[] {

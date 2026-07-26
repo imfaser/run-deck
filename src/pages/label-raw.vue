@@ -1,9 +1,6 @@
 <script setup lang="ts">
-  import { onMounted, onBeforeUnmount } from 'vue';
-  import { useRoute } from 'vue-router';
   import { useLabelRawKeyboard } from '@/composables/useLabelRawKeyboard';
-  import { useCanvasStore } from '@/stores/canvas';
-  import { useLabelDefStore } from '@/stores/label-def';
+  import { useLabel3dCanvasStore } from '@/stores/canvas-3d';
   import LabelRawToolbar from '@/components/label-raw/LabelRawToolbar.vue';
   import LabelRawModePanel from '@/components/shared/LabelModePanel.vue';
   import LabelRawToolPanel from '@/components/shared/LabelToolPanel.vue';
@@ -14,41 +11,30 @@
   import LabelRawNameDialogHandler from '@/components/label-raw/LabelRawNameDialogHandler.vue';
   import LabelRawObjectSelectPopup from '@/components/label-raw/LabelRawObjectSelectPopup.vue';
 
-  const route = useRoute();
-  const canvasId = route.path === '/label-raw' ? 'label-raw' : 'label';
-
-  const canvas = useCanvasStore(canvasId);
+  const canvas = useLabel3dCanvasStore();
   useLabelRawKeyboard(canvas);
-
-  const labelDefStore = useLabelDefStore();
-  onMounted(() => {
-    labelDefStore.appMode = '3d';
-  });
-  onBeforeUnmount(() => {
-    labelDefStore.appMode = '2d';
-  });
 </script>
 
 <template>
-  <LabelRawNameDialogHandler :canvas-id="canvasId" />
-  <LabelRawObjectSelectPopup :canvas-id="canvasId" />
+  <LabelRawNameDialogHandler />
+  <LabelRawObjectSelectPopup />
   <el-container direction="vertical" class="label-raw-page">
-    <LabelRawToolbar :canvas-id="canvasId" />
-    <LabelRawSliceSlider :canvas-id="canvasId" />
+    <LabelRawToolbar />
+    <LabelRawSliceSlider />
 
     <el-container class="label-raw-body">
       <el-aside width="80px" class="label-sidebar-left">
-        <LabelRawModePanel :canvas-id="canvasId" />
-        <LabelRawToolPanel :canvas-id="canvasId" />
+        <LabelRawModePanel />
+        <LabelRawToolPanel />
         <LabelSettingsButton />
       </el-aside>
 
       <el-main class="label-canvas-area">
-        <LabelRawCanvas :canvas-id="canvasId" />
+        <LabelRawCanvas />
       </el-main>
 
       <el-aside width="220px" class="label-sidebar-right">
-        <LabelRawKeyframePanel :canvas-id="canvasId" />
+        <LabelRawKeyframePanel />
       </el-aside>
     </el-container>
   </el-container>

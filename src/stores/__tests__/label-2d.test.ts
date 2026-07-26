@@ -9,7 +9,7 @@ describe('label-2d store', () => {
 
   describe('initial state', () => {
     it('has correct defaults', () => {
-      const store = useLabel2dStore('test');
+      const store = useLabel2dStore();
       expect(store.imagePath).toBeNull();
       expect(store.imageUrl).toBeNull();
       expect(store.maskUrl).toBeNull();
@@ -18,7 +18,7 @@ describe('label-2d store', () => {
     });
 
     it('has correct maskSettings defaults', () => {
-      const store = useLabel2dStore('test');
+      const store = useLabel2dStore();
       expect(store.maskSettings).toEqual({
         color: '#0096ff',
         prevMaskColor: '#ef4444',
@@ -31,13 +31,13 @@ describe('label-2d store', () => {
 
   describe('image state', () => {
     it('can set imagePath', () => {
-      const store = useLabel2dStore('test');
+      const store = useLabel2dStore();
       store.imagePath = '/path/to/image.png';
       expect(store.imagePath).toBe('/path/to/image.png');
     });
 
     it('can set imageUrl', () => {
-      const store = useLabel2dStore('test');
+      const store = useLabel2dStore();
       store.imageUrl = 'blob:http://localhost/abc';
       expect(store.imageUrl).toBe('blob:http://localhost/abc');
     });
@@ -45,7 +45,7 @@ describe('label-2d store', () => {
 
   describe('maskSettings', () => {
     it('can update individual fields', () => {
-      const store = useLabel2dStore('test');
+      const store = useLabel2dStore();
       store.maskSettings = { ...store.maskSettings, color: '#ff0000', threshold: 200 };
       expect(store.maskSettings.color).toBe('#ff0000');
       expect(store.maskSettings.threshold).toBe(200);
@@ -54,9 +54,12 @@ describe('label-2d store', () => {
   });
 
   describe('multi-instance independence', () => {
-    it('instances with different ids have independent state', () => {
-      const storeA = useLabel2dStore('a');
-      const storeB = useLabel2dStore('b');
+    it('instances with different pinia have independent state', () => {
+      setActivePinia(createPinia());
+      const storeA = useLabel2dStore();
+
+      setActivePinia(createPinia());
+      const storeB = useLabel2dStore();
 
       storeA.imagePath = '/a.png';
       storeA.maskVisible = false;

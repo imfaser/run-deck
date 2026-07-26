@@ -130,6 +130,53 @@ pub type CmdResult<T = ()> = Result<T, String>;
 
 `Type` 枚举标记日志来源：`Cmd`, `Setup`, `System`, `Config`, `Frontend`, `File`, `Mcp`
 
+### 日志分析工具
+
+日志文件位置：`.app/logs/*_latest.log`
+
+#### 快速诊断命令（rg）
+
+```bash
+# 1. 只看 ERROR/WARN，过滤掉 INFO/DEBUG 噪音
+rg -i '\b(ERROR|WARN)\b' .app/logs/*_latest.log
+
+# 2. 按模块过滤（比如只看 MCP 相关）
+rg 'mcp::server' .app/logs/*_latest.log
+
+# 3. 时间窗口截取
+rg '2026-07-26 13:51' .app/logs/*_latest.log
+
+# 4. 统计各级别日志数量，先对整体有个判断
+rg -c '\bINFO\b' .app/logs/*_latest.log
+rg -c '\bDEBUG\b' .app/logs/*_latest.log
+rg -c '\bWARN\b' .app/logs/*_latest.log
+rg -c '\bERROR\b' .app/logs/*_latest.log
+
+# 5. 按模块统计日志分布（PowerShell 配合 rg）
+[System.IO.File]::ReadAllText(".app/logs/*_latest.log") -split "`n" |
+  Select-String -Pattern '\[(\w+::\w+|\w+)\]' |
+  ForEach-Object { $_.Matches[0].Groups[1].Value } |
+  Group-Object | Sort-Object Count -Descending | Format-Table Count, Name -AutoSize
+
+# 6. 去重：把动态部分（时间戳、PID等）归一化后统计重复模板
+# 适合 MCP 启动日志这种"模板固定、参数变化"的场景
+[System.IO.File]::ReadAllText(".app/logs/*_latest.log") -split "`n" |
+  ForEach-Object { $_ -replace '\d{2}:\d{2}:\d{2}\.\d+', 'TS' } |
+  Group-Object | Sort-Object Count -Descending |
+  Select-Object -First 15 | Format-Table Count, Name -AutoSize -Wrap
+
+# 7. 查找潜在问题（failed/error/timeout/refused）
+rg -i 'failed|error|timeout|refused' .app/logs/*_latest.log
+```
+
+#### 分析流程
+
+1. **先统计级别分布** — 判断整体健康度（ERROR=0, WARN=0 为佳）
+2. **按模块聚合** — 定位热点模块
+3. **去重分析** — 识别重复模板（如 MCP 启动、prev-mask 渲染）
+4. **时间窗口** — 聚焦问题发生时段
+5. **关键词搜索** — 定位具体错误
+
 ## 工具库规范
 
 ### ts-pattern（控制流）

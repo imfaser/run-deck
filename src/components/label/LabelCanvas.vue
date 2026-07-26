@@ -14,20 +14,18 @@
   import Konva from 'konva';
   import { match, P } from 'ts-pattern';
   import { clamp } from 'es-toolkit';
-  import { useCanvasStore } from '@/stores/canvas';
+  import { useLabel2dCanvasStore } from '@/stores/canvas-2d';
   import { useLabel2dStore } from '@/stores/label-2d';
-  import { useLabelDefStore } from '@/stores/label-def';
+  import { useLabel2dDefStore } from '@/stores/label-def-2d';
   import { getPointerImagePos } from '@/utils/coordTransform';
   import { getPointConfig, getBoxConfig } from '@/utils/annotationConfig';
   import { useCanvasInteraction } from '@/composables/useCanvasInteraction';
   import { useCanvasAnnotations } from '@/composables/useCanvasAnnotations';
   import { useCanvasRefs } from '@/composables/useCanvasRefs';
 
-  const props = defineProps<{ canvasId: string }>();
-
-  const canvas = useCanvasStore(props.canvasId);
-  const label2d = useLabel2dStore(props.canvasId);
-  const labelDefStore = useLabelDefStore();
+  const canvas = useLabel2dCanvasStore();
+  const label2d = useLabel2dStore();
+  const labelDefStore = useLabel2dDefStore();
 
   // Watch for visual box creation and update config
   watch(

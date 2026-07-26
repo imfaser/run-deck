@@ -1,17 +1,15 @@
 <script setup lang="ts">
-  import { useCanvasStore } from '@/stores/canvas';
+  import { useLabel2dCanvasStore } from '@/stores/canvas-2d';
   import LabelPickerDialog from './LabelPickerDialog.vue';
   import ObjectSelectDialog from './ObjectSelectDialog.vue';
 
-  const props = defineProps<{ canvasId: string }>();
+  const canvas = useLabel2dCanvasStore();
 
-  const canvas = useCanvasStore(props.canvasId);
-
-  function handleSelectLabel(labelId: string) {
+  async function handleSelectLabel(labelId: string) {
     const pending = canvas.pendingAnnotation;
     if (!pending) return;
 
-    const obj = canvas.addObject(labelId);
+    const obj = await canvas.addObject(labelId);
 
     if (pending.type === 'point') {
       canvas.addPointToObject(obj.id, pending.point);
@@ -42,11 +40,11 @@
     canvas.pendingAnnotation = null;
   }
 
-  function handleCreateNewLabel(labelId: string) {
+  async function handleCreateNewLabel(labelId: string) {
     const pending = canvas.pendingAnnotation;
     if (!pending) return;
 
-    const obj = canvas.addObject(labelId);
+    const obj = await canvas.addObject(labelId);
 
     if (pending.type === 'point') {
       canvas.addPointToObject(obj.id, pending.point);

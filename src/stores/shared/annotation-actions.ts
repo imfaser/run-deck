@@ -1,4 +1,5 @@
 import type { Ref } from 'vue';
+import { logMessage } from '@/services/cmd';
 import type {
   AnnotationType,
   LabelMode,
@@ -20,7 +21,7 @@ export interface AnnotationState {
 
 export function createAnnotationActions(state: AnnotationState) {
   // ─── Object CRUD ─────────────────────────────────
-  function addObject(labelId: string): AnnotationObject {
+  async function addObject(labelId: string): Promise<AnnotationObject> {
     const obj: AnnotationObject = {
       id: crypto.randomUUID(),
       labelId,
@@ -29,10 +30,11 @@ export function createAnnotationActions(state: AnnotationState) {
     };
     state.objects.value.push(obj);
     state.currentObjectId.value = obj.id;
+    await logMessage('debug', `[canvas] addObject id=${obj.id} labelId=${labelId}`);
     return obj;
   }
 
-  function removeObject(id: string) {
+  async function removeObject(id: string) {
     state.objects.value = state.objects.value.filter((o) => o.id !== id);
     if (state.selectedObjectId.value === id) state.selectedObjectId.value = null;
     if (state.currentObjectId.value === id) state.currentObjectId.value = null;
@@ -44,6 +46,7 @@ export function createAnnotationActions(state: AnnotationState) {
       );
       if (!stillExists) state.selectedAnnotationId.value = null;
     }
+    await logMessage('debug', `[canvas] removeObject id=${id}`);
   }
 
   function setCurrentObject(id: string | null) {
@@ -161,22 +164,25 @@ export function createAnnotationActions(state: AnnotationState) {
   }
 
   // ─── Mode / Tool ─────────────────────────────────
-  function setMode(newMode: LabelMode) {
+  async function setMode(newMode: LabelMode) {
     state.mode.value = newMode;
     clearSelection();
+    await logMessage('debug', `[canvas] mode → ${newMode}`);
   }
 
-  function setTool(newTool: AnnotationType) {
+  async function setTool(newTool: AnnotationType) {
     state.tool.value = newTool;
     state.mode.value = 'create';
+    await logMessage('debug', `[canvas] tool → ${newTool}`);
   }
 
   // ─── Bulk ────────────────────────────────────────
-  function clearObjects() {
+  async function clearObjects() {
     state.objects.value = [];
     state.selectedObjectId.value = null;
     state.selectedAnnotationId.value = null;
     state.currentObjectId.value = null;
+    await logMessage('debug', `[canvas] clearObjects`);
   }
 
   function resetCanvas() {

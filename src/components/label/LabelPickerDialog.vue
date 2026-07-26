@@ -1,6 +1,6 @@
 <script setup lang="ts">
   import { computed } from 'vue';
-  import { useLabelDefStore } from '@/stores/label-def';
+  import { useLabel2dDefStore } from '@/stores/label-def-2d';
 
   defineProps<{
     visible: boolean;
@@ -11,7 +11,7 @@
     cancel: [];
   }>();
 
-  const labelDefStore = useLabelDefStore();
+  const labelDefStore = useLabel2dDefStore();
 
   const hasLabels = computed(() => labelDefStore.labels.length > 0);
 

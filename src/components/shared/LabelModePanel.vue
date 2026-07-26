@@ -1,15 +1,14 @@
 <script setup lang="ts">
   import { computed } from 'vue';
+  import { useRoute } from 'vue-router';
   import { Pointer, Edit, Delete } from '@element-plus/icons-vue';
   import type { Component } from 'vue';
   import type { LabelMode } from '@/schemas/annotation';
-  import { useCanvasStore } from '@/stores/canvas';
+  import { useLabel2dCanvasStore } from '@/stores/canvas-2d';
+  import { useLabel3dCanvasStore } from '@/stores/canvas-3d';
 
-  const props = defineProps<{
-    canvasId: string;
-  }>();
-
-  const canvas = useCanvasStore(props.canvasId);
+  const route = useRoute();
+  const canvas = route.path === '/label-raw' ? useLabel3dCanvasStore() : useLabel2dCanvasStore();
   const currentMode = computed(() => canvas.mode);
 
   const modes: { value: LabelMode; label: string; icon: Component }[] = [

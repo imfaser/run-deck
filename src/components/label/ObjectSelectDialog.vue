@@ -1,7 +1,7 @@
 <script setup lang="ts">
   import { ref, computed, watch, nextTick } from 'vue';
   import type { AnnotationObject } from '@/schemas/annotation';
-  import { useLabelDefStore } from '@/stores/label-def';
+  import { useLabel2dDefStore } from '@/stores/label-def-2d';
 
   const props = defineProps<{
     visible: boolean;
@@ -19,7 +19,7 @@
     cancel: [];
   }>();
 
-  const labelDefStore = useLabelDefStore();
+  const labelDefStore = useLabel2dDefStore();
   const selectedObjectId = ref<string | null>(null);
   const selectedNewLabelId = ref<string | null>(null);
   const mode = ref<'select' | 'create'>('select');

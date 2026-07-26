@@ -1,22 +1,18 @@
 <script setup lang="ts">
   import { ref, computed, watch } from 'vue';
-  import { useCanvasStore } from '@/stores/canvas';
+  import { useLabel3dCanvasStore } from '@/stores/canvas-3d';
   import { useLabel3dStore } from '@/stores/label-3d';
-  import { useMaskStore } from '@/stores/mask';
-  import { useRecognizeStore } from '@/stores/recognize';
-  import { useLabelDefStore } from '@/stores/label-def';
+  import { useLabel3dRecognizeStore } from '@/stores/recognize';
+  import { useLabel3dDefStore } from '@/stores/label-def-3d';
   import { ElMessage } from 'element-plus/es/components/message/index.mjs';
   import { getKeyframe } from '@/db/keyframe-repo';
   import { logMessage } from '@/services/cmd';
   import type { AnnotationObject } from '@/schemas/annotation';
 
-  const props = defineProps<{ canvasId: string }>();
-
-  const canvas = useCanvasStore(props.canvasId);
-  const label3d = useLabel3dStore(props.canvasId, canvas);
-  const mask = useMaskStore(props.canvasId, label3d);
-  const recognize = useRecognizeStore(props.canvasId, canvas, label3d, mask);
-  const labelDefStore = useLabelDefStore();
+  const canvas = useLabel3dCanvasStore();
+  const label3d = useLabel3dStore();
+  const recognize = useLabel3dRecognizeStore();
+  const labelDefStore = useLabel3dDefStore();
   const expandedIndex = ref<number | null>(null);
   const expandedObjects = ref<AnnotationObject[]>([]);
 

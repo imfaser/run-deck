@@ -2,19 +2,17 @@
   import { ref, computed } from 'vue';
   import { open } from '@tauri-apps/plugin-dialog';
   import { ElMessage } from 'element-plus/es/components/message/index.mjs';
-  import { useCanvasStore } from '@/stores/canvas';
+  import { useLabel3dCanvasStore } from '@/stores/canvas-3d';
   import { useLabel3dStore } from '@/stores/label-3d';
   import type { VolumeConfig } from '@/schemas/volume';
-  import { useMaskStore } from '@/stores/mask';
-  import { useRecognizeStore } from '@/stores/recognize';
+  import { useLabel3dMaskStore } from '@/stores/mask';
+  import { useLabel3dRecognizeStore } from '@/stores/recognize';
   import { logMessage } from '@/services/cmd';
 
-  const props = defineProps<{ canvasId: string }>();
-
-  const canvas = useCanvasStore(props.canvasId);
-  const label3d = useLabel3dStore(props.canvasId, canvas);
-  const mask = useMaskStore(props.canvasId, label3d);
-  const recognize = useRecognizeStore(props.canvasId, canvas, label3d, mask);
+  const canvas = useLabel3dCanvasStore();
+  const label3d = useLabel3dStore();
+  const mask = useLabel3dMaskStore();
+  const recognize = useLabel3dRecognizeStore();
 
   const isLoadingMask = ref(false);
   const showConfigDialog = ref(false);

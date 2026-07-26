@@ -14,10 +14,10 @@
   import Konva from 'konva';
   import { clamp } from 'es-toolkit';
   import { match, P } from 'ts-pattern';
-  import { useCanvasStore } from '@/stores/canvas';
+  import { useLabel3dCanvasStore } from '@/stores/canvas-3d';
   import { useLabel3dStore } from '@/stores/label-3d';
-  import { useMaskStore } from '@/stores/mask';
-  import { useLabelDefStore } from '@/stores/label-def';
+  import { useLabel3dMaskStore } from '@/stores/mask';
+  import { useLabel3dDefStore } from '@/stores/label-def-3d';
   import { logMessage } from '@/services/cmd';
   import { getPointerImagePos } from '@/utils/coordTransform';
   import { getPointConfig, getBoxConfig } from '@/utils/annotationConfig';
@@ -25,12 +25,10 @@
   import { useCanvasAnnotations } from '@/composables/useCanvasAnnotations';
   import { useCanvasRefs } from '@/composables/useCanvasRefs';
 
-  const props = defineProps<{ canvasId: string }>();
-
-  const canvas = useCanvasStore(props.canvasId);
-  const label3d = useLabel3dStore(props.canvasId, canvas);
-  const mask = useMaskStore(props.canvasId, label3d);
-  const labelDefStore = useLabelDefStore();
+  const canvas = useLabel3dCanvasStore();
+  const label3d = useLabel3dStore();
+  const mask = useLabel3dMaskStore();
+  const labelDefStore = useLabel3dDefStore();
 
   const containerRef = ref<HTMLDivElement | null>(null);
   const stageRef = ref<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any

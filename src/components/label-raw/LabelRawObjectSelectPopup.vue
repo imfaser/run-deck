@@ -1,12 +1,10 @@
 <script setup lang="ts">
   import { ref, computed, watch } from 'vue';
-  import { useCanvasStore } from '@/stores/canvas';
-  import { useLabelDefStore } from '@/stores/label-def';
+  import { useLabel3dCanvasStore } from '@/stores/canvas-3d';
+  import { useLabel3dDefStore } from '@/stores/label-def-3d';
 
-  const props = defineProps<{ canvasId: string }>();
-
-  const canvas = useCanvasStore(props.canvasId);
-  const labelDefStore = useLabelDefStore();
+  const canvas = useLabel3dCanvasStore();
+  const labelDefStore = useLabel3dDefStore();
 
   const ui = ref({
     visible: false,
@@ -38,8 +36,8 @@
     assignPending(id);
   }
 
-  function handleSelectNewLabel(labelId: string) {
-    const obj = canvas.addObject(labelId);
+  async function handleSelectNewLabel(labelId: string) {
+    const obj = await canvas.addObject(labelId);
     canvas.setCurrentObject(obj.id);
     assignPending(obj.id);
   }

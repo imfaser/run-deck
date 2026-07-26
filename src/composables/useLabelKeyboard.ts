@@ -1,6 +1,6 @@
-import type { useCanvasStore } from '@/stores/canvas';
+import type { useLabel2dCanvasStore } from '@/stores/canvas-2d';
 import { useLabelKeyboardShared } from './useLabelKeyboard.shared';
 
-export function useLabelKeyboard(store: ReturnType<typeof useCanvasStore>) {
+export function useLabelKeyboard(store: ReturnType<typeof useLabel2dCanvasStore>) {
   useLabelKeyboardShared(store);
 }

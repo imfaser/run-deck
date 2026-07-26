@@ -1,15 +1,13 @@
 <script setup lang="ts">
   import { computed, ref, watch } from 'vue';
-  import { useCanvasStore } from '@/stores/canvas';
-  import { useLabelDefStore } from '@/stores/label-def';
+  import { useLabel2dCanvasStore } from '@/stores/canvas-2d';
+  import { useLabel2dDefStore } from '@/stores/label-def-2d';
   import { ElMessage } from 'element-plus/es/components/message/index.mjs';
   import { ElMessageBox } from 'element-plus/es/components/message-box/index.mjs';
   import { logMessage } from '@/services/cmd';
 
-  const props = defineProps<{ canvasId: string }>();
-
-  const canvas = useCanvasStore(props.canvasId);
-  const labelDefStore = useLabelDefStore();
+  const canvas = useLabel2dCanvasStore();
+  const labelDefStore = useLabel2dDefStore();
   const expandedObjects = ref<Set<string>>(
     new Set([canvas.currentObjectId].filter(Boolean) as string[])
   );
@@ -113,8 +111,8 @@
     }
   }
 
-  function handlePickNewLabel(labelId: string) {
-    const obj = canvas.addObject(labelId);
+  async function handlePickNewLabel(labelId: string) {
+    const obj = await canvas.addObject(labelId);
     expandedObjects.value.add(obj.id);
     showNewLabelPicker.value = false;
 

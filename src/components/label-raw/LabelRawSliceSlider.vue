@@ -1,17 +1,11 @@
 <script setup lang="ts">
   import { computed } from 'vue';
   import { useDebounceFn } from '@vueuse/core';
-  import { useCanvasStore } from '@/stores/canvas';
   import { useLabel3dStore } from '@/stores/label-3d';
-  import { useMaskStore } from '@/stores/mask';
-  import { useRecognizeStore } from '@/stores/recognize';
+  import { useLabel3dRecognizeStore } from '@/stores/recognize';
 
-  const props = defineProps<{ canvasId: string }>();
-
-  const canvas = useCanvasStore(props.canvasId);
-  const label3d = useLabel3dStore(props.canvasId, canvas);
-  const mask = useMaskStore(props.canvasId, label3d);
-  const recognize = useRecognizeStore(props.canvasId, canvas, label3d, mask);
+  const label3d = useLabel3dStore();
+  const recognize = useLabel3dRecognizeStore();
 
   const debouncedLoad = useDebounceFn((val: number) => {
     label3d.loadSlice(val);

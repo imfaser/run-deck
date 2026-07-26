@@ -4,9 +4,11 @@
   import { ElMessageBox } from 'element-plus/es/components/message-box/index.mjs';
   import { Plus, Delete, Edit } from '@element-plus/icons-vue';
   import { useRoute } from 'vue-router';
-  import { useLabelDefStore } from '@/stores/label-def';
+  import { useLabel2dDefStore } from '@/stores/label-def-2d';
+  import { useLabel3dDefStore } from '@/stores/label-def-3d';
   import type { LocateConfig } from '@/schemas/locate';
-  import { useCanvasStore } from '@/stores/canvas';
+  import { useLabel2dCanvasStore } from '@/stores/canvas-2d';
+  import { useLabel3dCanvasStore } from '@/stores/canvas-3d';
   import { useLabel2dStore } from '@/stores/label-2d';
   import { useLabel3dStore } from '@/stores/label-3d';
   import type { LabelDef, SubLabel } from '@/schemas/label';
@@ -16,15 +18,17 @@
   import { logMessage } from '@/services/cmd';
 
   const route = useRoute();
-  const canvasId = route.path === '/label-raw' ? 'label-raw' : 'label';
 
-  const store = useLabelDefStore();
-  const canvas = useCanvasStore(canvasId);
-  const label2d = useLabel2dStore(canvasId);
-  const label3d = useLabel3dStore(canvasId, canvas);
+  const defStore2d = useLabel2dDefStore();
+  const defStore3d = useLabel3dDefStore();
+  const canvas2d = useLabel2dCanvasStore();
+  const canvas3d = useLabel3dCanvasStore();
+  const label2d = useLabel2dStore();
+  const label3d = useLabel3dStore();
   const { showDrawer } = useLabelSettings();
 
-  const is3dMode = computed(() => store.appMode === '3d');
+  const is3dMode = computed(() => route.path === '/label-raw');
+  const defStore = computed(() => (is3dMode.value ? defStore3d : defStore2d));
 
   // ─── Label Dialog ───────────────────────────────
   const showLabelDialog = ref(false);
@@ -37,7 +41,7 @@
   const labelDialogTitle = computed(() => (isEditingLabel.value ? '编辑 Label' : '新增 Label'));
   const labelNameError = computed(() => {
     if (!formName.value.trim()) return '名称不能为空';
-    const existing = store.labelByName(formName.value.trim());
+    const existing = defStore.value.labelByName(formName.value.trim());
     if (existing && existing.id !== editingLabelId.value) return '名称已存在';
     return '';
   });
@@ -47,7 +51,7 @@
     editingLabelId.value = null;
     formName.value = '';
     formColor.value = '#0096ff';
-    formOrder.value = store.nextOrder;
+    formOrder.value = defStore.value.nextOrder;
     showLabelDialog.value = true;
   }
 
@@ -63,14 +67,14 @@
     if (!canConfirmLabel.value) return;
     try {
       if (isEditingLabel.value && editingLabelId.value) {
-        store.updateLabel(editingLabelId.value, {
+        defStore.value.updateLabel(editingLabelId.value, {
           name: formName.value.trim(),
           color: formColor.value,
           order: formOrder.value,
         });
         ElMessage.success('Label 已更新');
       } else {
-        store.addLabel(formName.value.trim(), formColor.value);
+        defStore.value.addLabel(formName.value.trim(), formColor.value);
         ElMessage.success('Label 已创建');
       }
       showLabelDialog.value = false;
@@ -86,7 +90,7 @@
         cancelButtonText: '取消',
         type: 'warning',
       });
-      store.removeLabel(label.id);
+      defStore.value.removeLabel(label.id);
       ElMessage.success('已删除');
     } catch {
       // cancelled
@@ -105,7 +109,7 @@
   );
   const subLabelNameError = computed(() => {
     if (!subLabelFormName.value.trim()) return '名称不能为空';
-    const existing = store.sublabels.find(
+    const existing = defStore.value.sublabels.find(
       (sl) =>
         sl.parentId === subLabelParentId.value &&
         sl.name === subLabelFormName.value.trim() &&
@@ -136,12 +140,12 @@
     if (!canConfirmSubLabel.value) return;
     try {
       if (isEditingSubLabel.value && editingSubLabelId.value) {
-        store.updateSubLabel(editingSubLabelId.value, {
+        defStore.value.updateSubLabel(editingSubLabelId.value, {
           name: subLabelFormName.value.trim(),
         });
         ElMessage.success('子标签已更新');
       } else {
-        store.addSubLabel(subLabelParentId.value, subLabelFormName.value.trim());
+        defStore.value.addSubLabel(subLabelParentId.value, subLabelFormName.value.trim());
         ElMessage.success('子标签已创建');
       }
       showSubLabelDialog.value = false;
@@ -157,7 +161,7 @@
         cancelButtonText: '取消',
         type: 'warning',
       });
-      store.removeSubLabel(subLabel.id);
+      defStore.value.removeSubLabel(subLabel.id);
       ElMessage.success('已删除');
     } catch {
       // cancelled
@@ -167,7 +171,7 @@
   // ─── LocateConfig ───────────────────────────────
   function getConfig(labelId: string): LocateConfig {
     return (
-      store.getLocateConfig(labelId) ?? {
+      defStore.value.getLocateConfig(labelId) ?? {
         labelId,
         mode: 'detect',
         visualType: 'slice_crop',
@@ -180,19 +184,19 @@
   }
 
   function updateMode(labelId: string, mode: 'detect' | 'detect_visual') {
-    store.updateLocateConfig(labelId, { mode });
+    defStore.value.updateLocateConfig(labelId, { mode });
   }
 
   function updateVisualType(labelId: string, visualType: 'slice_crop' | 'external_image') {
-    store.updateLocateConfig(labelId, { visualType });
+    defStore.value.updateLocateConfig(labelId, { visualType });
   }
 
   function updateRange(labelId: string, field: 'rangeStart' | 'rangeEnd', value: number) {
-    store.updateLocateConfig(labelId, { [field]: value });
+    defStore.value.updateLocateConfig(labelId, { [field]: value });
   }
 
   function clearVisualRef(labelId: string) {
-    store.updateLocateConfig(labelId, {
+    defStore.value.updateLocateConfig(labelId, {
       visualRefObjectId: null,
       visualRefImagePath: null,
     });
@@ -205,7 +209,7 @@
       filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'bmp', 'webp'] }],
     });
     if (selected) {
-      store.updateLocateConfig(labelId, {
+      defStore.value.updateLocateConfig(labelId, {
         visualRefImagePath: selected as string,
         visualRefObjectId: null,
       });
@@ -218,7 +222,7 @@
   async function handleStartDetect(labelId: string) {
     await logMessage('info', `[label-settings] handleStartDetect called for label ${labelId}`);
 
-    let config = store.getLocateConfig(labelId);
+    let config = defStore.value.getLocateConfig(labelId);
     if (!config) {
       config = {
         labelId,
@@ -229,7 +233,7 @@
         rangeStart: 0,
         rangeEnd: 0,
       };
-      store.updateLocateConfig(labelId, config);
+      defStore.value.updateLocateConfig(labelId, config);
       await logMessage('info', `[label-settings] saved default config for label ${labelId}`);
     }
 
@@ -246,7 +250,7 @@
     detectingLabels.value.add(labelId);
 
     try {
-      if (store.appMode === '3d') {
+      if (is3dMode.value) {
         // 3D volume mode: use batchDetect with volume data
         if (!label3d.filePath) {
           ElMessage.warning('请先打开 Raw 文件');
@@ -257,7 +261,7 @@
           'info',
           `[label-settings] starting 3d detection: mode=${config.mode} volume=${label3d.filePath.substring(0, 50)}...`
         );
-        store.updateDetectProgress(labelId, { status: 'running', current: 0, total: 1 });
+        defStore.value.updateDetectProgress(labelId, { status: 'running', current: 0, total: 1 });
 
         const locate = useLocateAnything({
           volumeId: computed(() => label3d.volumeId),
@@ -267,8 +271,8 @@
           getKeyframe,
           putKeyframe,
           imagePath: computed(() => label3d.filePath),
-          objects: computed(() => canvas.objects),
-          labelDefStore: store,
+          objects: computed(() => canvas3d.objects),
+          labelDefStore: defStore.value,
         });
 
         await locate.batchDetect(labelId);
@@ -284,30 +288,30 @@
           'info',
           `[label-settings] starting 2d detection: mode=${config.mode} image=${label2d.imagePath.substring(0, 50)}...`
         );
-        store.updateDetectProgress(labelId, { status: 'running', current: 0, total: 1 });
+        defStore.value.updateDetectProgress(labelId, { status: 'running', current: 0, total: 1 });
 
         const locate = useLocateAnything({
           volumeId: ref(null),
           currentIndex: ref(0),
-          imageWidth: computed(() => canvas.imageWidth),
-          imageHeight: computed(() => canvas.imageHeight),
+          imageWidth: computed(() => canvas2d.imageWidth),
+          imageHeight: computed(() => canvas2d.imageHeight),
           getKeyframe: async () => undefined,
           putKeyframe: async () => {},
           imagePath: computed(() => label2d.imagePath),
-          objects: computed(() => canvas.objects),
-          labelDefStore: store,
+          objects: computed(() => canvas2d.objects),
+          labelDefStore: defStore.value,
         });
 
         const results = await locate.runDetectForCurrentImage(labelId);
-        canvas.objects.push(...results);
+        canvas2d.objects.push(...results);
         ElMessage.success(`检测完成，发现 ${results.length} 个对象`);
       }
 
-      store.updateDetectProgress(labelId, { status: 'done', current: 1, total: 1 });
+      defStore.value.updateDetectProgress(labelId, { status: 'done', current: 1, total: 1 });
       await logMessage('info', `[label-settings] detection completed`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      store.updateDetectProgress(labelId, { status: 'error', error: msg });
+      defStore.value.updateDetectProgress(labelId, { status: 'error', error: msg });
       await logMessage('error', `[label-settings] detection failed: ${msg}`);
       ElMessage.error(`检测失败: ${msg}`);
     } finally {
@@ -320,7 +324,9 @@
   }
 
   function getProgress(labelId: string) {
-    return store.getDetectProgress(labelId) ?? { labelId, current: 0, total: 0, status: 'idle' };
+    return (
+      defStore.value.getDetectProgress(labelId) ?? { labelId, current: 0, total: 0, status: 'idle' }
+    );
   }
 </script>
 
@@ -333,7 +339,7 @@
 
       <div class="label-list">
         <el-card
-          v-for="label in store.sortedLabels"
+          v-for="label in defStore.sortedLabels"
           :key="label.id"
           shadow="never"
           class="label-card"
@@ -375,7 +381,7 @@
             <el-form-item label="子标签">
               <div class="sublabel-list">
                 <div
-                  v-for="sl in store.subLabelsByParent(label.id)"
+                  v-for="sl in defStore.subLabelsByParent(label.id)"
                   :key="sl.id"
                   class="sublabel-item"
                 >
@@ -487,13 +493,13 @@
                 </template>
                 <template v-else-if="getProgress(label.id).status === 'done'">
                   <el-text type="success">完成</el-text>
-                  <el-button size="small" @click="store.resetDetectProgress(label.id)">
+                  <el-button size="small" @click="defStore.resetDetectProgress(label.id)">
                     重新检测
                   </el-button>
                 </template>
                 <template v-else-if="getProgress(label.id).status === 'error'">
                   <el-text type="danger" size="small">{{ getProgress(label.id).error }}</el-text>
-                  <el-button size="small" @click="store.resetDetectProgress(label.id)">
+                  <el-button size="small" @click="defStore.resetDetectProgress(label.id)">
                     重试
                   </el-button>
                 </template>
@@ -503,7 +509,7 @@
         </el-card>
       </div>
 
-      <el-empty v-if="store.labels.length === 0" description="暂无 Label，请点击上方按钮新增" />
+      <el-empty v-if="defStore.labels.length === 0" description="暂无 Label，请点击上方按钮新增" />
 
       <!-- Label Dialog -->
       <el-dialog v-model="showLabelDialog" :title="labelDialogTitle" width="400px" append-to-body>

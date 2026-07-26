@@ -3,20 +3,18 @@
   import { open } from '@tauri-apps/plugin-dialog';
   import { convertFileSrc } from '@tauri-apps/api/core';
   import { ElMessage } from 'element-plus/es/components/message/index.mjs';
-  import { useCanvasStore } from '@/stores/canvas';
+  import { useLabel2dCanvasStore } from '@/stores/canvas-2d';
   import { useLabel2dStore } from '@/stores/label-2d';
-  import { useLabelDefStore } from '@/stores/label-def';
+  import { useLabel2dDefStore } from '@/stores/label-def-2d';
   import { segmentImage } from '@/services/sam3';
   import { useMaskRenderer } from '@/composables/useMaskRenderer';
   import { useMaskRenderOnChange } from '@/composables/useMaskRenderOnChange';
   import { useLocateAnything } from '@/composables/useLocateAnything';
   import { logMessage } from '@/services/cmd';
 
-  const props = defineProps<{ canvasId: string }>();
-
-  const canvas = useCanvasStore(props.canvasId);
-  const label2d = useLabel2dStore(props.canvasId);
-  const labelDefStore = useLabelDefStore();
+  const canvas = useLabel2dCanvasStore();
+  const label2d = useLabel2dStore();
+  const labelDefStore = useLabel2dDefStore();
   const { renderMask } = useMaskRenderer();
 
   useMaskRenderOnChange({
