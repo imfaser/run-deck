@@ -1,11 +1,5 @@
 [workspace]
-members = [
-    "crates/logging",
-    "src-tauri",
-    "crates/draft",
-    "crates/mcp",
-    "crates/nimg",
-]
+members = ["crates/logging", "src-tauri", "crates/draft", "crates/mcp", "crates/nimg"]
 resolver = "2" # 保留 Rust 新依赖解析器
 
 # ===== 最小化构建配置 =====

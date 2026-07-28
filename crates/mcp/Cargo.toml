@@ -10,14 +10,11 @@ path = "src/lib.rs"
 [dependencies]
 http = "1"
 rmcp = { version = "2.2", default-features = false, features = [
-    "client",
-    "transport-child-process",
-    "transport-streamable-http-client-reqwest",
+  "client",
+  "transport-child-process",
+  "transport-streamable-http-client-reqwest",
 ] }
-reqwest = { version = "0.13", default-features = false, features = [
-    "json",
-    "rustls",
-] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
 serde = { workspace = true }
 thiserror = { workspace = true }
 serde_json = { workspace = true }

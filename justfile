@@ -12,7 +12,7 @@ web-dev:
     vite
 
 web-build:
-    vue-tsc --noEmit
+    tsc -b
     vite build
 
 web-serve:
@@ -32,27 +32,27 @@ build-dev:
 
 # ===== 代码质量 =====
 lint:
-    rtk lint -c eslint.config.js --max-warnings=0 --cache --cache-location .eslintcache src
+    oxlint src
 
 lint-fix:
-    eslint -c eslint.config.js --max-warnings=0 --cache --cache-location .eslintcache --fix src
+    oxlint --fix src
 
 format:
-    rtk prettier --write .
+    oxfmt --write .
 
 format-check:
-    rtk prettier --check .
+    oxfmt --check .
 
 typecheck:
-    vue-tsc --noEmit
+    tsc -b
     cargo check
 
 # ===== 测试 =====
 test:
-    rtk vitest run
+    vitest run
 
 test-rust:
-    rtk cargo test --workspace
+    cargo test --workspace
 
 test-all:
     just test
