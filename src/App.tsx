@@ -1,8 +1,8 @@
-import { RouterProvider, createBrowserRouter } from 'react-router';
+import { RouterProvider, createBrowserRouter, Navigate } from 'react-router';
 import RootLayout from '@/routes/root';
 import ErrorPage from '@/routes/error';
-import Home from '@/pages/Home';
-import About from '@/pages/About';
+import Overview from '@/pages/Overview';
+import Config from '@/pages/Config';
 import NotFound from '@/pages/NotFound';
 
 const router = createBrowserRouter([
@@ -11,18 +11,10 @@ const router = createBrowserRouter([
     element: <RootLayout />,
     errorElement: <ErrorPage />,
     children: [
-      {
-        index: true,
-        element: <Home />,
-      },
-      {
-        path: 'about',
-        element: <About />,
-      },
-      {
-        path: '*',
-        element: <NotFound />,
-      },
+      { index: true, element: <Navigate to="/overview" replace /> },
+      { path: 'overview', element: <Overview /> },
+      { path: 'config', element: <Config /> },
+      { path: '*', element: <NotFound /> },
     ],
   },
 ]);

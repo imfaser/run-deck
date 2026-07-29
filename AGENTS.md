@@ -184,14 +184,29 @@ return ConfigSchema.parse(data); // 运行时校验
 
 ### ahooks（React hooks 工具箱）
 
-替代 `@vueuse/core`，提供大量实用 hooks。
+替代 `@vueuse/core`，提供大量实用 hooks。**优先使用 ahooks，不要手写可复用逻辑。**
 
-**常用 hooks：**
+**核心 hooks：**
 
 ```ts
+// 生命周期
+import { useMount, useUnmount, useLatest } from 'ahooks';
+
+// 稳定函数引用（替代 useCallback）
+import { useMemoizedFn } from 'ahooks';
+const handleClick = useMemoizedFn((id: string) => { ... });
+
+// 本地存储
+import { useLocalStorageState } from 'ahooks';
+const [value, setValue] = useLocalStorageState('key', { defaultValue: 'dark' });
+
+// Immer 状态（复杂嵌套对象必用）
+import { useImmer } from 'use-immer';
+const [state, setState] = useImmer({ nested: { count: 0 } });
+setState(draft => { draft.nested.count += 1; });
+
 // 防重复点击（Tauri invoke 必备）
 import { useLockFn } from 'ahooks';
-
 const handleSave = useLockFn(async () => {
   await invoke('save_config', { data });
 });
@@ -203,10 +218,6 @@ const { run } = useDebounceFn(handleSearch, { wait: 300 });
 // 键盘监听
 import { useKeyPress } from 'ahooks';
 useKeyPress('ctrl+s', handleSave);
-
-// 本地存储
-import { useLocalStorage } from 'ahooks';
-const [value, setValue] = useLocalStorage('key', defaultValue);
 
 // 元素可见性
 import { useInViewport } from 'ahooks';
@@ -220,6 +231,32 @@ const { copy, copied } = useClipboard();
 import { useMediaQuery } from 'ahooks';
 const isMobile = useMediaQuery('(max-width: 768px)');
 ```
+
+### ahooks 关键规则
+
+**优先使用 ahooks，不要手写可复用逻辑。**
+
+#### 替代手写 hooks
+
+| 手写代码                           | ahooks 替代                              |
+| ---------------------------------- | ---------------------------------------- |
+| `useCallback`                      | `useMemoizedFn` — 稳定函数引用，永不变化 |
+| `useState` + 复杂嵌套              | `useImmer` — 直接 mutate draft           |
+| `useEffect` + setTimeout           | `useDebounceFn` / `useThrottleFn`        |
+| `useEffect` + keydown              | `useKeyPress`                            |
+| `useEffect` + localStorage         | `useLocalStorageState`                   |
+| `useEffect` + resize               | `useWindowSize` / `useMediaQuery`        |
+| `useEffect` + IntersectionObserver | `useInViewport`                          |
+| `useEffect` + navigator.clipboard  | `useClipboard`                           |
+| `useEffect` + mount 初始化         | `useMount`                               |
+| 手动防重复点击 flag                | `useLockFn`                              |
+
+#### 核心原则
+
+- **useMemoizedFn 替代 useCallback**：不需要依赖数组，函数引用永远稳定
+- **useMount 替代 useEffect + []**：语义更清晰，专门用于初始化
+- **useImmer 替代展开运算符**：嵌套状态修改用 `draft.xxx = yyy` 而非 `{ ...state, nested: { ...state.nested, xxx: yyy } }`
+- **useLockFn 替代手动 loading flag**：Tauri invoke 必备，防止重复提交
 
 ### foxact（轻量全局状态）
 
@@ -442,6 +479,34 @@ export const useCounterStore = create<CounterState>((set) => ({
 }));
 ```
 
+**复杂嵌套状态用 immer：**
+
+```ts
+import { create } from 'zustand';
+import { immer } from 'zustand/middleware/immer';
+
+interface AppState {
+  items: Item[];
+  addItem: (item: Item) => void;
+  updateItem: (id: string, patch: Partial<Item>) => void;
+}
+
+export const useAppStore = create<AppState>()(
+  immer((set) => ({
+    items: [],
+    addItem: (item) =>
+      set((state) => {
+        state.items.push(item);
+      }),
+    updateItem: (id, patch) =>
+      set((state) => {
+        const item = state.items.find((i) => i.id === id);
+        if (item) Object.assign(item, patch);
+      }),
+  }))
+);
+```
+
 ### 错误处理模式
 
 **三层错误处理：**
@@ -522,6 +587,34 @@ export default function MyComponent({ visible, onClose }: MyComponentProps) {
     </div>
   );
 }
+```
+
+#### 组件拆分原则
+
+**React 中组件不复用时不要创建新文件，在同一文件内拆分为内部函数组件。**
+
+```tsx
+// ✅ 正确：内部组件拆分（不复用）
+function TabBar({ tabs, onTabClick }: TabBarProps) {
+  return <div>...</div>;
+}
+
+function WindowControls({ isMaximized }: WindowControlsProps) {
+  return <div>...</div>;
+}
+
+export default function TitleBar() {
+  return (
+    <div>
+      <TabBar />
+      <WindowControls />
+    </div>
+  );
+}
+
+// ❌ 错误：不复用的组件拆成单独文件
+// src/components/layout/TabBar.tsx
+// src/components/layout/WindowControls.tsx
 ```
 
 #### Props vs Store：何时用哪个
@@ -619,6 +712,39 @@ shadcn/ui 常用组件速查：
 | 分隔线 | `Separator`                                      |
 | 标签页 | `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent` |
 
+### shadcn/ui 关键规则
+
+**严禁自己造不必要组件，必须优先使用 shadcn/ui。**
+
+#### 样式规则
+
+- **语义色**：用 `bg-primary`、`text-muted-foreground` 等语义变量，禁止 `bg-blue-500`
+- **内置变体优先**：用 `variant="outline"` 而非手写样式
+- **className 只用于布局**：`max-w-md`、`mx-auto`、`mt-4`，不覆盖组件颜色/字体
+- **用 gap-\* 替代 space-\***：`flex flex-col gap-4` 而非 `space-y-4`
+- **用 size-\* 替代 w-\* h-\***：`size-10` 而非 `w-10 h-10`
+- **用 truncate**：而非 `overflow-hidden text-ellipsis whitespace-nowrap`
+- **用 cn() 合并类名**：禁止模板字符串三元表达式
+- **禁止手动 dark: 覆盖**：用语义 token（`bg-background`）
+
+#### 组件组合规则
+
+- **Items 必须在 Group 内**：`SelectItem` → `SelectGroup`，`DropdownMenuItem` → `DropdownMenuGroup`
+- **用 asChild/render 做自定义触发器**：Base UI 用 `render`，Radix 用 `asChild`
+- **Dialog/Sheet/Drawer 必须有 Title**：`DialogTitle`、`SheetTitle`、`DrawerTitle`
+- **完整 Card 组合**：`CardHeader`/`CardTitle`/`CardContent`/`CardFooter`
+- **Button 无 isPending/isLoading**：用 `Spinner` + `data-icon` + `disabled`
+- **TabsTrigger 必须在 TabsList 内**
+- **用 Separator 替代 `<hr>` 或 border div**
+- **用 Skeleton 替代 `animate-pulse` div**
+- **用 Badge 替代自定义 span**
+
+#### 图标规则
+
+- **Button 内的图标用 data-icon**：`data-icon="inline-start"` 或 `data-icon="inline-end"`
+- **禁止组件内图标手动加 size 类**：组件通过 CSS 管理图标大小
+- **图标作为对象传递**：`icon={CheckIcon}`，不是字符串查找
+
 ## Skills 指引
 
 项目中 `.opencode/skills/` 和 `~/.config/opencode/skills/` 下有大量技能参考。使用 opencode 时可通过 `/skill <name>` 加载。
@@ -639,6 +765,7 @@ shadcn/ui 常用组件速查：
 | 样式                  | `tailwindcss`             | Tailwind CSS v4 工具类、响应式、暗色模式、动画                    |
 | 构建工具              | `vite`                    | Vite 8 配置、插件 API、SSR、Rolldown 迁移                         |
 | 测试                  | `vitest`                  | Vitest 5.x 测试 API、mock、快照、覆盖率、基准测试                 |
+| UI 组件               | `shadcn`                  | shadcn/ui 组件规则：样式、组合、图标、变体                        |
 | UI 设计审查           | `web-design-guidelines`   | 检查 UI 代码是否符合 Web Interface Guidelines                     |
 | 包管理                | `pnpm`                    | pnpm 10.x/11.x 命令、配置、工作区、依赖管理                       |
 | OpenSpec 探索         | `openspec-explore`        | 探索模式，思考伙伴，调查问题，澄清需求                            |

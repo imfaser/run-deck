@@ -11,10 +11,46 @@
     "react/rules-of-hooks": "error",
     "react/only-export-components": ["warn", { "allowConstantExport": true }],
     "react/react-in-jsx-scope": "off",
+    "react/self-closing-comp": "error",
+    "react/jsx-no-useless-fragment": "error",
+    "react/no-unescaped-entities": "error",
+    "react/no-unknown-property": "error",
+    "react/jsx-curly-brace-presence": [
+      "error",
+      { "props": "never", "children": "never", "propElementValues": "always" }
+    ],
+    "react/no-namespace": "error",
+
+    "typescript/no-require-imports": "error",
+    "typescript/no-non-null-asserted-nullish-coalescing": "error",
+    "typescript/adjacent-overload-signatures": "error",
+    "typescript/consistent-type-definitions": ["error", "interface"],
+    "typescript/no-empty-interface": "error",
+    "typescript/no-inferrable-types": "error",
+    "typescript/prefer-for-of": "error",
+    "typescript/prefer-function-type": "error",
+    "typescript/prefer-namespace-keyword": "error",
+
     "no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
-    "no-console": "warn",
-    "eqeqeq": "error",
-    "prefer-const": "error"
+    "no-var": "error",
+    "no-void": "error",
+    "no-console": "error",
+    "no-return-assign": "error",
+    "no-restricted-globals": ["error", "isFinite", "isNaN"],
+    "eqeqeq": ["error", "always", { "null": "ignore" }],
+    "curly": "error",
+    "radix": "error",
+    "new-cap": "error",
+    "prefer-rest-params": "error",
+    "prefer-const": "error",
+    "prefer-object-spread": "error",
+    "prefer-object-has-own": "error",
+    "prefer-promise-reject-errors": "error",
+    "max-params": ["error", 3],
+    "max-nested-callbacks": ["error", 3],
+    "max-depth": ["error", 5],
+    "max-lines": ["error", 500],
+    "no-else-return": "error"
   },
-  "ignorePatterns": ["dist/**", "node_modules/**"]
+  "ignorePatterns": ["dist/**", "node_modules/**", "tools/**/*.js", "scripts/*"]
 }
