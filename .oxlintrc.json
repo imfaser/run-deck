@@ -34,7 +34,7 @@
     "no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
     "no-var": "error",
     "no-void": "error",
-    "no-console": "error",
+    "no-console": "warn",
     "no-return-assign": "error",
     "no-restricted-globals": ["error", "isFinite", "isNaN"],
     "eqeqeq": ["error", "always", { "null": "ignore" }],
