@@ -1,7 +1,7 @@
 import { createRouter } from '@tanstack/react-router';
 import { routeTree } from './routeTree.gen';
-import { ErrorComponent } from './routes/error';
-import { NotFoundComponent } from './routes/not-found';
+import { ErrorComponent } from './routes/-error';
+import { NotFoundComponent } from './routes/-not-found';
 
 export const router = createRouter({
   routeTree,

@@ -74,14 +74,14 @@ crates/                 # 可复用 Rust 库
 
 ### 文件命名规则
 
-| 文件名 | 路由路径 | 说明 |
-|--------|----------|------|
-| `__root.tsx` | — | 根路由，包裹所有子路由 |
-| `index.tsx` | `/` | 首页 |
-| `overview.tsx` | `/overview` | 基础路由 |
-| `posts.$postId.tsx` | `/posts/$postId` | 动态参数 |
-| `_layout.tsx` | — | 无路径布局路由（前缀 `_`） |
-| `-component.tsx` | — | 排除自动生成（前缀 `-`） |
+| 文件名              | 路由路径         | 说明                       |
+| ------------------- | ---------------- | -------------------------- |
+| `__root.tsx`        | —                | 根路由，包裹所有子路由     |
+| `index.tsx`         | `/`              | 首页                       |
+| `overview.tsx`      | `/overview`      | 基础路由                   |
+| `posts.$postId.tsx` | `/posts/$postId` | 动态参数                   |
+| `_layout.tsx`       | —                | 无路径布局路由（前缀 `_`） |
+| `-component.tsx`    | —                | 排除自动生成（前缀 `-`）   |
 
 ### 添加新路由
 
@@ -154,23 +154,23 @@ AppContext::global()        → is_exiting 状态 (singleton! 宏)
 
 ## 工具库速查
 
-| 库 | 用途 | 关键点 |
-|----|------|--------|
-| `ts-pattern` | 控制流 | `match(value).with(...).otherwise(...)` |
-| `es-toolkit` | 数据转换 | 替代 lodash，按需导入 |
-| `zod` | 运行时验证 | `z.infer<typeof Schema>` 生成类型 |
-| `ahooks` | React hooks | `useMemoizedFn`/`useLockFn`/`useMount` 优先 |
-| `foxact` | 轻量全局状态 | `createContextState` 管理原子状态 |
-| `swr` | 数据缓存 | `useSWR(key, fetcher)` + `mutate(key)` 刷新 |
-| `react-hook-form` | 表单 | `zodResolver` + `useForm` |
-| `@xstate/react` | 状态机 | `useMachine` 复杂多步流程 |
-| `react-konva` | Canvas | 标注工具 2D 渲染 |
-| `nanoid` | ID 生成 | `nanoid()` 唯一标识 |
-| `dayjs` | 日期 | 日期处理 |
-| `dexie` | IndexedDB | 本地数据库封装 |
-| `echarts` | 图表 | 数据可视化 |
-| `rxjs` | 响应式 | 异步流处理 |
-| `mitt` | 事件 | 轻量事件发射器 |
+| 库                | 用途         | 关键点                                      |
+| ----------------- | ------------ | ------------------------------------------- |
+| `ts-pattern`      | 控制流       | `match(value).with(...).otherwise(...)`     |
+| `es-toolkit`      | 数据转换     | 替代 lodash，按需导入                       |
+| `zod`             | 运行时验证   | `z.infer<typeof Schema>` 生成类型           |
+| `ahooks`          | React hooks  | `useMemoizedFn`/`useLockFn`/`useMount` 优先 |
+| `foxact`          | 轻量全局状态 | `createContextState` 管理原子状态           |
+| `swr`             | 数据缓存     | `useSWR(key, fetcher)` + `mutate(key)` 刷新 |
+| `react-hook-form` | 表单         | `zodResolver` + `useForm`                   |
+| `@xstate/react`   | 状态机       | `useMachine` 复杂多步流程                   |
+| `react-konva`     | Canvas       | 标注工具 2D 渲染                            |
+| `nanoid`          | ID 生成      | `nanoid()` 唯一标识                         |
+| `dayjs`           | 日期         | 日期处理                                    |
+| `dexie`           | IndexedDB    | 本地数据库封装                              |
+| `echarts`         | 图表         | 数据可视化                                  |
+| `rxjs`            | 响应式       | 异步流处理                                  |
+| `mitt`            | 事件         | 轻量事件发射器                              |
 
 ### ahooks 核心原则
 
@@ -205,7 +205,10 @@ export const useCounterStore = create<CounterState>((set) => ({
 export const useAppStore = create<AppState>()(
   immer((set) => ({
     items: [],
-    addItem: (item) => set((state) => { state.items.push(item); }),
+    addItem: (item) =>
+      set((state) => {
+        state.items.push(item);
+      }),
   }))
 );
 ```
@@ -246,7 +249,9 @@ import { useCounterStore } from '@/store/counter';
 import { Button } from '@/components/ui/button';
 
 // 2. Props 类型
-interface MyComponentProps { visible: boolean; }
+interface MyComponentProps {
+  visible: boolean;
+}
 
 // 3. 组件
 export default function MyComponent({ visible }: MyComponentProps) {
@@ -297,20 +302,20 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 项目中 `.opencode/skills/` 下有大量技能参考。使用 opencode 时可通过 `/skill <name>` 加载。
 
-| 场景 | Skill | 用途 |
-|------|-------|------|
-| 代码质量 | `clean-code` | SRP/DRY/KISS/YAGNI 原则 |
-| React 组件 | `composition-patterns` | 复合组件、render props |
-| React 性能 | `react-best-practices` | 消除 waterfall、bundle 优化 |
-| TanStack Router | `tanstack-router-best-practices` | 文件路由、类型安全、数据加载 |
-| React 动画 | `react-view-transitions` | View Transition API |
-| Zustand | `zustand` | stores、selectors、middleware |
-| XState | `xstate` | 状态机，复杂多步流程 |
-| Zod | `zod` | 运行时验证、transforms |
-| TypeScript | `typescript-coder` | 泛型、条件类型、配置 |
-| Tailwind | `tailwindcss` | v4 工具类、响应式、暗色模式 |
-| Vite | `vite` | 配置、插件 API、SSR |
-| Vitest | `vitest` | 测试 API、mock、覆盖率 |
-| shadcn | `shadcn` | 组件规则：样式、组合、变体 |
-| UI 审查 | `web-design-guidelines` | Web Interface Guidelines |
-| pnpm | `pnpm` | 命令、配置、工作区 |
+| 场景            | Skill                            | 用途                          |
+| --------------- | -------------------------------- | ----------------------------- |
+| 代码质量        | `clean-code`                     | SRP/DRY/KISS/YAGNI 原则       |
+| React 组件      | `composition-patterns`           | 复合组件、render props        |
+| React 性能      | `react-best-practices`           | 消除 waterfall、bundle 优化   |
+| TanStack Router | `tanstack-router-best-practices` | 文件路由、类型安全、数据加载  |
+| React 动画      | `react-view-transitions`         | View Transition API           |
+| Zustand         | `zustand`                        | stores、selectors、middleware |
+| XState          | `xstate`                         | 状态机，复杂多步流程          |
+| Zod             | `zod`                            | 运行时验证、transforms        |
+| TypeScript      | `typescript-coder`               | 泛型、条件类型、配置          |
+| Tailwind        | `tailwindcss`                    | v4 工具类、响应式、暗色模式   |
+| Vite            | `vite`                           | 配置、插件 API、SSR           |
+| Vitest          | `vitest`                         | 测试 API、mock、覆盖率        |
+| shadcn          | `shadcn`                         | 组件规则：样式、组合、变体    |
+| UI 审查         | `web-design-guidelines`          | Web Interface Guidelines      |
+| pnpm            | `pnpm`                           | 命令、配置、工作区            |

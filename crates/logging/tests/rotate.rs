@@ -1,5 +1,5 @@
 use logging::{cleanup_old_logs, timestamp_format, DEFAULT_RETENTION_DAYS};
-use chrono::{Local, NaiveDate};
+use chrono::Local;
 use flexi_logger::{DeferredNow, Record};
 use std::fs;
 use tempfile::TempDir;

@@ -72,6 +72,7 @@ static CONFIG_INSTANCE: OnceLock<Draft<Config>> = OnceLock::new();
 impl Config {
     fn load_from_file(path: &Path) -> Result<Self> {
         if path.exists() {
+            log::info!(target: "app", "[Config] Loading config from: {}", path.display());
             let content = std::fs::read_to_string(path)?;
             let mut config: Config = serde_json::from_str(&content)?;
             let normalized = logging::normalize_log_level(&config.log_level);
@@ -79,30 +80,35 @@ impl Config {
                 log::warn!(target: "app", "[Config] Invalid log_level {:?}, falling back to {:?}", config.log_level, normalized);
                 config.log_level = normalized.to_string();
             }
+            log::info!(target: "app", "[Config] Config loaded successfully");
             Ok(config)
         } else {
+            log::info!(target: "app", "[Config] Config file not found, creating default at: {}", path.display());
             if let Some(parent) = path.parent() {
                 std::fs::create_dir_all(parent)?;
             }
             let config = Config::default();
             let content = serde_json::to_string_pretty(&config)?;
             std::fs::write(path, content)?;
+            log::info!(target: "app", "[Config] Default config created");
             Ok(config)
         }
     }
 
     pub fn global() -> &'static Draft<Config> {
-        CONFIG_INSTANCE.get_or_init(|| match dirs::config_file() {
-            Ok(path) => match Config::load_from_file(&path) {
-                Ok(config) => Draft::new(config),
+        CONFIG_INSTANCE.get_or_init(|| {
+            match dirs::config_file() {
+                Ok(path) => match Config::load_from_file(&path) {
+                    Ok(config) => Draft::new(config),
+                    Err(e) => {
+                        log::warn!(target: "app", "[Config] Failed to load config, using defaults: {e}");
+                        Draft::new(Config::default())
+                    }
+                },
                 Err(e) => {
-                    log::warn!(target: "app", "[Config] Failed to load config, using defaults: {e}");
+                    log::warn!(target: "app", "[Config] Failed to get config path, using defaults: {e}");
                     Draft::new(Config::default())
                 }
-            },
-            Err(e) => {
-                log::warn!(target: "app", "[Config] Failed to get config path, using defaults: {e}");
-                Draft::new(Config::default())
             }
         })
     }
@@ -112,6 +118,8 @@ impl Config {
         config.apply();
         let data = config.data_arc();
         let path = dirs::config_file()?;
+        log::info!(target: "app", "[Config] Saving config to: {}", path.display());
+
         let content = serde_json::to_string_pretty(&*data)?;
         std::fs::write(&path, content)?;
         log::info!(target: "app", "[Config] Config saved to disk");
