@@ -52,5 +52,13 @@
     "max-lines": ["error", 500],
     "no-else-return": "error"
   },
-  "ignorePatterns": ["dist/**", "node_modules/**", "tools/**/*.js", "scripts/*"]
+  "ignorePatterns": ["dist/**", "node_modules/**", "tools/**/*.js", "scripts/*"],
+  "overrides": [
+    {
+      "files": ["src/routes/**/*.tsx"],
+      "rules": {
+        "react/only-export-components": "off"
+      }
+    }
+  ]
 }

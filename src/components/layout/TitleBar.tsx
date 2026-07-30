@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router';
+import { useNavigate, useLocation } from '@tanstack/react-router';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Home, Settings, Sun, Moon, Minus, Square, Copy, X } from 'lucide-react';
 import { useMount, useMemoizedFn } from 'ahooks';
@@ -165,14 +165,14 @@ export default function TitleBar() {
 
   const handleTabClick = useMemoizedFn((tabId: string, tabRoute: string) => {
     setActiveTab(tabId);
-    navigate(tabRoute);
+    navigate({ to: tabRoute });
   });
 
   const handleCloseTab = useMemoizedFn((tabId: string) => {
     removeTab(tabId);
     const { tabs: currentTabs, activeTab: newActive } = useAppStore.getState();
     const target = currentTabs.find((t) => t.id === newActive);
-    navigate(target?.route ?? '/overview');
+    navigate({ to: target?.route ?? '/overview' });
   });
 
   return (

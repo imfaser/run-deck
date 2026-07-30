@@ -1,12 +1,16 @@
-import { Outlet } from 'react-router';
+import type { ReactNode } from 'react';
 import TitleBar from './TitleBar';
 
-export default function AppLayout() {
+interface AppLayoutProps {
+  children: ReactNode;
+}
+
+export default function AppLayout({ children }: AppLayoutProps) {
   return (
     <div className="h-screen bg-background text-foreground overflow-hidden">
       <TitleBar />
       <main className="pt-10 h-full overflow-y-auto">
-        <Outlet />
+        {children}
       </main>
     </div>
   );
