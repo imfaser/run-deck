@@ -116,6 +116,35 @@ import { createFileRoute, createRootRoute } from '@tanstack/react-router';
 - 根 `Cargo.toml` 定义共享依赖和 clippy 规则
 - `src-tauri` 通过 `path = "../crates/<name>"` 依赖工作区 crate
 
+### Rust 错误处理
+
+Tauri command 返回 `CmdResult<T>` = `Result<T, String>`。使用 `StringifyErr` trait 统一转换：
+
+```rust
+use super::{CmdResult, StringifyErr};
+
+// ✓ 正确：使用 stringify_err()
+let value = some_operation().stringify_err()?;
+
+// ✗ 错误：不要用 map_err
+let value = some_operation().map_err(|e| e.to_string())?;
+
+// ✓ 需要额外上下文时用 map_err + format!
+let value = some_operation().map_err(|e| format!("操作失败: {e}"))?;
+```
+
+### 全局状态管理
+
+通过 `AppContext` 统一访问全局变量：
+
+```rust
+AppContext::app_handle()    → APP_HANDLE (手动 OnceLock)
+AppContext::mcp_manager()   → MCP_MANAGER (手动 OnceLock)
+AppContext::content_cache() → ContentCache::global() (singleton! 宏)
+AppContext::config()        → Config::global() (OnceLock)
+AppContext::global()        → is_exiting 状态 (singleton! 宏)
+```
+
 ## 前端测试
 
 - Vitest 配置：`vitest.config.ts`

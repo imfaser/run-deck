@@ -55,6 +55,11 @@ pub fn app_resources_dir() -> Result<PathBuf> {
     }
 }
 
+/// Cache directory (auto-cleaned on exit)
+pub fn app_cache_dir() -> Result<PathBuf> {
+    Ok(app_home_dir()?.join("cache"))
+}
+
 /// Pinia store directory
 pub fn app_store_dir() -> Result<PathBuf> {
     Ok(app_home_dir()?.join("stores"))

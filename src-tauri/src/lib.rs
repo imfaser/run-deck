@@ -37,11 +37,8 @@ pub fn run() {
                 .set(app.handle().clone())
                 .expect("app handle failed to set");
 
-            // Initialize AppContext singleton
-            AppContext::global();
-
-            // Initialize Config
-            let config = config::Config::global();
+            // Initialize logging
+            let config = AppContext::config();
 
             // Initialize logging with log directory
             let log_dir = config::dirs::app_logs_dir().ok();
@@ -73,7 +70,7 @@ pub fn run() {
             if !server_names.is_empty() {
                 logging!(info, Type::Setup, "Starting {} MCP server(s)...", server_names.len());
                 AsyncHandler::spawn(move || async move {
-                    let manager = MCP_MANAGER.get().unwrap();
+                    let manager = AppContext::mcp_manager();
                     for name in &server_names {
                         if let Err(e) = manager.start_server(name).await {
                             logging!(warn, Type::Setup, "Failed to start MCP server '{name}': {e}");
@@ -111,9 +108,10 @@ pub fn run() {
             }
 
             // Stop MCP servers (async in sync context)
-            if let Some(manager) = MCP_MANAGER.get() {
-                AsyncHandler::block_on(manager.stop_all());
-            }
+            AsyncHandler::block_on(AppContext::mcp_manager().stop_all());
+
+            // Clean cache directory
+            AppContext::content_cache().cleanup();
 
             app_handle.exit(0);
         }

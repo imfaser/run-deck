@@ -16,7 +16,6 @@ use serde::{Deserialize, Serialize};
 use super::{CmdResult, StringifyErr};
 
 use crate::kernel::context::AppContext;
-use crate::utils::mcp_content::MCP_PREFIX;
 use logging::{logging, Type};
 
 // ─── Global volume store ───────────────────────────────────────────
@@ -152,7 +151,7 @@ pub fn raw_open(req: OpenRequest) -> CmdResult<OpenResponse> {
     let (slice_h, slice_w) = shape.perpendicular(axis);
 
     let id = gen_id();
-    let mut store = VOLUME_STORE.lock().map_err(|e| e.to_string())?;
+    let mut store = VOLUME_STORE.lock().stringify_err()?;
     store.volumes.insert(id.clone(), vol);
     store.axis.insert(id.clone(), axis);
     store.voxel_size.insert(id.clone(), voxel_size);
@@ -167,7 +166,7 @@ pub fn raw_open(req: OpenRequest) -> CmdResult<OpenResponse> {
 
 #[tauri::command]
 pub fn raw_slice(volume_id: String, index: usize) -> CmdResult<SliceResponse> {
-    let store = VOLUME_STORE.lock().map_err(|e| e.to_string())?;
+    let store = VOLUME_STORE.lock().stringify_err()?;
     let vol = store
         .volumes
         .get(&volume_id)
@@ -218,19 +217,18 @@ pub fn parquet_export_masks(
     masks: Vec<ParquetMaskEntry>,
     output_path: String,
 ) -> CmdResult<String> {
-    let content_store = AppContext::mcp_content_store();
+    let cache = AppContext::content_cache();
 
     logging!(info, Type::Cmd, "parquet_export_masks: {} masks -> {}", masks.len(), output_path);
 
-    // ── Collect PNG bytes from moka cache ──────────────────────────
+    // ── Collect PNG bytes ───────────────────────────────────────────
     let mut png_bytes_list: Vec<Vec<u8>> = Vec::with_capacity(masks.len());
     for entry in &masks {
-        let bytes = if entry.mask_png_path.starts_with(MCP_PREFIX) {
-            let hash = &entry.mask_png_path[MCP_PREFIX.len()..];
-            match content_store.get(hash) {
-                Some((_mime, b)) => b,
-                None => return Err(format!("mask content not found for hash: {hash}")),
-            }
+        // Try cache first (hash), fallback to file path
+        let cache_path = cache.get_path(&entry.mask_png_path);
+        let bytes = if cache_path.exists() {
+            std::fs::read(&cache_path)
+                .map_err(|e| format!("cache read failed for {}: {e}", entry.mask_png_path))?
         } else {
             std::fs::read(&entry.mask_png_path)
                 .map_err(|e| format!("failed to read mask PNG {}: {e}", entry.mask_png_path))?
@@ -464,7 +462,7 @@ pub fn parquet_export_masks(
 
 #[tauri::command]
 pub fn raw_close(volume_id: String) -> CmdResult {
-    let mut store = VOLUME_STORE.lock().map_err(|e| e.to_string())?;
+    let mut store = VOLUME_STORE.lock().stringify_err()?;
     store.volumes.remove(&volume_id);
     store.axis.remove(&volume_id);
     store.voxel_size.remove(&volume_id);

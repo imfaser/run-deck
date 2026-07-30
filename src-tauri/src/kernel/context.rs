@@ -1,7 +1,9 @@
 use crate::singleton;
-use crate::utils::mcp_content::McpContentStore;
+use crate::utils::content_cache::ContentCache;
 use crate::{APP_HANDLE, MCP_MANAGER};
 use chrono::Local;
+use crate::config::Config;
+use draft::Draft;
 use mcp::McpManager;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::AppHandle;
@@ -13,24 +15,22 @@ pub struct AppContext {
     is_exiting: AtomicBool,
 }
 
-impl Default for AppContext {
-    fn default() -> Self {
-        Self {
-            is_exiting: AtomicBool::new(false),
-        }
-    }
-}
-
 singleton!(AppContext, APP_CONTEXT);
 
 impl AppContext {
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            is_exiting: AtomicBool::new(false),
+        }
     }
 
     pub fn app_handle() -> &'static AppHandle {
         #[allow(clippy::expect_used)]
-        APP_HANDLE.get().expect("App handle not initialized")
+        APP_HANDLE.get().expect("app handle not initialized")
+    }
+
+    pub fn config() -> &'static Draft<Config> {
+        Config::global()
     }
 
     pub fn mcp_manager() -> &'static McpManager {
@@ -38,8 +38,8 @@ impl AppContext {
         MCP_MANAGER.get().expect("MCP manager not initialized")
     }
 
-    pub fn mcp_content_store() -> &'static McpContentStore {
-        McpContentStore::global()
+    pub fn content_cache() -> &'static ContentCache {
+        ContentCache::global()
     }
 
     pub fn set_is_exiting(&self) {

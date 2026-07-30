@@ -33,7 +33,6 @@ tokio-stream = "0.1"
 base64 = "0.22"
 sha2 = "0.10"
 hex = "0.4"
-moka = { version = "0.12", features = ["sync"] }
 parquet = { workspace = true }
 arrow = { workspace = true }
 http = "1"

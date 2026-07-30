@@ -14,7 +14,7 @@ pub fn setup_plugins(builder: Builder<tauri::Wry>) -> Builder<tauri::Wry> {
 }
 
 pub fn setup_protocols(builder: Builder<tauri::Wry>) -> Builder<tauri::Wry> {
-    builder.register_uri_scheme_protocol("mcp", crate::utils::mcp_content::mcp_protocol_handler)
+    builder.register_uri_scheme_protocol("cache", crate::utils::cache_protocol::cache_protocol_handler)
 }
 
 pub fn generate_handlers() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync + 'static
@@ -22,12 +22,9 @@ pub fn generate_handlers() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
     tauri::generate_handler![
         crate::cmd::general::greet,
         crate::cmd::general::log_message,
-        crate::cmd::general::mcp_store_content,
-        crate::cmd::general::mcp_store_image_bytes,
+        crate::cmd::general::cache_store_path,
         crate::cmd::log::set_log_level,
         crate::cmd::mcp::mcp_list_tools,
-        crate::cmd::mcp::mcp_call_tool,
-        crate::cmd::mcp::mcp_call_tool_with_progress,
         crate::cmd::mcp::mcp_server_status,
         crate::cmd::mcp::mcp_server_info,
         crate::cmd::mcp::mcp_list_prompts,
