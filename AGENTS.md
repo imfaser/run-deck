@@ -155,23 +155,23 @@ AppContext::global()        → is_exiting 状态 (singleton! 宏)
 
 ## 工具库速查
 
-| 库                | 用途         | 关键点                                      |
-| ----------------- | ------------ | ------------------------------------------- |
-| `ts-pattern`      | 控制流       | `match(value).with(...).otherwise(...)`     |
-| `es-toolkit`      | 数据转换     | 替代 lodash，按需导入                       |
-| `zod`             | 运行时验证   | `z.infer<typeof Schema>` 生成类型           |
-| `ahooks`          | React hooks  | `useMemoizedFn`/`useLockFn`/`useMount` 优先 |
-| `foxact`          | 轻量全局状态 | `createContextState` 管理原子状态           |
-| `swr`             | 数据缓存     | `useSWR(key, fetcher)` + `mutate(key)` 刷新 |
-| `react-hook-form` | 表单         | `zodResolver` + `useForm`                   |
-| `@xstate/react`   | 状态机       | `useMachine` 复杂多步流程                   |
-| `react-konva`     | Canvas       | 标注工具 2D 渲染                            |
-| `nanoid`          | ID 生成      | `nanoid()` 唯一标识                         |
-| `dayjs`           | 日期         | 日期处理                                    |
-| `dexie`           | IndexedDB    | 本地数据库封装                              |
-| `echarts`         | 图表         | 数据可视化                                  |
-| `rxjs`            | 响应式       | 异步流处理                                  |
-| `mitt`            | 事件         | 轻量事件发射器                              |
+| 库                | 用途         | 关键点                                                         |
+| ----------------- | ------------ | -------------------------------------------------------------- |
+| `ts-pattern`      | 控制流       | `match(value).with(...).otherwise(...)`                        |
+| `es-toolkit`      | 数据转换     | 替代 lodash，按需导入                                          |
+| `zod`             | 运行时验证   | `z.infer<typeof Schema>` 生成类型                              |
+| `ahooks`          | React hooks  | `useMemoizedFn`/`useLockFn`/`useMount` 优先                    |
+| `foxact`          | 轻量全局状态 | `createContextState` 管理原子状态                              |
+| `swr`             | 数据缓存     | `useSWR(key, fetcher)` + `mutate(key)` 刷新                    |
+| `react-hook-form` | 表单         | `zodResolver` + `useForm`；渲染期用 `useWatch`，禁止 `watch()` |
+| `@xstate/react`   | 状态机       | `useMachine` 复杂多步流程                                      |
+| `react-konva`     | Canvas       | 标注工具 2D 渲染                                               |
+| `nanoid`          | ID 生成      | `nanoid()` 唯一标识                                            |
+| `dayjs`           | 日期         | 日期处理                                                       |
+| `dexie`           | IndexedDB    | 本地数据库封装                                                 |
+| `echarts`         | 图表         | 数据可视化                                                     |
+| `rxjs`            | 响应式       | 异步流处理                                                     |
+| `mitt`            | 事件         | 轻量事件发射器                                                 |
 
 ### ahooks 核心原则
 
@@ -182,6 +182,31 @@ AppContext::global()        → is_exiting 状态 (singleton! 宏)
 - `useDebounceFn` / `useThrottleFn` — 替代 setTimeout
 
 > **React Compiler 兜底 memo**：项目启用 React Compiler，自动处理 `useMemo`/`useCallback` 优化，**禁止手动添加**。但 `useLockFn` 不是 memo，Compiler 不会处理 — 忘了就裸奔。
+
+### React Compiler 兼容性（react-hook-form）
+
+`useForm()` 返回的 `.watch()` 被编译器内置注册表（`babel-plugin-react-compiler` 的 `defaultModuleTypeProvider`）标记为 known-incompatible。渲染期调用 `form.watch(...)` 会让编译器**跳过整个文件**，build 日志出现 `Skipped: <file> Use of incompatible library`，该文件失去自动 memo。
+
+```tsx
+// ✗ 错误：渲染期调用 watch() → 编译器跳过整个文件
+<Switch checked={form.watch('enabled')} ... />
+
+// ✓ 正确：useWatch hook 订阅（不在不兼容注册表，编译器正常 memo）
+const enabled = useWatch({ control: form.control, name: 'enabled' });
+<Switch checked={enabled} ... />
+```
+
+- **升级 react-hook-form 无法消除 bailout**（注册表在编译器侧），必须换 `useWatch`
+- `formState` 是 Proxy，渲染期读取**先解构**（`const { errors } = form.formState`），避免短路表达式导致订阅缺失
+- `getValues()` 只用于事件回调/effect，禁止作为渲染期响应式输入
+- 相关讨论：react-hook-form 官方 Discussion #12524
+
+### es-toolkit / ts-pattern 类型坑
+
+- `omit(obj, [key])` 在 `Record<string, X>` 上会丢失索引签名，返回类型坍缩为 `{}`，再索引赋值会报错 → 显式注解：`const newMcp: Record<string, X> = omit(config.mcp, [name])`
+- `fromPairs` 只在 `es-toolkit/compat` 子路径，主入口 `es-toolkit` 不含（`compact`/`omit` 在主入口）
+- ts-pattern selector 返回的字面量会拓宽为 `string` → 窄联合类型赋值需 `as const`：`.with('Running', () => 'default' as const)`
+- ts-pattern `P.string` 回调参数类型是 `string` 而非字面量联合 → 需显式枚举：`.with('Starting', 'Running', 'Stopped', (s) => s)`
 
 ## 代码模式
 

@@ -1,3 +1,4 @@
+import { match } from 'ts-pattern';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useMcpServerStatus, type McpServerConfigEntry } from '@/hooks/useMcpServers';
@@ -11,37 +12,23 @@ interface McpServerSidebarProps {
 }
 
 function getStatusLabel(status: ServerStatus | null): string {
-  const kind = getStatusKind(status);
-  switch (kind) {
-    case 'Starting':
-      return LABELS.mcpServer.status.starting;
-    case 'Running':
-      return LABELS.mcpServer.status.running;
-    case 'Stopped':
-      return LABELS.mcpServer.status.stopped;
-    case 'Failed':
-      return LABELS.mcpServer.status.failed;
-    default:
-      return LABELS.mcpServer.status.unknown;
-  }
+  return match(getStatusKind(status))
+    .with('Starting', () => LABELS.mcpServer.status.starting)
+    .with('Running', () => LABELS.mcpServer.status.running)
+    .with('Stopped', () => LABELS.mcpServer.status.stopped)
+    .with('Failed', () => LABELS.mcpServer.status.failed)
+    .exhaustive();
 }
 
 function getStatusVariant(
   status: ServerStatus | null
 ): 'default' | 'secondary' | 'destructive' | 'outline' {
-  const kind = getStatusKind(status);
-  switch (kind) {
-    case 'Running':
-      return 'default';
-    case 'Starting':
-      return 'secondary';
-    case 'Failed':
-      return 'destructive';
-    case 'Stopped':
-      return 'outline';
-    default:
-      return 'outline';
-  }
+  return match(getStatusKind(status))
+    .with('Running', () => 'default' as const)
+    .with('Starting', () => 'secondary' as const)
+    .with('Failed', () => 'destructive' as const)
+    .with('Stopped', () => 'outline' as const)
+    .exhaustive();
 }
 
 function ServerEntry({

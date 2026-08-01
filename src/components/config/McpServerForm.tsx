@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useForm, type SubmitHandler } from 'react-hook-form';
+import { omit } from 'es-toolkit';
+import { useForm, useWatch, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
@@ -97,6 +98,9 @@ export default function McpServerForm({ serverName, serverConfig, onBack }: McpS
 
   const [typeSwitch, setTypeSwitch] = useState<'local' | 'remote'>(serverType);
 
+  const localEnabled = useWatch({ control: localForm.control, name: 'enabled' });
+  const remoteEnabled = useWatch({ control: remoteForm.control, name: 'enabled' });
+
   function checkNameDuplicate(name: string): boolean {
     if (!config) {
       return false;
@@ -145,12 +149,10 @@ export default function McpServerForm({ serverName, serverConfig, onBack }: McpS
     if (!config) {
       return;
     }
-    const newMcp = { ...config.mcp };
-
-    // Remove old entry if renaming
-    if (!isNew && name !== serverName) {
-      delete newMcp[serverName];
-    }
+    const newMcp: Record<string, McpServerConfig> = omit(
+      config.mcp,
+      !isNew && name !== serverName ? [serverName] : []
+    );
 
     newMcp[name] = newServerConfig;
     updateMcp(newMcp);
@@ -219,7 +221,7 @@ export default function McpServerForm({ serverName, serverConfig, onBack }: McpS
           </FormField>
 
           <EnableSwitch
-            checked={localForm.watch('enabled')}
+            checked={localEnabled}
             onCheckedChange={(v) => localForm.setValue('enabled', v)}
           />
 
@@ -254,7 +256,7 @@ export default function McpServerForm({ serverName, serverConfig, onBack }: McpS
           </FormField>
 
           <EnableSwitch
-            checked={remoteForm.watch('enabled')}
+            checked={remoteEnabled}
             onCheckedChange={(v) => remoteForm.setValue('enabled', v)}
           />
 

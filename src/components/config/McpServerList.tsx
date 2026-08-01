@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { omit } from 'es-toolkit';
 import { useMemoizedFn } from 'ahooks';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
@@ -52,8 +53,7 @@ export default function McpServerList({ onEdit }: McpServerListProps) {
     if (!config) {
       return;
     }
-    const newMcp = { ...config.mcp };
-    delete newMcp[name];
+    const newMcp = omit(config.mcp, [name]);
     updateMcp(newMcp);
     setDeleteTarget(null);
     toast.success(LABELS.mcpForm.deleted(name));

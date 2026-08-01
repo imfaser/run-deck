@@ -1,12 +1,12 @@
+import { compact } from 'es-toolkit';
+import { fromPairs } from 'es-toolkit/compat';
+
 /**
  * Parse multi-line text into command array (each non-empty line = one arg).
  * Trims whitespace, drops empty lines.
  */
 export function parseCommandText(text: string): string[] {
-  return text
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
+  return compact(text.split('\n').map((line) => line.trim()));
 }
 
 /**
@@ -14,20 +14,17 @@ export function parseCommandText(text: string): string[] {
  * Trims whitespace, drops empty lines and lines without '='.
  */
 export function parseKeyValueText(text: string): Record<string, string> {
-  const result: Record<string, string> = {};
-  for (const line of text.split('\n')) {
-    const trimmed = line.trim();
-    if (!trimmed || !trimmed.includes('=')) {
-      continue;
-    }
-    const eqIndex = trimmed.indexOf('=');
-    const key = trimmed.slice(0, eqIndex).trim();
-    const value = trimmed.slice(eqIndex + 1).trim();
-    if (key) {
-      result[key] = value;
-    }
-  }
-  return result;
+  return fromPairs(
+    text
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.includes('='))
+      .map((line): [string, string] => {
+        const eqIndex = line.indexOf('=');
+        return [line.slice(0, eqIndex).trim(), line.slice(eqIndex + 1).trim()];
+      })
+      .filter(([key]) => key.length > 0)
+  );
 }
 
 /**

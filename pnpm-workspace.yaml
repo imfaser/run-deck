@@ -3,3 +3,5 @@ allowBuilds:
   electron: set this to true or false
   esbuild: true
   vue-demi: true
+minimumReleaseAgeExclude:
+  - react-hook-form@7.84.0

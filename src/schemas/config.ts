@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { match, P } from 'ts-pattern';
 import { LABELS } from '@/constants/labels';
 
 // --- Enums / Primitives ---
@@ -78,20 +79,17 @@ export type ServerStatus = z.infer<typeof ServerStatusSchema>;
 export type ServerStatusKind = 'Starting' | 'Running' | 'Stopped' | 'Failed';
 
 export function getStatusKind(status: ServerStatus | null): ServerStatusKind {
-  if (!status) {
-    return 'Stopped';
-  }
-  if (typeof status === 'string') {
-    return status;
-  }
-  return 'Failed';
+  return match(status)
+    .with(null, () => 'Stopped' as const)
+    .with('Starting', 'Running', 'Stopped', (s) => s)
+    .with({ Failed: P._ }, () => 'Failed' as const)
+    .exhaustive();
 }
 
 export function getStatusError(status: ServerStatus | null): string | undefined {
-  if (status && typeof status === 'object' && 'Failed' in status) {
-    return status.Failed.error;
-  }
-  return undefined;
+  return match(status)
+    .with({ Failed: { error: P.select() } }, (error) => error)
+    .otherwise(() => undefined);
 }
 
 export const ServerInfoSchema = z.object({
