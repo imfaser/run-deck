@@ -17,6 +17,7 @@ import {
   useMcpPrompts,
   useMcpResources,
 } from '@/hooks/useMcpServers';
+import { LABELS } from '@/constants/labels';
 
 interface McpServerDetailProps {
   selectedServerName: string | null;
@@ -75,7 +76,7 @@ export default function McpServerDetail({ selectedServerName, servers }: McpServ
     return (
       <Empty>
         <EmptyHeader>
-          <EmptyTitle>请选择一个 MCP 服务器查看详情</EmptyTitle>
+          <EmptyTitle>{LABELS.mcpDetail.selectServer}</EmptyTitle>
         </EmptyHeader>
       </Empty>
     );
@@ -85,7 +86,7 @@ export default function McpServerDetail({ selectedServerName, servers }: McpServ
     return (
       <Empty>
         <EmptyHeader>
-          <EmptyTitle>服务器不存在</EmptyTitle>
+          <EmptyTitle>{LABELS.mcpDetail.serverNotFound}</EmptyTitle>
         </EmptyHeader>
       </Empty>
     );
@@ -94,22 +95,31 @@ export default function McpServerDetail({ selectedServerName, servers }: McpServ
   const statusKind = getStatusKind(status);
 
   if (!selectedEntry.config.enabled) {
-    return <StatusAlert title="服务器已禁用" description="该服务器已在配置中禁用" />;
+    return (
+      <StatusAlert
+        title={LABELS.mcpDetail.serverDisabled}
+        description={LABELS.mcpDetail.serverDisabledDesc}
+      />
+    );
   }
 
   if (statusKind === 'Failed') {
     return (
       <StatusAlert
         variant="destructive"
-        title="服务器启动失败"
-        description={getStatusError(status) ?? '未知错误'}
+        title={LABELS.mcpDetail.serverFailed}
+        description={getStatusError(status) ?? LABELS.mcpDetail.unknownError}
       />
     );
   }
 
   if (statusKind !== 'Running') {
     return (
-      <StatusAlert variant="destructive" title="服务器未运行" description={`状态：${statusKind}`} />
+      <StatusAlert
+        variant="destructive"
+        title={LABELS.mcpDetail.serverNotRunning}
+        description={`状态：${statusKind}`}
+      />
     );
   }
 
@@ -125,34 +135,41 @@ export default function McpServerDetail({ selectedServerName, servers }: McpServ
       {hasError && (
         <Alert variant="destructive">
           <AlertTriangle className="size-4" />
-          <AlertTitle>获取服务器数据失败</AlertTitle>
+          <AlertTitle>{LABELS.mcpDetail.fetchError}</AlertTitle>
           <AlertDescription>
-            {(toolsError ?? promptsError ?? resourcesError)?.message ?? '未知错误'}
+            {(toolsError ?? promptsError ?? resourcesError)?.message ??
+              LABELS.mcpDetail.unknownError}
           </AlertDescription>
         </Alert>
       )}
 
       <Tabs defaultValue="tools">
         <TabsList>
-          <TabsTrigger value="tools">工具 ({tools.length})</TabsTrigger>
-          <TabsTrigger value="prompts">提示 ({prompts.length})</TabsTrigger>
-          <TabsTrigger value="resources">资源 ({resources.length})</TabsTrigger>
+          <TabsTrigger value="tools">
+            {LABELS.mcpDetail.tools} ({tools.length})
+          </TabsTrigger>
+          <TabsTrigger value="prompts">
+            {LABELS.mcpDetail.prompts} ({prompts.length})
+          </TabsTrigger>
+          <TabsTrigger value="resources">
+            {LABELS.mcpDetail.resources} ({resources.length})
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="tools">
           {tools.length === 0 ? (
             <Empty>
               <EmptyHeader>
-                <EmptyTitle>暂无工具</EmptyTitle>
+                <EmptyTitle>{LABELS.mcpDetail.noTools}</EmptyTitle>
               </EmptyHeader>
             </Empty>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>名称</TableHead>
-                  <TableHead>描述</TableHead>
-                  <TableHead>参数</TableHead>
+                  <TableHead>{LABELS.mcpServer.name}</TableHead>
+                  <TableHead>{LABELS.mcpDetail.description}</TableHead>
+                  <TableHead>{LABELS.mcpDetail.params}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -180,16 +197,16 @@ export default function McpServerDetail({ selectedServerName, servers }: McpServ
           {prompts.length === 0 ? (
             <Empty>
               <EmptyHeader>
-                <EmptyTitle>暂无提示</EmptyTitle>
+                <EmptyTitle>{LABELS.mcpDetail.noPrompts}</EmptyTitle>
               </EmptyHeader>
             </Empty>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>名称</TableHead>
-                  <TableHead>描述</TableHead>
-                  <TableHead>参数</TableHead>
+                  <TableHead>{LABELS.mcpServer.name}</TableHead>
+                  <TableHead>{LABELS.mcpDetail.description}</TableHead>
+                  <TableHead>{LABELS.mcpDetail.params}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -217,16 +234,16 @@ export default function McpServerDetail({ selectedServerName, servers }: McpServ
           {resources.length === 0 ? (
             <Empty>
               <EmptyHeader>
-                <EmptyTitle>暂无资源</EmptyTitle>
+                <EmptyTitle>{LABELS.mcpDetail.noResources}</EmptyTitle>
               </EmptyHeader>
             </Empty>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>名称</TableHead>
+                  <TableHead>{LABELS.mcpServer.name}</TableHead>
                   <TableHead>URI</TableHead>
-                  <TableHead>MIME 类型</TableHead>
+                  <TableHead>{LABELS.mcpDetail.mimeType}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

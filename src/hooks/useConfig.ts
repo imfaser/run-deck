@@ -1,16 +1,18 @@
 import useSWR from 'swr';
-import { useMemoizedFn } from 'ahooks';
+import { useMemoizedFn, useLockFn } from 'ahooks';
 import { toast } from 'sonner';
 import { getConfig, updateConfig, setLogLevel } from '@/services/cmds';
 import { setLogLevelFilter } from '@/services/cmds';
 import { type Config } from '@/schemas/config';
+import { LABELS } from '@/constants/labels';
 
 export function useConfig() {
   const { data: config, mutate } = useSWR<Config>('config', getConfig, {
     revalidateOnFocus: false,
+    revalidateOnMount: false,
   });
 
-  const patchConfig = useMemoizedFn(async (updater: (draft: Config) => void) => {
+  const patchConfig = useLockFn(async (updater: (draft: Config) => void) => {
     if (!config) {
       return;
     }
@@ -27,7 +29,7 @@ export function useConfig() {
         revalidate: false,
       }
     ).catch(() => {
-      toast.error('配置同步失败，已回滚');
+      toast.error(LABELS.validation.configSyncFailed);
     });
   });
 
@@ -49,7 +51,6 @@ export function useConfig() {
     patchConfig((c) => {
       c.frontend.mode = mode;
     });
-    document.documentElement.classList.toggle('dark', mode === 'dark');
   });
 
   const updateShell = useMemoizedFn((shell: Config['shell']) => {

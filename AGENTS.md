@@ -52,6 +52,7 @@ pnpm add -D <package>     # 添加开发依赖
 src/
 ├── components/         # 组件
 │   └── ui/            # shadcn/ui 组件
+├── constants/          # 常量（labels.ts 等）
 ├── hooks/             # React hooks
 ├── lib/               # 工具函数
 ├── routes/            # TanStack Router 路由文件
@@ -177,8 +178,10 @@ AppContext::global()        → is_exiting 状态 (singleton! 宏)
 - `useMemoizedFn` 替代 `useCallback` — 不需要依赖数组
 - `useMount` 替代 `useEffect + []` — 语义更清晰
 - `useImmer` 替代嵌套展开 — `draft.xxx = yyy`
-- `useLockFn` 替代手动 loading — Tauri invoke 必备
+- `useLockFn` 防并发 — 按钮点击/表单提交触发 async 操作时必用
 - `useDebounceFn` / `useThrottleFn` — 替代 setTimeout
+
+> **React Compiler 兜底 memo**：项目启用 React Compiler，自动处理 `useMemo`/`useCallback` 优化，**禁止手动添加**。但 `useLockFn` 不是 memo，Compiler 不会处理 — 忘了就裸奔。
 
 ## 代码模式
 
@@ -238,6 +241,33 @@ const data = await invoke<unknown>('get_annotations');
 return AnnotationSchema.array().parse(data);
 ```
 
+### 中文字符串管理
+
+所有中文字符串集中管理在 `src/constants/labels.ts`，禁止在组件中硬编码中文。
+
+```ts
+// src/constants/labels.ts
+export const LABELS = {
+  nav: { overview: '导航', config: '配置' },
+  mcpServer: { name: '名称', enabled: '启用' },
+  mcpForm: {
+    added: (name: string) => `已添加服务器「${name}」`,
+  },
+  common: { save: '保存', cancel: '取消' },
+  validation: { nameRequired: '名称不能为空' },
+} as const;
+
+// 组件中使用
+import { LABELS } from '@/constants/labels';
+<h1>{LABELS.nav.overview}</h1>
+toast.success(LABELS.mcpForm.added(name));
+```
+
+- 静态字符串：`LABELS.nav.overview`
+- 动态文案：用函数 `LABELS.mcpForm.added(name)`
+- Zod 验证消息：`z.string().min(1, LABELS.validation.nameRequired)`
+- 测试断言：`expect(() => schema.parse(...)).toThrow(LABELS.validation.xxx)`
+
 ## React 组件规范
 
 ### 文件顺序
@@ -274,10 +304,42 @@ export default function MyComponent({ visible }: MyComponentProps) {
 ## 样式指南
 
 - 使用 Tailwind CSS 4 工具类
-- 用 `cn()` 合并类名（`@/lib/utils`）
+- 用 `cn()` 合并类名（`@/lib/utils`），禁止模板字符串三元
+- 用 `cva()` 定义组件变体（如 Button variant），不要手写 if/switch
 - 语义色：`bg-primary`、`text-muted-foreground`，禁止 `bg-blue-500`
 - 用 `gap-*` 替代 `space-*`，`size-*` 替代 `w-* h-*`
 - 用 `truncate` 替代 `overflow-hidden text-ellipsis`
+
+### cn / cva 使用原则
+
+```tsx
+import { cn } from '@/lib/utils';
+import { cva, type VariantProps } from 'class-variance-authority';
+
+// cn: 合并类名，处理冲突
+<div className={cn('base-class', isActive && 'active-class', className)} />;
+
+// cva: 定义组件变体
+const buttonVariants = cva('inline-flex items-center justify-center', {
+  variants: {
+    variant: {
+      default: 'bg-primary text-primary-foreground',
+      outline: 'border border-input bg-transparent',
+    },
+    size: {
+      default: 'h-10 px-4 py-2',
+      sm: 'h-8 rounded-md px-3 text-sm',
+    },
+  },
+  defaultVariants: { variant: 'default', size: 'default' },
+});
+
+// 使用
+<button className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), className)} />;
+```
+
+- **必要时使用**：组件有 2+ 变体组合 → 用 cva；简单条件类 → 用 cn 即可
+- **禁止**：手动拼接模板字符串做条件判断
 
 ## UI 组件规范
 

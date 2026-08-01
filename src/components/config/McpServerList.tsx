@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/dialog';
 import { useConfig } from '@/hooks/useConfig';
 import type { McpServerConfig } from '@/schemas/config';
+import { LABELS } from '@/constants/labels';
 
 interface McpServerListProps {
   onEdit: (name: string, config: McpServerConfig) => void;
@@ -55,7 +56,7 @@ export default function McpServerList({ onEdit }: McpServerListProps) {
     delete newMcp[name];
     updateMcp(newMcp);
     setDeleteTarget(null);
-    toast.success(`已删除服务器「${name}」`);
+    toast.success(LABELS.mcpForm.deleted(name));
   });
 
   const handleAddType = useMemoizedFn((type: 'local' | 'remote') => {
@@ -71,13 +72,13 @@ export default function McpServerList({ onEdit }: McpServerListProps) {
     return (
       <Empty>
         <EmptyHeader>
-          <EmptyTitle>暂无 MCP 服务器</EmptyTitle>
-          <EmptyDescription>点击下方按钮添加第一个 MCP 服务器</EmptyDescription>
+          <EmptyTitle>{LABELS.mcpList.emptyTitle}</EmptyTitle>
+          <EmptyDescription>{LABELS.mcpList.emptyDesc}</EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
           <Button onClick={() => setAddDialogOpen(true)}>
             <Plus data-icon="inline-start" />
-            添加服务器
+            {LABELS.mcpList.addServer}
           </Button>
         </EmptyContent>
         <AddTypeDialog
@@ -92,10 +93,10 @@ export default function McpServerList({ onEdit }: McpServerListProps) {
   return (
     <div className="flex flex-col gap-4 p-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">MCP 服务器</h2>
+        <h2 className="text-lg font-semibold">{LABELS.mcpList.title}</h2>
         <Button size="sm" onClick={() => setAddDialogOpen(true)}>
           <Plus data-icon="inline-start" />
-          添加
+          {LABELS.mcpList.add}
         </Button>
       </div>
 
@@ -110,7 +111,7 @@ export default function McpServerList({ onEdit }: McpServerListProps) {
                 </Badge>
                 {!server.enabled && (
                   <Badge variant="outline" className="shrink-0 text-muted-foreground">
-                    已禁用
+                    {LABELS.mcpServer.disabled}
                   </Badge>
                 )}
               </div>
@@ -140,20 +141,20 @@ export default function McpServerList({ onEdit }: McpServerListProps) {
       <Dialog open={deleteTarget !== null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>确认删除</DialogTitle>
+            <DialogTitle>{LABELS.mcpList.deleteTitle}</DialogTitle>
             <DialogDescription>
-              确定要删除服务器「{deleteTarget}」吗？此操作不可撤销。
+              {deleteTarget ? LABELS.mcpList.deleteDesc(deleteTarget) : ''}
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setDeleteTarget(null)}>
-              取消
+              {LABELS.common.cancel}
             </Button>
             <Button
               variant="destructive"
               onClick={() => deleteTarget && handleDelete(deleteTarget)}
             >
-              删除
+              {LABELS.common.delete}
             </Button>
           </div>
         </DialogContent>
@@ -175,15 +176,15 @@ function AddTypeDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>选择服务器类型</DialogTitle>
-          <DialogDescription>选择要添加的 MCP 服务器类型</DialogDescription>
+          <DialogTitle>{LABELS.mcpList.selectTypeTitle}</DialogTitle>
+          <DialogDescription>{LABELS.mcpList.selectTypeDesc}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-2">
           <Button variant="outline" onClick={() => onSelect('local')}>
-            本地服务器（stdio）
+            {LABELS.mcpServer.typeLocalFull}
           </Button>
           <Button variant="outline" onClick={() => onSelect('remote')}>
-            远程服务器（HTTP）
+            {LABELS.mcpServer.typeRemoteFull}
           </Button>
         </div>
       </DialogContent>

@@ -11,31 +11,32 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Config, LogLevel, ShellType } from '@/schemas/config';
+import { LABELS } from '@/constants/labels';
 
-const LOG_LEVEL_OPTIONS: { value: LogLevel; label: string }[] = [
-  { value: 'error', label: 'Error' },
-  { value: 'warn', label: 'Warn' },
-  { value: 'info', label: 'Info' },
-  { value: 'debug', label: 'Debug' },
-  { value: 'trace', label: 'Trace' },
-];
+const LOG_LEVEL_ITEMS: Record<LogLevel, string> = {
+  error: LABELS.logLevel.error,
+  warn: LABELS.logLevel.warn,
+  info: LABELS.logLevel.info,
+  debug: LABELS.logLevel.debug,
+  trace: LABELS.logLevel.trace,
+};
 
-const HOME_OPTIONS: { value: Config['frontend']['home']; label: string }[] = [
-  { value: 'overview', label: '导航' },
-  { value: 'config', label: '配置' },
-];
+const HOME_ITEMS: Record<Config['frontend']['home'], string> = {
+  overview: LABELS.nav.overview,
+  config: LABELS.nav.config,
+};
 
-const MODE_OPTIONS: { value: Config['frontend']['mode']; label: string }[] = [
-  { value: 'dark', label: '深色' },
-  { value: 'light', label: '浅色' },
-];
+const MODE_ITEMS: Record<Config['frontend']['mode'], string> = {
+  dark: LABELS.theme.dark,
+  light: LABELS.theme.light,
+};
 
-const SHELL_OPTIONS: { value: ShellType; label: string }[] = [
-  { value: 'auto', label: 'Auto' },
-  { value: 'cmd', label: 'CMD' },
-  { value: 'powershell', label: 'PowerShell' },
-  { value: 'bash', label: 'Bash' },
-];
+const SHELL_ITEMS: Record<ShellType, string> = {
+  auto: LABELS.shell.auto,
+  cmd: 'CMD',
+  powershell: 'PowerShell',
+  bash: 'Bash',
+};
 
 export default function GeneralSettings() {
   const { config, updateLogLevel, updateHome, updateMode, updateShell } = useConfig();
@@ -48,20 +49,24 @@ export default function GeneralSettings() {
     <div className="flex flex-col gap-4 p-4">
       <Card>
         <CardHeader>
-          <CardTitle>通用设置</CardTitle>
+          <CardTitle>{LABELS.settings.title}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <SettingRow label="日志级别">
-            <Select value={config.log_level} onValueChange={(v) => updateLogLevel(v as LogLevel)}>
+          <SettingRow label={LABELS.settings.logLevel}>
+            <Select
+              value={config.log_level}
+              onValueChange={(v) => updateLogLevel(v as LogLevel)}
+              items={LOG_LEVEL_ITEMS}
+            >
               <SelectTrigger className="w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  <SelectLabel>日志级别</SelectLabel>
-                  {LOG_LEVEL_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
+                  <SelectLabel>{LABELS.settings.logLevel}</SelectLabel>
+                  {Object.entries(LOG_LEVEL_ITEMS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
                     </SelectItem>
                   ))}
                 </SelectGroup>
@@ -69,20 +74,21 @@ export default function GeneralSettings() {
             </Select>
           </SettingRow>
 
-          <SettingRow label="首页路由">
+          <SettingRow label={LABELS.settings.homeRoute}>
             <Select
               value={config.frontend.home}
               onValueChange={(v) => updateHome(v as Config['frontend']['home'])}
+              items={HOME_ITEMS}
             >
               <SelectTrigger className="w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  <SelectLabel>首页路由</SelectLabel>
-                  {HOME_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
+                  <SelectLabel>{LABELS.settings.homeRoute}</SelectLabel>
+                  {Object.entries(HOME_ITEMS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
                     </SelectItem>
                   ))}
                 </SelectGroup>
@@ -90,20 +96,21 @@ export default function GeneralSettings() {
             </Select>
           </SettingRow>
 
-          <SettingRow label="主题模式">
+          <SettingRow label={LABELS.theme.mode}>
             <Select
               value={config.frontend.mode}
               onValueChange={(v) => updateMode(v as Config['frontend']['mode'])}
+              items={MODE_ITEMS}
             >
               <SelectTrigger className="w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  <SelectLabel>主题模式</SelectLabel>
-                  {MODE_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
+                  <SelectLabel>{LABELS.theme.mode}</SelectLabel>
+                  {Object.entries(MODE_ITEMS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
                     </SelectItem>
                   ))}
                 </SelectGroup>
@@ -111,17 +118,21 @@ export default function GeneralSettings() {
             </Select>
           </SettingRow>
 
-          <SettingRow label="Shell 类型">
-            <Select value={config.shell} onValueChange={(v) => updateShell(v as ShellType)}>
+          <SettingRow label={LABELS.settings.shellType}>
+            <Select
+              value={config.shell}
+              onValueChange={(v) => updateShell(v as ShellType)}
+              items={SHELL_ITEMS}
+            >
               <SelectTrigger className="w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  <SelectLabel>Shell 类型</SelectLabel>
-                  {SHELL_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
+                  <SelectLabel>{LABELS.settings.shellType}</SelectLabel>
+                  {Object.entries(SHELL_ITEMS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
                     </SelectItem>
                   ))}
                 </SelectGroup>

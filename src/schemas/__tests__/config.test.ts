@@ -12,6 +12,7 @@ import {
   getStatusKind,
   getStatusError,
 } from '@/schemas/config';
+import { LABELS } from '@/constants/labels';
 
 describe('LogLevelSchema', () => {
   it('accepts valid log levels', () => {
@@ -81,7 +82,7 @@ describe('McpLocalServerConfigSchema', () => {
         type: 'local',
         command: [],
       })
-    ).toThrow('启动命令不能为空');
+    ).toThrow(LABELS.validation.commandRequired);
   });
 });
 
@@ -101,7 +102,7 @@ describe('McpRemoteServerConfigSchema', () => {
         type: 'remote',
         url: 'not-a-url',
       })
-    ).toThrow('URL 格式无效');
+    ).toThrow(LABELS.validation.urlInvalid);
   });
 });
 

@@ -7,7 +7,9 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useAppStore } from '@/store/app';
-import { useTheme } from '@/hooks/useTheme';
+import { useTheme } from '@/components/theme-provider';
+import { useConfig } from '@/hooks/useConfig';
+import { LABELS } from '@/constants/labels';
 
 const appWindow = getCurrentWindow();
 
@@ -19,13 +21,13 @@ interface FixedTab {
 }
 
 const fixedTabs: FixedTab[] = [
-  { id: 'overview', title: '导航', icon: Home, route: '/overview' },
-  { id: 'config', title: '配置', icon: Settings, route: '/config' },
+  { id: 'overview', title: LABELS.nav.overview, icon: Home, route: '/overview' },
+  { id: 'config', title: LABELS.nav.config, icon: Settings, route: '/config' },
 ];
 
 const routeTitles: Record<string, string> = {
-  '/label': '标注',
-  '/mcp-panel': 'MCP 面板',
+  '/label': LABELS.nav.label,
+  '/mcp-panel': LABELS.nav.mcpPanel,
 };
 
 function FixedTabs({
@@ -153,7 +155,8 @@ export default function TitleBar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { tabs, activeTab, setActiveTab, removeTab } = useAppStore();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
+  const { updateMode } = useConfig();
   const [isMaximized, setIsMaximized] = useState(false);
 
   useMount(async () => {
@@ -190,7 +193,15 @@ export default function TitleBar() {
           onCloseTab={handleCloseTab}
         />
       </div>
-      <WindowControls isMaximized={isMaximized} theme={theme} onToggleTheme={toggleTheme} />
+      <WindowControls
+        isMaximized={isMaximized}
+        theme={theme}
+        onToggleTheme={() => {
+          const next = theme === 'dark' ? 'light' : 'dark';
+          setTheme(next);
+          updateMode(next);
+        }}
+      />
     </div>
   );
 }

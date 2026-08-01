@@ -6,7 +6,6 @@ import { toast } from 'sonner';
 import { ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
@@ -28,18 +27,19 @@ import {
   serializeKeyValueText,
 } from '@/lib/mcp-parse';
 import type { McpServerConfig } from '@/schemas/config';
+import { LABELS } from '@/constants/labels';
 
 const localFormSchema = z.object({
-  name: z.string().min(1, '名称不能为空'),
-  commandText: z.string().min(1, '启动命令不能为空'),
+  name: z.string().min(1, LABELS.validation.nameRequired),
+  commandText: z.string().min(1, LABELS.validation.commandRequired),
   envText: z.string().optional(),
   timeout: z.string().optional(),
   enabled: z.boolean(),
 });
 
 const remoteFormSchema = z.object({
-  name: z.string().min(1, '名称不能为空'),
-  url: z.string().url('URL 格式无效'),
+  name: z.string().min(1, LABELS.validation.nameRequired),
+  url: z.string().url(LABELS.validation.urlInvalid),
   headersText: z.string().optional(),
   timeout: z.string().optional(),
   enabled: z.boolean(),
@@ -109,7 +109,7 @@ export default function McpServerForm({ serverName, serverConfig, onBack }: McpS
 
   const handleLocalSubmit: SubmitHandler<LocalFormValues> = (data) => {
     if (checkNameDuplicate(data.name)) {
-      localForm.setError('name', { message: '服务器名称已存在' });
+      localForm.setError('name', { message: LABELS.mcpForm.duplicateName });
       return;
     }
 
@@ -126,7 +126,7 @@ export default function McpServerForm({ serverName, serverConfig, onBack }: McpS
 
   const handleRemoteSubmit: SubmitHandler<RemoteFormValues> = (data) => {
     if (checkNameDuplicate(data.name)) {
-      remoteForm.setError('name', { message: '服务器名称已存在' });
+      remoteForm.setError('name', { message: LABELS.mcpForm.duplicateName });
       return;
     }
 
@@ -154,7 +154,7 @@ export default function McpServerForm({ serverName, serverConfig, onBack }: McpS
 
     newMcp[name] = newServerConfig;
     updateMcp(newMcp);
-    toast.success(isNew ? `已添加服务器「${name}」` : `已更新服务器「${name}」`);
+    toast.success(isNew ? LABELS.mcpForm.added(name) : LABELS.mcpForm.updated(name));
     onBack();
   }
 
@@ -164,44 +164,39 @@ export default function McpServerForm({ serverName, serverConfig, onBack }: McpS
         <Button variant="ghost" size="icon-sm" onClick={onBack}>
           <ArrowLeft />
         </Button>
-        <h2 className="text-lg font-semibold">{isNew ? '添加服务器' : `编辑 ${serverName}`}</h2>
+        <h2 className="text-lg font-semibold">
+          {isNew ? LABELS.mcpForm.addTitle : LABELS.mcpForm.editTitle(serverName)}
+        </h2>
       </FieldRow>
 
-      {!isNew && (
-        <FieldRow>
-          <span className="text-sm text-muted-foreground">
-            类型：{serverType === 'local' ? '本地（stdio）' : '远程（HTTP）'}
-          </span>
-          <Badge variant="secondary">{serverType === 'local' ? 'STDIO' : 'HTTP'}</Badge>
-        </FieldRow>
-      )}
-
-      {isNew && (
-        <FieldRow>
-          <span className="text-sm text-muted-foreground">类型：</span>
-          <Select value={typeSwitch} onValueChange={(v) => setTypeSwitch(v as 'local' | 'remote')}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectLabel>服务器类型</SelectLabel>
-                <SelectItem value="local">本地（stdio）</SelectItem>
-                <SelectItem value="remote">远程（HTTP）</SelectItem>
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </FieldRow>
-      )}
+      <FieldRow>
+        <span className="text-sm text-muted-foreground">{LABELS.mcpServer.type}：</span>
+        <Select
+          value={typeSwitch}
+          onValueChange={(v) => setTypeSwitch(v as 'local' | 'remote')}
+          items={{ local: LABELS.mcpServer.typeLocal, remote: LABELS.mcpServer.typeRemote }}
+        >
+          <SelectTrigger className="w-40">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              <SelectLabel>{LABELS.mcpServer.type}</SelectLabel>
+              <SelectItem value="local">{LABELS.mcpServer.typeLocal}</SelectItem>
+              <SelectItem value="remote">{LABELS.mcpServer.typeRemote}</SelectItem>
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      </FieldRow>
 
       {typeSwitch === 'local' ? (
         <form onSubmit={localForm.handleSubmit(handleLocalSubmit)} className="flex flex-col gap-4">
-          <FormField label="名称" error={localForm.formState.errors.name?.message}>
-            <Input {...localForm.register('name')} placeholder="my-server" disabled={!isNew} />
+          <FormField label={LABELS.mcpServer.name} error={localForm.formState.errors.name?.message}>
+            <Input {...localForm.register('name')} placeholder="my-server" />
           </FormField>
 
           <FormField
-            label="启动命令（每行一个参数）"
+            label={LABELS.mcpServer.command}
             error={localForm.formState.errors.commandText?.message}
           >
             <Textarea
@@ -211,7 +206,7 @@ export default function McpServerForm({ serverName, serverConfig, onBack }: McpS
             />
           </FormField>
 
-          <FormField label="环境变量（每行 KEY=value）">
+          <FormField label={LABELS.mcpServer.env}>
             <Textarea
               {...localForm.register('envText')}
               placeholder={'API_KEY=xxx\nSECRET=yyy'}
@@ -219,7 +214,7 @@ export default function McpServerForm({ serverName, serverConfig, onBack }: McpS
             />
           </FormField>
 
-          <FormField label="超时（毫秒，可选）">
+          <FormField label={LABELS.mcpServer.timeout}>
             <Input {...localForm.register('timeout')} type="number" placeholder="30000" />
           </FormField>
 
@@ -235,19 +230,18 @@ export default function McpServerForm({ serverName, serverConfig, onBack }: McpS
           onSubmit={remoteForm.handleSubmit(handleRemoteSubmit)}
           className="flex flex-col gap-4"
         >
-          <FormField label="名称" error={remoteForm.formState.errors.name?.message}>
-            <Input {...remoteForm.register('name')} placeholder="my-server" disabled={!isNew} />
+          <FormField
+            label={LABELS.mcpServer.name}
+            error={remoteForm.formState.errors.name?.message}
+          >
+            <Input {...remoteForm.register('name')} placeholder="my-server" />
           </FormField>
 
-          <FormField label="URL" error={remoteForm.formState.errors.url?.message}>
-            <Input
-              {...remoteForm.register('url')}
-              placeholder="https://example.com/mcp"
-              disabled={!isNew}
-            />
+          <FormField label={LABELS.mcpServer.url} error={remoteForm.formState.errors.url?.message}>
+            <Input {...remoteForm.register('url')} placeholder="https://example.com/mcp" />
           </FormField>
 
-          <FormField label="请求头（每行 KEY=value）">
+          <FormField label={LABELS.mcpServer.headers}>
             <Textarea
               {...remoteForm.register('headersText')}
               placeholder="Authorization=Bearer xxx"
@@ -255,7 +249,7 @@ export default function McpServerForm({ serverName, serverConfig, onBack }: McpS
             />
           </FormField>
 
-          <FormField label="超时（毫秒，可选）">
+          <FormField label={LABELS.mcpServer.timeout}>
             <Input {...remoteForm.register('timeout')} type="number" placeholder="30000" />
           </FormField>
 
@@ -285,7 +279,7 @@ function EnableSwitch({
   return (
     <FieldRow>
       <Switch checked={checked} onCheckedChange={onCheckedChange} />
-      <span className="text-sm">启用</span>
+      <span className="text-sm">{LABELS.mcpServer.enabled}</span>
     </FieldRow>
   );
 }
@@ -294,9 +288,9 @@ function FormActions({ onBack }: { onBack: () => void }) {
   return (
     <div className="flex justify-end gap-2">
       <Button type="button" variant="outline" onClick={onBack}>
-        取消
+        {LABELS.common.cancel}
       </Button>
-      <Button type="submit">保存</Button>
+      <Button type="submit">{LABELS.common.save}</Button>
     </div>
   );
 }

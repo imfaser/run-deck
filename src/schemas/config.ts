@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { LABELS } from '@/constants/labels';
 
 // --- Enums / Primitives ---
 
@@ -12,7 +13,7 @@ export type ShellType = z.infer<typeof ShellTypeSchema>;
 
 export const McpLocalServerConfigSchema = z.object({
   type: z.literal('local'),
-  command: z.array(z.string()).min(1, '启动命令不能为空'),
+  command: z.array(z.string()).min(1, LABELS.validation.commandRequired),
   environment: z.record(z.string(), z.string()).nullable().optional(),
   enabled: z.boolean().default(true),
   timeout: z.number().int().positive().nullable().optional(),
@@ -20,7 +21,7 @@ export const McpLocalServerConfigSchema = z.object({
 
 export const McpRemoteServerConfigSchema = z.object({
   type: z.literal('remote'),
-  url: z.string().url('URL 格式无效，必须以 http:// 或 https:// 开头'),
+  url: z.string().url(LABELS.validation.urlInvalid),
   headers: z.record(z.string(), z.string()).nullable().optional(),
   enabled: z.boolean().default(true),
   timeout: z.number().int().positive().nullable().optional(),

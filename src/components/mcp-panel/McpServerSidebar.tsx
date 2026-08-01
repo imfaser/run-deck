@@ -2,6 +2,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useMcpServerStatus, type McpServerConfigEntry } from '@/hooks/useMcpServers';
 import { getStatusKind, type ServerStatus } from '@/schemas/config';
+import { LABELS } from '@/constants/labels';
 
 interface McpServerSidebarProps {
   servers: McpServerConfigEntry[];
@@ -13,15 +14,15 @@ function getStatusLabel(status: ServerStatus | null): string {
   const kind = getStatusKind(status);
   switch (kind) {
     case 'Starting':
-      return '启动中';
+      return LABELS.mcpServer.status.starting;
     case 'Running':
-      return '运行中';
+      return LABELS.mcpServer.status.running;
     case 'Stopped':
-      return '已停止';
+      return LABELS.mcpServer.status.stopped;
     case 'Failed':
-      return '失败';
+      return LABELS.mcpServer.status.failed;
     default:
-      return '未知';
+      return LABELS.mcpServer.status.unknown;
   }
 }
 
@@ -73,7 +74,7 @@ function ServerEntry({
         </Badge>
         {!entry.config.enabled ? (
           <Badge variant="outline" className="px-1 py-0 text-[10px]">
-            已禁用
+            {LABELS.mcpServer.disabled}
           </Badge>
         ) : (
           <Badge variant={getStatusVariant(status)} className="px-1 py-0 text-[10px]">

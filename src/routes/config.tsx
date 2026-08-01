@@ -10,6 +10,7 @@ import GeneralSettings from '@/components/config/GeneralSettings';
 import McpServerList from '@/components/config/McpServerList';
 import McpServerForm from '@/components/config/McpServerForm';
 import type { McpServerConfig } from '@/schemas/config';
+import { LABELS } from '@/constants/labels';
 
 const configSearchSchema = z.object({
   section: z.enum(['general', 'mcp']).default('general'),
@@ -58,7 +59,7 @@ function ConfigComponent() {
         }}
       >
         <Settings data-icon="inline-start" />
-        通用
+        {LABELS.nav.general}
       </Button>
       <Separator className="my-1" />
       <Button
@@ -73,7 +74,7 @@ function ConfigComponent() {
         }}
       >
         <Server data-icon="inline-start" />
-        MCP 服务器
+        {LABELS.nav.mcpServers}
       </Button>
     </nav>
   );
