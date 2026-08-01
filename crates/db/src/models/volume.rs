@@ -1,4 +1,4 @@
-#[derive(Debug, toasty::Model)]
+#[derive(Debug, toasty::Model, serde::Serialize)]
 pub struct Volume {
     #[key]
     pub id: String,

@@ -306,7 +306,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 | --------------- | -------------------------------- | ----------------------------- |
 | 代码质量        | `clean-code`                     | SRP/DRY/KISS/YAGNI 原则       |
 | React 组件      | `composition-patterns`           | 复合组件、render props        |
-| React 性能      | `react-best-practices`           | 消除 waterfall、bundle 优化   |
+| React 性能      | `vercel-react-best-practices`    | 消除 waterfall、bundle 优化   |
 | TanStack Router | `tanstack-router-best-practices` | 文件路由、类型安全、数据加载  |
 | React 动画      | `react-view-transitions`         | View Transition API           |
 | Zustand         | `zustand`                        | stores、selectors、middleware |

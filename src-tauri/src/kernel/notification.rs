@@ -5,6 +5,7 @@ use tauri::{AppHandle, Emitter as _};
 #[derive(Debug)]
 pub enum FrontendEvent {
     Ping { timestamp: String },
+    DbChanged,
 }
 
 pub struct NotificationSystem;
@@ -20,6 +21,7 @@ impl NotificationSystem {
     fn serialize(event: FrontendEvent) -> (&'static str, serde_json::Value) {
         match event {
             FrontendEvent::Ping { timestamp } => ("run-deck://ping", json!(timestamp)),
+            FrontendEvent::DbChanged => ("run-deck://db-changed", json!(null)),
         }
     }
 }

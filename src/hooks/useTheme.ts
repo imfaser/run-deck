@@ -1,32 +1,16 @@
-import { createContextState } from 'foxact/create-context-state';
-import { useLocalStorageState } from 'ahooks';
+import { useConfig } from './useConfig';
 
-type ThemeMode = 'dark' | 'light';
+export function useTheme() {
+  const { config, updateMode } = useConfig();
+  const mode = config?.frontend?.mode ?? 'dark';
 
-const [ThemeProvider, useThemeMode, useSetThemeModeRaw] = createContextState<ThemeMode>('dark');
-
-function useTheme() {
-  const [, setStored] = useLocalStorageState<ThemeMode>('theme-mode', { defaultValue: 'dark' });
-  const mode = useThemeMode();
-  const setRaw = useSetThemeModeRaw();
-
-  function applyTheme(m: ThemeMode) {
-    document.documentElement.classList.toggle('dark', m === 'dark');
-  }
-
-  function setTheme(m: ThemeMode) {
-    setStored(m);
-    setRaw(m);
-    applyTheme(m);
+  function setTheme(m: 'dark' | 'light') {
+    updateMode(m);
   }
 
   function toggleTheme() {
-    setTheme(mode === 'dark' ? 'light' : 'dark');
+    updateMode(mode === 'dark' ? 'light' : 'dark');
   }
-
-  applyTheme(mode);
 
   return { theme: mode, setTheme, toggleTheme };
 }
-
-export { ThemeProvider, useTheme };

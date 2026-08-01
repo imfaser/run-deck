@@ -1,12 +1,12 @@
 use crate::models::annotation::Annotation;
 
-#[derive(Debug, PartialEq, toasty::Embed)]
+#[derive(Debug, PartialEq, toasty::Embed, serde::Serialize, serde::Deserialize)]
 pub enum ImageType {
     File,
     Slice,
 }
 
-#[derive(Debug, toasty::Model)]
+#[derive(Debug, toasty::Model, serde::Serialize)]
 pub struct Image {
     #[key]
     pub hash: String,
@@ -26,6 +26,7 @@ pub struct Image {
 
     pub mask_hash: Option<String>,
 
+    #[serde(skip)]
     #[has_many]
     pub annotations: Vec<Annotation>,
 }

@@ -15,6 +15,8 @@ use utils::async_handler::AsyncHandler;
 
 pub(crate) static APP_HANDLE: OnceLock<AppHandle> = OnceLock::new();
 pub(crate) static MCP_MANAGER: OnceLock<McpManager> = OnceLock::new();
+pub(crate) static DB: OnceLock<toasty::Db> = OnceLock::new();
+pub(crate) static VOLUME_STORE: OnceLock<kernel::volume_store::VolumeStore> = OnceLock::new();
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -77,6 +79,23 @@ pub fn run() {
                         }
                     }
                 });
+            }
+
+            // Initialize DB (turso::memory)
+            match AsyncHandler::block_on(db::init_db()) {
+                Ok(db_conn) => {
+                    if DB.set(db_conn).is_err() {
+                        logging!(error, Type::Setup, "Failed to init DB: already set");
+                    }
+                }
+                Err(e) => {
+                    logging!(error, Type::Setup, "Failed to init DB: {e}");
+                }
+            }
+
+            // Initialize VolumeStore
+            if VOLUME_STORE.set(kernel::volume_store::VolumeStore::new()).is_err() {
+                logging!(error, Type::Setup, "Failed to init VolumeStore: already set");
             }
 
             Ok(())

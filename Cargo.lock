@@ -5269,8 +5269,10 @@ dependencies = [
  "anyhow",
  "arrow",
  "base64 0.22.1",
+ "bytemuck",
  "bytes",
  "chrono",
+ "db",
  "draft",
  "flexi_logger",
  "hex",
@@ -5290,8 +5292,10 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-opener",
  "tauri-plugin-pinia",
+ "toasty",
  "tokio",
  "tokio-stream",
+ "uuid",
 ]
 
 [[package]]
@@ -5735,10 +5739,6 @@ dependencies = [
  "quote",
  "syn 2.0.117",
 ]
-
-[[package]]
-name = "service"
-version = "0.1.0"
 
 [[package]]
 name = "servo_arc"

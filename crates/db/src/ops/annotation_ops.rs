@@ -7,7 +7,7 @@ use crate::models::annotation::{Annotation, AnnotationBox, BoxType, PointSign};
 use crate::models::image::{Image, ImageType};
 use crate::models::label::Label;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PointInput {
     pub id: String,
     pub x: f64,
@@ -15,7 +15,7 @@ pub struct PointInput {
     pub sign: PointSign,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct BoxInput {
     pub id: String,
     pub box_type: BoxType,
@@ -25,7 +25,7 @@ pub struct BoxInput {
     pub y2: f64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct AnnotationInput {
     pub id: String,
     pub label_id: uuid::Uuid,
@@ -33,7 +33,7 @@ pub struct AnnotationInput {
     pub points: Vec<PointInput>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct NearestVisual {
     pub box_id: String,
     pub x1: f64,

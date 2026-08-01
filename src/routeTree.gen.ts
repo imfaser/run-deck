@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ConfigRouteImport } from './routes/config'
+import { Route as McpPanelRouteImport } from './routes/mcp-panel'
 import { Route as OverviewRouteImport } from './routes/overview'
 
 const IndexRoute = IndexRouteImport.update({
@@ -23,6 +24,11 @@ const ConfigRoute = ConfigRouteImport.update({
   path: '/config',
   getParentRoute: () => rootRouteImport,
 } as any)
+const McpPanelRoute = McpPanelRouteImport.update({
+  id: '/mcp-panel',
+  path: '/mcp-panel',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OverviewRoute = OverviewRouteImport.update({
   id: '/overview',
   path: '/overview',
@@ -32,30 +38,34 @@ const OverviewRoute = OverviewRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/config': typeof ConfigRoute
+  '/mcp-panel': typeof McpPanelRoute
   '/overview': typeof OverviewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/config': typeof ConfigRoute
+  '/mcp-panel': typeof McpPanelRoute
   '/overview': typeof OverviewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/config': typeof ConfigRoute
+  '/mcp-panel': typeof McpPanelRoute
   '/overview': typeof OverviewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/config' | '/overview'
+  fullPaths: '/' | '/config' | '/mcp-panel' | '/overview'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/config' | '/overview'
-  id: '__root__' | '/' | '/config' | '/overview'
+  to: '/' | '/config' | '/mcp-panel' | '/overview'
+  id: '__root__' | '/' | '/config' | '/mcp-panel' | '/overview'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ConfigRoute: typeof ConfigRoute
+  McpPanelRoute: typeof McpPanelRoute
   OverviewRoute: typeof OverviewRoute
 }
 
@@ -75,6 +85,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConfigRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/mcp-panel': {
+      id: '/mcp-panel'
+      path: '/mcp-panel'
+      fullPath: '/mcp-panel'
+      preLoaderRoute: typeof McpPanelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/overview': {
       id: '/overview'
       path: '/overview'
@@ -88,6 +105,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ConfigRoute: ConfigRoute,
+  McpPanelRoute: McpPanelRoute,
   OverviewRoute: OverviewRoute,
 }
 export const routeTree = rootRouteImport

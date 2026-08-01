@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-use std::sync::{Arc, LazyLock, Mutex};
+use std::sync::Arc;
 
 use arrow::array::{
     Array, ArrayRef, BinaryArray, Float32Array, Int32Array, Int8Array, ListArray, StringArray,
@@ -12,36 +11,13 @@ use parquet::arrow::ArrowWriter;
 use parquet::basic::Compression;
 use parquet::file::properties::WriterProperties;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 use super::{CmdResult, StringifyErr};
 
 use crate::kernel::context::AppContext;
+use crate::kernel::volume_store::VolumeEntry;
 use logging::{logging, Type};
-
-// ─── Global volume store ───────────────────────────────────────────
-
-struct VolumeStore {
-    volumes: HashMap<String, RawVolume>,
-    axis: HashMap<String, Axis>,
-    voxel_size: HashMap<String, usize>,
-}
-
-static VOLUME_STORE: LazyLock<Mutex<VolumeStore>> = LazyLock::new(|| {
-    Mutex::new(VolumeStore {
-        volumes: HashMap::new(),
-        axis: HashMap::new(),
-        voxel_size: HashMap::new(),
-    })
-});
-
-fn gen_id() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let t = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos();
-    format!("{t:x}")
-}
 
 // ─── Input / Output types ──────────────────────────────────────────
 
@@ -74,6 +50,7 @@ pub struct SliceResponse {
     pub height: usize,
     pub min: f64,
     pub max: f64,
+    pub image_hash: String,
 }
 
 #[derive(Deserialize)]
@@ -123,12 +100,28 @@ pub struct ParquetMaskEntry {
     pub meta: VolumeMeta,
 }
 
+// ─── Helpers ───────────────────────────────────────────────────────
+
+fn gen_id() -> String {
+    uuid::Uuid::now_v7().to_string()
+}
+
+fn canonicalize_path(path: &str) -> CmdResult<String> {
+    match std::fs::canonicalize(path) {
+        Ok(canonical) => Ok(canonical.to_string_lossy().to_string()),
+        // Fallback to original path if canonicalize fails (file may have been deleted)
+        Err(_) => Ok(path.to_string()),
+    }
+}
+
 // ─── Commands ──────────────────────────────────────────────────────
 
 #[tauri::command]
-pub fn raw_open(req: OpenRequest) -> CmdResult<OpenResponse> {
+pub async fn open_raw(req: OpenRequest) -> CmdResult<OpenResponse> {
+    logging!(info, Type::Cmd, "open_raw: path={}", req.path);
+
     let shape = VolumeShape::new(req.z, req.y, req.x);
-    let (voxel_size, _dtype_name) = match req.dtype.as_str() {
+    let (voxel_size, dtype_name) = match req.dtype.as_str() {
         "u8" | "uint8" => (1usize, "u8"),
         "u16" | "uint16" => (2usize, "u16"),
         other => return Err(format!("unsupported dtype: {other}")),
@@ -145,16 +138,40 @@ pub fn raw_open(req: OpenRequest) -> CmdResult<OpenResponse> {
         other => return Err(format!("unsupported axis: {other}")),
     };
 
-    let vol = RawVolume::open(&req.path, shape, voxel_size, endian).stringify_err()?;
+    // Canonicalize path
+    let path_str = canonicalize_path(&req.path)?;
+
+    let vol = RawVolume::open(&path_str, shape, voxel_size, endian).stringify_err()?;
 
     let total_slices = shape.dim(axis);
     let (slice_h, slice_w) = shape.perpendicular(axis);
 
     let id = gen_id();
-    let mut store = VOLUME_STORE.lock().stringify_err()?;
-    store.volumes.insert(id.clone(), vol);
-    store.axis.insert(id.clone(), axis);
-    store.voxel_size.insert(id.clone(), voxel_size);
+
+    // Replace into single-slot VolumeStore
+    let store = AppContext::volume_store();
+    store.replace(VolumeEntry {
+        volume_id: id.clone(),
+        path: path_str,
+        volume: vol,
+        axis,
+        voxel_size,
+        total_slices,
+        slice_width: slice_w,
+        slice_height: slice_h,
+    });
+
+    // Best-effort sync Volume row to DB
+    let x = req.x as i32;
+    let y = req.y as i32;
+    let z = req.z as i32;
+    let mut db = AppContext::db().clone();
+    if let Err(e) =
+        db::ops::volume_ops::create_or_get_volume(&mut db, &id, x, y, z, dtype_name, &req.endian, &req.axis)
+            .await
+    {
+        logging!(warn, Type::Cmd, "open_raw: failed to sync Volume row to DB: {e}");
+    }
 
     Ok(OpenResponse {
         volume_id: id,
@@ -165,14 +182,34 @@ pub fn raw_open(req: OpenRequest) -> CmdResult<OpenResponse> {
 }
 
 #[tauri::command]
+pub async fn has_raw(path: String) -> CmdResult<Option<OpenResponse>> {
+    let path_str = canonicalize_path(&path)?;
+
+    let store = AppContext::volume_store();
+    let guard = store.lock();
+    Ok(guard.as_ref().filter(|e| e.path == path_str).map(|e| {
+        OpenResponse {
+            volume_id: e.volume_id.clone(),
+            total_slices: e.total_slices,
+            slice_width: e.slice_width,
+            slice_height: e.slice_height,
+        }
+    }))
+}
+
+#[tauri::command]
 pub fn raw_slice(volume_id: String, index: usize) -> CmdResult<SliceResponse> {
-    let store = VOLUME_STORE.lock().stringify_err()?;
-    let vol = store
-        .volumes
-        .get(&volume_id)
-        .ok_or("volume not found")?;
-    let axis = store.axis.get(&volume_id).copied().unwrap_or(Axis::Z);
-    let voxel_size = store.voxel_size.get(&volume_id).copied().unwrap_or(1);
+    let store = AppContext::volume_store();
+    let guard = store.lock();
+    let entry = guard.as_ref().ok_or("volume not found")?;
+
+    if entry.volume_id != volume_id {
+        return Err("volume not found".into());
+    }
+
+    let vol = &entry.volume;
+    let axis = entry.axis;
+    let voxel_size = entry.voxel_size;
     let (h, w) = vol.shape().perpendicular(axis);
 
     match voxel_size {
@@ -181,12 +218,14 @@ pub fn raw_slice(volume_id: String, index: usize) -> CmdResult<SliceResponse> {
             let data = slice.as_slice();
             let min = data.iter().copied().min().unwrap_or(0) as f64;
             let max = data.iter().copied().max().unwrap_or(255) as f64;
+            let image_hash = hex::encode(Sha256::digest(data));
             Ok(SliceResponse {
                 data: data.to_vec(),
                 width: w,
                 height: h,
                 min,
                 max,
+                image_hash,
             })
         }
         2 => {
@@ -199,12 +238,14 @@ pub fn raw_slice(volume_id: String, index: usize) -> CmdResult<SliceResponse> {
                 .iter()
                 .map(|&v| ((v as f64 - min) / range * 255.0).round() as u8)
                 .collect();
+            let image_hash = hex::encode(Sha256::digest(bytemuck::cast_slice(values)));
             Ok(SliceResponse {
                 data: normalized,
                 width: w,
                 height: h,
                 min,
                 max,
+                image_hash,
             })
         }
         _ => Err("unsupported voxel size".into()),
@@ -462,9 +503,18 @@ pub fn parquet_export_masks(
 
 #[tauri::command]
 pub fn raw_close(volume_id: String) -> CmdResult {
-    let mut store = VOLUME_STORE.lock().stringify_err()?;
-    store.volumes.remove(&volume_id);
-    store.axis.remove(&volume_id);
-    store.voxel_size.remove(&volume_id);
+    let store = AppContext::volume_store();
+    // Peek first to check if volume_id matches before taking
+    {
+        let guard = store.lock();
+        match guard.as_ref() {
+            Some(e) if e.volume_id != volume_id => return Err("volume not found".into()),
+            None => return Err("no volume open".into()),
+            _ => {} // volume_id matches, proceed to close
+        }
+    }
+    // Safe to take now — volume_id matched
+    let _entry = store.close();
+    logging!(info, Type::Cmd, "raw_close: closed volume {volume_id}");
     Ok(())
 }

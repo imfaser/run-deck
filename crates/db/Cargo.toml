@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 tokio = { workspace = true }
-toasty = { version = "0.9", features = ["turso", "serde"] }
+toasty = { workspace = true }
 serde = { workspace = true }
 anyhow = { workspace = true }
 uuid = { workspace = true }

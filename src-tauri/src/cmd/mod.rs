@@ -1,4 +1,5 @@
 pub mod config;
+pub mod db;
 pub mod general;
 pub mod log;
 pub mod mcp;

@@ -1,6 +1,6 @@
 use crate::models::annotation::Annotation;
 
-#[derive(Debug, toasty::Model)]
+#[derive(Debug, toasty::Model, serde::Serialize)]
 pub struct Label {
     #[key]
     #[auto]
@@ -14,6 +14,7 @@ pub struct Label {
 
     pub sub_labels: Vec<String>,
 
+    #[serde(skip)]
     #[has_many]
     pub annotations: Vec<Annotation>,
 }
