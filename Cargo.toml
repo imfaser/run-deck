@@ -1,5 +1,13 @@
 [workspace]
-members = ["crates/logging", "src-tauri", "crates/draft", "crates/mcp", "crates/nimg"]
+members = [
+  "crates/logging",
+  "src-tauri",
+  "crates/draft",
+  "crates/mcp",
+  "crates/nimg",
+  "crates/service",
+  "crates/db",
+]
 resolver = "2" # 保留 Rust 新依赖解析器
 
 # ===== 最小化构建配置 =====
@@ -56,6 +64,7 @@ memmap2 = "0.9"
 bytemuck = { version = "1", features = ["derive"] }
 parquet = "54"
 arrow = "54"
+uuid = { version = "1", features = ["v4", "v7"] }
 # ===== Lint 规则 =====
 [workspace.lints.clippy]
 all = "warn"

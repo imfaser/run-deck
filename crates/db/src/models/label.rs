@@ -1,0 +1,19 @@
+use crate::models::annotation::Annotation;
+
+#[derive(Debug, toasty::Model)]
+pub struct Label {
+    #[key]
+    #[auto]
+    pub id: uuid::Uuid,
+
+    pub name: String,
+
+    pub color: String,
+
+    pub order: i32,
+
+    pub sub_labels: Vec<String>,
+
+    #[has_many]
+    pub annotations: Vec<Annotation>,
+}
