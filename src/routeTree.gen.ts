@@ -11,6 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ConfigRouteImport } from './routes/config'
+import { Route as LabelRouteImport } from './routes/label'
+import { Route as LabelSettingsRouteImport } from './routes/label-settings'
 import { Route as McpPanelRouteImport } from './routes/mcp-panel'
 import { Route as OverviewRouteImport } from './routes/overview'
 
@@ -22,6 +24,16 @@ const IndexRoute = IndexRouteImport.update({
 const ConfigRoute = ConfigRouteImport.update({
   id: '/config',
   path: '/config',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LabelRoute = LabelRouteImport.update({
+  id: '/label',
+  path: '/label',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LabelSettingsRoute = LabelSettingsRouteImport.update({
+  id: '/label-settings',
+  path: '/label-settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const McpPanelRoute = McpPanelRouteImport.update({
@@ -38,12 +50,16 @@ const OverviewRoute = OverviewRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/config': typeof ConfigRoute
+  '/label': typeof LabelRoute
+  '/label-settings': typeof LabelSettingsRoute
   '/mcp-panel': typeof McpPanelRoute
   '/overview': typeof OverviewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/config': typeof ConfigRoute
+  '/label': typeof LabelRoute
+  '/label-settings': typeof LabelSettingsRoute
   '/mcp-panel': typeof McpPanelRoute
   '/overview': typeof OverviewRoute
 }
@@ -51,20 +67,33 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/config': typeof ConfigRoute
+  '/label': typeof LabelRoute
+  '/label-settings': typeof LabelSettingsRoute
   '/mcp-panel': typeof McpPanelRoute
   '/overview': typeof OverviewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/config' | '/mcp-panel' | '/overview'
+  fullPaths:
+    '/' | '/config' | '/label' | '/label-settings' | '/mcp-panel' | '/overview'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/config' | '/mcp-panel' | '/overview'
-  id: '__root__' | '/' | '/config' | '/mcp-panel' | '/overview'
+  to:
+    '/' | '/config' | '/label' | '/label-settings' | '/mcp-panel' | '/overview'
+  id:
+    | '__root__'
+    | '/'
+    | '/config'
+    | '/label'
+    | '/label-settings'
+    | '/mcp-panel'
+    | '/overview'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ConfigRoute: typeof ConfigRoute
+  LabelRoute: typeof LabelRoute
+  LabelSettingsRoute: typeof LabelSettingsRoute
   McpPanelRoute: typeof McpPanelRoute
   OverviewRoute: typeof OverviewRoute
 }
@@ -83,6 +112,20 @@ declare module '@tanstack/react-router' {
       path: '/config'
       fullPath: '/config'
       preLoaderRoute: typeof ConfigRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/label': {
+      id: '/label'
+      path: '/label'
+      fullPath: '/label'
+      preLoaderRoute: typeof LabelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/label-settings': {
+      id: '/label-settings'
+      path: '/label-settings'
+      fullPath: '/label-settings'
+      preLoaderRoute: typeof LabelSettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mcp-panel': {
@@ -105,6 +148,8 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ConfigRoute: ConfigRoute,
+  LabelRoute: LabelRoute,
+  LabelSettingsRoute: LabelSettingsRoute,
   McpPanelRoute: McpPanelRoute,
   OverviewRoute: OverviewRoute,
 }

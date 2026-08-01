@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { Settings, Activity } from 'lucide-react';
+import { Settings, Activity, Box } from 'lucide-react';
 import { useAppStore } from '@/store/app';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LABELS } from '@/constants/labels';
@@ -7,6 +7,13 @@ import { LABELS } from '@/constants/labels';
 const FIXED_ROUTES = new Set(['/overview', '/config']);
 
 const apps = [
+  {
+    id: 'label',
+    title: LABELS.nav.label,
+    description: LABELS.overview.labelDesc,
+    icon: Box,
+    route: '/label',
+  },
   {
     id: 'config',
     title: LABELS.nav.config,

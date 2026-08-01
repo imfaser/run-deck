@@ -59,6 +59,12 @@
       "rules": {
         "react/only-export-components": "off"
       }
+    },
+    {
+      "files": ["src/**/__tests__/**/*.ts", "src/**/__tests__/**/*.tsx"],
+      "rules": {
+        "max-lines": "off"
+      }
     }
   ]
 }

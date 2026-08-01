@@ -34,6 +34,14 @@ pub struct AnnotationInput {
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AnnotationCount {
+    pub image_hash: String,
+    pub slice_index: Option<i32>,
+    pub annotation_count: u64,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct NearestVisual {
     pub box_id: String,
     pub x1: f64,
@@ -151,6 +159,44 @@ pub async fn set_annotations(
 
     let image = Image::get_by_hash(db, &hash.to_string()).await?;
     Ok(image)
+}
+
+pub async fn list_annotations_by_image(
+    db: &mut toasty::Db,
+    hash: &str,
+) -> Result<Vec<Annotation>> {
+    let annotations = Annotation::filter(Annotation::fields().image_id().eq(hash.to_string()))
+        .exec(db)
+        .await?;
+    Ok(annotations)
+}
+
+pub async fn list_annotation_counts(
+    db: &mut toasty::Db,
+    volume_id: &str,
+) -> Result<Vec<AnnotationCount>> {
+    let images = Image::filter(Image::fields().volume_id().eq(Some(volume_id.to_string())))
+        .exec(db)
+        .await?;
+
+    let mut counts = Vec::new();
+    for image in images {
+        let count = Annotation::filter(Annotation::fields().image_id().eq(image.hash.clone()))
+            .count()
+            .exec(db)
+            .await?;
+        if count > 0 {
+            counts.push(AnnotationCount {
+                image_hash: image.hash,
+                slice_index: image.slice_index,
+                annotation_count: count,
+            });
+        }
+    }
+
+    counts.sort_by_key(|c| c.slice_index.unwrap_or(0));
+
+    Ok(counts)
 }
 
 pub async fn nearest_visual_box(

@@ -47,5 +47,7 @@ pub fn generate_handlers() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         crate::cmd::db::db_update_mask_hash,
         crate::cmd::db::db_set_annotations,
         crate::cmd::db::db_nearest_visual_box,
+        crate::cmd::db::db_list_annotations_by_image,
+        crate::cmd::db::db_list_annotation_counts,
     ]
 }

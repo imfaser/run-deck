@@ -1,7 +1,7 @@
 use super::{CmdResult, StringifyErr};
 use crate::kernel::context::AppContext;
 use crate::kernel::notification::FrontendEvent;
-use db::ops::annotation_ops::{self, AnnotationInput, NearestVisual};
+use db::ops::annotation_ops::{self, AnnotationCount, AnnotationInput, NearestVisual};
 use db::ops::image_ops;
 use db::ops::label_ops;
 use logging::{logging, Type};
@@ -189,6 +189,29 @@ pub async fn db_nearest_visual_box(
     );
     let mut db = AppContext::db().clone();
     annotation_ops::nearest_visual_box(&mut db, &image_hash, label_id)
+        .await
+        .stringify_err()
+}
+
+#[tauri::command]
+pub async fn db_list_annotations_by_image(hash: String) -> CmdResult<Vec<db::models::annotation::Annotation>> {
+    logging!(info, Type::Cmd, "db_list_annotations_by_image: hash={}", hash);
+    let mut db = AppContext::db().clone();
+    annotation_ops::list_annotations_by_image(&mut db, &hash)
+        .await
+        .stringify_err()
+}
+
+#[tauri::command]
+pub async fn db_list_annotation_counts(volume_id: String) -> CmdResult<Vec<AnnotationCount>> {
+    logging!(
+        info,
+        Type::Cmd,
+        "db_list_annotation_counts: volume_id={}",
+        volume_id
+    );
+    let mut db = AppContext::db().clone();
+    annotation_ops::list_annotation_counts(&mut db, &volume_id)
         .await
         .stringify_err()
 }
