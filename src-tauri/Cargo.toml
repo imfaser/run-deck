@@ -42,7 +42,7 @@ arrow = { workspace = true }
 parquet-export = { workspace = true }
 http = "1"
 mime_guess = "2"
-tauri-plugin-pinia = "5.0.0"
+
 [features]
 prod = ["logging/prod"]
 

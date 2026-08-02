@@ -60,11 +60,6 @@ pub fn app_cache_dir() -> Result<PathBuf> {
     Ok(app_home_dir()?.join("cache"))
 }
 
-/// Pinia store directory
-pub fn app_store_dir() -> Result<PathBuf> {
-    Ok(app_home_dir()?.join("stores"))
-}
-
 /// Config file path (config.json)
 pub fn config_file() -> Result<PathBuf> {
     Ok(app_home_dir()?.join("config.json"))
