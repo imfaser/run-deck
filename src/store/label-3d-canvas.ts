@@ -22,6 +22,7 @@ interface Label3DCanvasState {
   stageScale: number;
   stagePos: { x: number; y: number };
   cursorImagePos: { x: number; y: number } | null;
+  cursorScreenPos: { x: number; y: number } | null;
   fitImageTrigger: number;
   pendingAnnotation: PendingAnnotation;
   showObjectSelectPopup: boolean;
@@ -34,6 +35,7 @@ interface Label3DCanvasState {
   setStageScale: (scale: number) => void;
   setStagePos: (pos: { x: number; y: number }) => void;
   setCursorImagePos: (pos: { x: number; y: number } | null) => void;
+  setCursorScreenPos: (pos: { x: number; y: number } | null) => void;
   setFitImageTrigger: () => void;
   setPendingAnnotation: (pending: PendingAnnotation) => void;
   setShowObjectSelectPopup: (show: boolean) => void;
@@ -78,6 +80,7 @@ export const useLabel3DCanvasStore = create<Label3DCanvasState>()(
     stageScale: 1,
     stagePos: { x: 0, y: 0 },
     cursorImagePos: null,
+    cursorScreenPos: null,
     fitImageTrigger: 0,
     pendingAnnotation: null,
     showObjectSelectPopup: false,
@@ -107,6 +110,10 @@ export const useLabel3DCanvasStore = create<Label3DCanvasState>()(
     setCursorImagePos: (pos) =>
       set((state) => {
         state.cursorImagePos = pos;
+      }),
+    setCursorScreenPos: (pos) =>
+      set((state) => {
+        state.cursorScreenPos = pos;
       }),
     setFitImageTrigger: () =>
       set((state) => {

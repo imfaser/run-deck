@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { match } from 'ts-pattern';
 import { flatMap } from 'es-toolkit';
 import { useMemoizedFn } from 'ahooks';
@@ -25,7 +24,9 @@ export interface UseCanvasAnnotationsOpts {
 export function useCanvasAnnotations(options: UseCanvasAnnotationsOpts) {
   const { dims, maxScale = 10 } = options;
 
-  const store = () => useLabel3DCanvasStore.getState();
+  function store() {
+    return useLabel3DCanvasStore.getState();
+  }
 
   function getAllAnnotationIds(): Set<string> {
     const allAnnotations = flatMap(store().objects, (o) => [...o.points, ...o.boxes]);
@@ -70,48 +71,6 @@ export function useCanvasAnnotations(options: UseCanvasAnnotationsOpts) {
       x: pointer.x - mousePointTo.x * clampedScale,
       y: pointer.y - mousePointTo.y * clampedScale,
     });
-  });
-
-  const handleStageClick = useMemoizedFn(function handleStageClick(
-    e: Konva.KonvaEventObject<MouseEvent>
-  ) {
-    const stage = canvasRefs.getStage();
-    const transformer = canvasRefs.getTransformer();
-    if (!stage) {
-      return;
-    }
-    if (e.target.getParent()?.getClassName() === 'Transformer') {
-      return;
-    }
-
-    const onAnnotation = isOnAnnotation(e.target);
-    logMessage(
-      'debug',
-      `[canvas] stageClick mode=${store().mode} tool=${store().tool} target="${e.target.name()}" class=${e.target.className} onAnnotation=${onAnnotation} pending=${store().pendingAnnotation ? JSON.stringify(store().pendingAnnotation) : 'null'} objCount=${store().objects.length}`
-    ).catch(() => {});
-
-    match(store().mode)
-      .with('create', () => handleCreateClick(e, stage))
-      .with('select', () => {
-        if (!onAnnotation) {
-          store().clearSelection();
-          if (transformer) {
-            transformer.nodes([]);
-          }
-        }
-      })
-      .with('delete', () => {})
-      .exhaustive();
-  });
-
-  const handleCreateClick = useMemoizedFn(function handleCreateClick(
-    e: Konva.KonvaEventObject<MouseEvent>,
-    stage: Konva.Stage
-  ) {
-    match(store().tool)
-      .with('p_point', 'n_point', () => handlePointCreate(e, stage))
-      .with('box', () => {})
-      .exhaustive();
   });
 
   const handlePointCreate = useMemoizedFn(function handlePointCreate(
@@ -162,9 +121,64 @@ export function useCanvasAnnotations(options: UseCanvasAnnotationsOpts) {
     });
   });
 
-  function isBoxAnnotation(objects: AnnotationObject[], id: string): boolean {
-    return objects.some((o) => o.boxes.some((b) => b.id === id));
-  }
+  const handleCreateClick = useMemoizedFn(function handleCreateClick(
+    e: Konva.KonvaEventObject<MouseEvent>,
+    stage: Konva.Stage
+  ) {
+    match(store().tool)
+      .with('p_point', 'n_point', () => handlePointCreate(e, stage))
+      .with('box', () => {})
+      .exhaustive();
+  });
+
+  const handleStageClick = useMemoizedFn(function handleStageClick(
+    e: Konva.KonvaEventObject<MouseEvent>
+  ) {
+    const stage = canvasRefs.getStage();
+    const transformer = canvasRefs.getTransformer();
+    if (!stage) {
+      return;
+    }
+    if (e.target.getParent()?.getClassName() === 'Transformer') {
+      return;
+    }
+
+    const onAnnotation = isOnAnnotation(e.target);
+    logMessage(
+      'debug',
+      `[canvas] stageClick mode=${store().mode} tool=${store().tool} target="${e.target.name()}" class=${e.target.className} onAnnotation=${onAnnotation} pending=${store().pendingAnnotation ? JSON.stringify(store().pendingAnnotation) : 'null'} objCount=${store().objects.length}`
+    ).catch(() => {});
+
+    match(store().mode)
+      .with('create', () => handleCreateClick(e, stage))
+      .with('select', () => {
+        if (!onAnnotation) {
+          store().clearSelection();
+          if (transformer) {
+            transformer.nodes([]);
+          }
+        }
+      })
+      .with('delete', () => {})
+      .with('move', () => {})
+      .exhaustive();
+  });
+
+  const isBoxAnnotation = (objects: AnnotationObject[], id: string): boolean =>
+    objects.some((o) => o.boxes.some((b) => b.id === id));
+
+  const attachTransformer = (annId: string) => {
+    const stage = canvasRefs.getStage();
+    const transformer = canvasRefs.getTransformer();
+    if (!stage || !transformer) {
+      return;
+    }
+    const node = stage.findOne('.' + annId);
+    logMessage('debug', `[canvas] box node=${!!node}`).catch(() => {});
+    if (node) {
+      transformer.nodes([node]);
+    }
+  };
 
   const handleAnnotationClick = useMemoizedFn(function handleAnnotationClick(
     ann: FrontendAnnotation,
@@ -193,19 +207,6 @@ export function useCanvasAnnotations(options: UseCanvasAnnotationsOpts) {
       })
       .otherwise(() => {});
   });
-
-  function attachTransformer(annId: string) {
-    const stage = canvasRefs.getStage();
-    const transformer = canvasRefs.getTransformer();
-    if (!stage || !transformer) {
-      return;
-    }
-    const node = stage.findOne('.' + annId);
-    logMessage('debug', `[canvas] box node=${!!node}`).catch(() => {});
-    if (node) {
-      transformer.nodes([node]);
-    }
-  }
 
   const handleDragEnd = useMemoizedFn(function handleDragEnd(
     ann: FrontendAnnotation,
@@ -264,12 +265,14 @@ export function useCanvasAnnotations(options: UseCanvasAnnotationsOpts) {
     if (!s.imageWidth || !s.imageHeight) {
       return;
     }
+    // 小图放大：以画布 75% 为基准，取 min(scaleX, scaleY) 再乘 0.75，
+    // 大图缩小：同样收敛到窗口 75% 内，保证任何尺寸都"适配"。
     const padding = 40;
     const availW = dims.stageWidth - padding * 2;
     const availH = dims.stageHeight - padding * 2;
     const scaleX = availW / s.imageWidth;
     const scaleY = availH / s.imageHeight;
-    const scale = Math.min(scaleX, scaleY, 1);
+    const scale = Math.min(scaleX, scaleY) * 0.75;
     s.setStageScale(scale);
     s.setStagePos({
       x: (dims.stageWidth - s.imageWidth * scale) / 2,
@@ -293,24 +296,14 @@ export function useCanvasAnnotations(options: UseCanvasAnnotationsOpts) {
     return null;
   });
 
-  return useMemo(
-    () => ({
-      handleWheel,
-      handleStageClick,
-      handleAnnotationClick,
-      handleDragEnd,
-      handleTransformEnd,
-      fitToImage,
-      getAnnotationById,
-    }),
-    [
-      handleWheel,
-      handleStageClick,
-      handleAnnotationClick,
-      handleDragEnd,
-      handleTransformEnd,
-      fitToImage,
-      getAnnotationById,
-    ]
-  );
+  // 所有回调均为 useMemoizedFn（引用恒定），直接返回稳定对象，无需 useMemo
+  return {
+    handleWheel,
+    handleStageClick,
+    handleAnnotationClick,
+    handleDragEnd,
+    handleTransformEnd,
+    fitToImage,
+    getAnnotationById,
+  };
 }

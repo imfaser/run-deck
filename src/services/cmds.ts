@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { toCamelCaseKeys } from 'es-toolkit';
 import {
   parseConfig,
   ServerStatusSchema,
@@ -38,20 +39,38 @@ import {
   type SliceResponse,
 } from '@/schemas/volume';
 
-// --- Client-side log filter ---
+// --- Log ---
 
-const LOG_LEVEL_PRIORITY: Record<string, number> = {
-  trace: 0,
-  debug: 1,
-  info: 2,
-  warn: 3,
-  error: 4,
-};
+// 日志级别过滤由 Rust 端 flexi_logger 统一负责，前端不预滤，避免与 Rust 级别不一致时丢失日志
 
-let currentLogLevelFilter = LOG_LEVEL_PRIORITY['info'];
+export async function setLogLevel(level: string): Promise<void> {
+  await invoke('set_log_level', { level });
+}
 
-export function setLogLevelFilter(level: string) {
-  currentLogLevelFilter = LOG_LEVEL_PRIORITY[level] ?? LOG_LEVEL_PRIORITY['info'];
+export async function logMessage(level: string, message: string): Promise<void> {
+  await invoke('log_message', { level, message });
+}
+
+export async function getLogDir(): Promise<string> {
+  return await invoke<string>('get_log_dir');
+}
+
+export async function cleanupLogs(): Promise<number> {
+  return await invoke<number>('cleanup_logs');
+}
+
+export interface LogEntry {
+  ts: string;
+  level: string;
+  message: string;
+}
+
+export async function getLatestLogs(n: number): Promise<LogEntry[]> {
+  return await invoke<LogEntry[]>('get_latest_logs', { n });
+}
+
+export async function setLogEmit(enabled: boolean): Promise<void> {
+  await invoke('set_log_emit', { enabled });
 }
 
 // --- Config ---
@@ -63,19 +82,6 @@ export async function getConfig(): Promise<Config> {
 
 export async function updateConfig(newConfig: Config): Promise<void> {
   await invoke('update_config', { newConfig });
-}
-
-// --- Log ---
-
-export async function setLogLevel(level: string): Promise<void> {
-  await invoke('set_log_level', { level });
-}
-
-export async function logMessage(level: string, message: string): Promise<void> {
-  if ((LOG_LEVEL_PRIORITY[level] ?? LOG_LEVEL_PRIORITY['info']) < currentLogLevelFilter) {
-    return;
-  }
-  await invoke('log_message', { level, message });
 }
 
 // --- MCP ---
@@ -171,7 +177,8 @@ export async function dbDeleteLabel(id: string): Promise<void> {
 // --- Images ---
 
 export async function dbUpsertImage(input: ImageUpsertInput): Promise<Image> {
-  const raw = await invoke<unknown>('db_upsert_image', { input });
+  // Rust 端 ImageUpsertInput 标注 `rename_all = "camelCase"`，发送边界统一转 camelCase
+  const raw = await invoke<unknown>('db_upsert_image', { input: toCamelCaseKeys(input) });
   return ImageSchema.parse(raw);
 }
 

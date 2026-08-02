@@ -20,7 +20,7 @@ export default defineConfig({
           logger: {
             logEvent(filename, event) {
               if (event.kind === 'CompileSuccess') {
-                console.log(`[Compiler] Compiled: ${filename}`);
+                // console.log(`[Compiler] Compiled: ${filename}`);
               } else if (event.kind === 'CompileError') {
                 console.error(`[Compiler] Skipped: ${filename}`, event.detail.reason);
               }

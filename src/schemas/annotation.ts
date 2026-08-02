@@ -7,7 +7,7 @@ export const BoxTypeSchema = z.enum(['Annotate', 'Visual']);
 export type BoxType = z.infer<typeof BoxTypeSchema>;
 
 // 前端工具/模式（源自旧版 label-raw）
-export const LabelModeSchema = z.enum(['select', 'create', 'delete']);
+export const LabelModeSchema = z.enum(['select', 'create', 'delete', 'move']);
 export type LabelMode = z.infer<typeof LabelModeSchema>;
 
 export const AnnotationTypeSchema = z.enum(['p_point', 'n_point', 'box']);

@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
+import { useMemoizedFn, useUpdateEffect } from 'ahooks';
 import { Check, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -73,12 +74,7 @@ export function ColorPicker({
   const [hsl, setHsl] = useState<[number, number, number]>([0, 0, 0]);
   const [colorInput, setColorInput] = useState(color);
 
-  useEffect(() => {
-    handleColorChange(color);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [color]);
-
-  const handleColorChange = (newColor: string) => {
+  const handleColorChange = useMemoizedFn((newColor: string) => {
     const normalizedColor = normalizeColor(newColor);
     setColorInput(normalizedColor);
 
@@ -98,7 +94,12 @@ export function ColorPicker({
 
     setHsl([h, s, l]);
     onChange(`hsl(${h.toFixed(1)}, ${s.toFixed(1)}%, ${l.toFixed(1)}%)`);
-  };
+  });
+
+  // 外部 color prop 变化时同步内部状态（useMemoizedFn 保证 handleColorChange 引用恒定）
+  useUpdateEffect(() => {
+    handleColorChange(color);
+  }, [color, handleColorChange]);
 
   const handleHueChange = (hue: number) => {
     const newHsl: [number, number, number] = [hue, hsl[1], hsl[2]];
@@ -106,15 +107,39 @@ export function ColorPicker({
     handleColorChange(`hsl(${newHsl[0]}, ${newHsl[1]}%, ${newHsl[2]}%)`);
   };
 
-  const handleSaturationLightnessChange = (event: React.MouseEvent<HTMLDivElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
+  const handleSaturationLightnessChange = (
+    clientX: number,
+    clientY: number,
+    el: HTMLDivElement | null
+  ) => {
+    if (!el) {
+      return;
+    }
+    const rect = el.getBoundingClientRect();
+    const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
+    const y = Math.max(0, Math.min(clientY - rect.top, rect.height));
     const s = Math.round((x / rect.width) * 100);
     const l = Math.round(100 - (y / rect.height) * 100);
     const newHsl: [number, number, number] = [hsl[0], s, l];
     setHsl(newHsl);
     handleColorChange(`hsl(${newHsl[0]}, ${newHsl[1]}%, ${newHsl[2]}%)`);
+  };
+
+  const handleSaturationPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    handleSaturationLightnessChange(event.clientX, event.clientY, event.currentTarget);
+  };
+
+  const handleSaturationPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      handleSaturationLightnessChange(event.clientX, event.clientY, event.currentTarget);
+    }
+  };
+
+  const handleSaturationPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
   };
 
   const handleColorInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -155,7 +180,7 @@ export function ColorPicker({
         }
       />
       <PopoverContent className="w-60 p-3">
-        <div className="space-y-3">
+        <div className="flex flex-col gap-3">
           <div
             className="relative h-40 w-full cursor-crosshair overflow-hidden rounded-lg"
             style={{
@@ -165,7 +190,10 @@ export function ColorPicker({
                 hsl(${hsl[0]}, 100%, 50%)
               `,
             }}
-            onClick={handleSaturationLightnessChange}
+            onPointerDown={handleSaturationPointerDown}
+            onPointerMove={handleSaturationPointerMove}
+            onPointerUp={handleSaturationPointerUp}
+            onPointerCancel={handleSaturationPointerUp}
           >
             <div
               className="absolute size-4 rounded-full border-2 border-white shadow-md"

@@ -1,5 +1,7 @@
 use super::CmdResult;
 use crate::config::Config;
+use crate::kernel::context::AppContext;
+use crate::kernel::notification::FrontendEvent;
 use logging::{logging, update_log_level, Type};
 
 #[tauri::command]
@@ -15,11 +17,13 @@ pub fn update_config(new_config: Config) -> CmdResult {
     let config = Config::global();
     let old_level = config.data_arc().log_level.clone();
     config.edit_draft(|draft| *draft = new_config);
+    config.apply();
     let new_level = config.data_arc().log_level.clone();
     if old_level != new_level {
         if let Err(e) = update_log_level(&new_level) {
             logging!(warn, Type::Config, "Failed to update log level: {e}");
         }
     }
+    AppContext::send_event(FrontendEvent::ConfigChanged);
     Ok(())
 }

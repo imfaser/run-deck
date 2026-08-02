@@ -4,6 +4,7 @@ use std::fmt;
 use std::fs;
 use std::panic::PanicHookInfo;
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
 
 pub const KEEP_LOG_FILES: usize = 8;
@@ -11,6 +12,25 @@ pub const DEFAULT_LOG_MAX_SIZE_MB: u64 = 1;
 pub const DEFAULT_RETENTION_DAYS: u32 = 30;
 
 static LOGGER_HANDLE: OnceLock<LoggerHandle> = OnceLock::new();
+
+/// 实时日志回调：注入方（src-tauri）用它把日志行 emit 到前端。
+/// 签名 (ts, level, message)。通过 OnceLock 注入一次，防止重复设置。
+static LOG_EMITTER: OnceLock<Box<dyn Fn(&str, &str, &str) + Send + Sync>> = OnceLock::new();
+
+/// 事件流开关：仅在 /logs 页打开时开启，避免无查看者时产生 IPC 开销。
+static EMITTER_ENABLED: AtomicBool = AtomicBool::new(false);
+
+/// 注入日志回调。重复调用返回错误（保持原回调）。
+pub fn set_log_emitter(f: Box<dyn Fn(&str, &str, &str) + Send + Sync>) -> Result<(), String> {
+    LOG_EMITTER
+        .set(f)
+        .map_err(|_| "log emitter already set".to_string())
+}
+
+/// 开启/关闭日志事件流（不影响文件/stdout 写入）。
+pub fn set_emitter_enabled(enabled: bool) {
+    EMITTER_ENABLED.store(enabled, Ordering::Relaxed);
+}
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Type {
@@ -100,6 +120,31 @@ fn colored_timestamp_format(
     )
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct LogEntry {
+    pub ts: String,
+    pub level: String,
+    pub message: String,
+}
+
+/// 解析 flexi_logger 文件行：`YYYY-MM-DD HH:MM:SS.mmm LEVEL [module] message`
+/// 失败返回 None（如空行 / 缺字段）。
+pub fn parse_log_line(line: &str) -> Option<LogEntry> {
+    static RE: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    let re = RE.get_or_init(|| {
+        regex::Regex::new(
+            r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}) (ERROR|WARN|INFO|DEBUG|TRACE)\s+\[[^\]]*\]\s?(.*)$",
+        )
+        .expect("valid log line regex")
+    });
+    let caps = re.captures(line)?;
+    Some(LogEntry {
+        ts: caps[1].to_string(),
+        level: caps[2].to_lowercase(),
+        message: caps[3].trim().to_string(),
+    })
+}
+
 pub fn normalize_log_level(level: &str) -> &str {
     match level {
         "error" | "warn" | "info" | "debug" | "trace" => level,
@@ -164,6 +209,14 @@ impl flexi_logger::filter::LogLineFilter for ModuleFilter {
         if blocked.iter().any(|prefix| module.starts_with(prefix)) {
             Ok(())
         } else {
+            if EMITTER_ENABLED.load(Ordering::Relaxed) {
+                if let Some(emitter) = LOG_EMITTER.get() {
+                    let ts = now.now().format("%Y-%m-%d %H:%M:%S%.3f").to_string();
+                    let level = record.level().to_string().to_lowercase();
+                    let message = record.args().to_string();
+                    emitter(&ts, &level, &message);
+                }
+            }
             log_line_writer.write(now, record)
         }
     }
@@ -191,7 +244,13 @@ fn install_panic_hook() {
     }));
 }
 
-pub fn setup_log(log_dir: Option<&Path>, level: &str, retention_days: u32) {
+pub fn setup_log(
+    log_dir: Option<&Path>,
+    level: &str,
+    retention_days: u32,
+    max_size_mb: u64,
+    keep_files: usize,
+) {
     if let Some(dir) = log_dir {
         let _ = fs::create_dir_all(dir);
         cleanup_old_logs(dir, retention_days);
@@ -211,12 +270,12 @@ pub fn setup_log(log_dir: Option<&Path>, level: &str, retention_days: u32) {
             .format_for_files(timestamp_format)
             .write_mode(WriteMode::Direct)
             .rotate(
-                flexi_logger::Criterion::Size(DEFAULT_LOG_MAX_SIZE_MB * 1024 * 1024),
+                flexi_logger::Criterion::Size(max_size_mb * 1024 * 1024),
                 flexi_logger::Naming::TimestampsCustomFormat {
                     current_infix: Some("latest"),
                     format: "%Y%m%d-%H%M%S",
                 },
-                flexi_logger::Cleanup::KeepLogFiles(KEEP_LOG_FILES),
+                flexi_logger::Cleanup::KeepLogFiles(keep_files),
             );
     }
 

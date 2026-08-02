@@ -18,12 +18,12 @@ function setupGlobalErrorLogging() {
 
 async function bootstrap() {
   setupGlobalErrorLogging();
-  const { config } = await preloadAppData();
+  await preloadAppData();
 
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <App config={config} />
-      <Toaster position="bottom-right" richColors />
+      <App />
+      <Toaster position="top-center" offset={44} richColors />
     </StrictMode>
   );
 }

@@ -10,6 +10,7 @@ pub struct Label {
 
     pub color: String,
 
+    #[unique]
     pub order: i32,
 
     pub sub_labels: Vec<String>,

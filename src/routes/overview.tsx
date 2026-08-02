@@ -4,7 +4,7 @@ import { useAppStore } from '@/store/app';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LABELS } from '@/constants/labels';
 
-const FIXED_ROUTES = new Set(['/overview', '/config']);
+const FIXED_ROUTES = new Set(['/overview', '/config', '/logs']);
 
 const apps = [
   {

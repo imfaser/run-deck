@@ -3,7 +3,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { toast } from 'sonner';
 import { Plus, Minus, X, Pencil } from 'lucide-react';
-import { useMemoizedFn } from 'ahooks';
+import { useLockFn, useMemoizedFn } from 'ahooks';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ColorPicker } from '@/components/ui/color-picker';
@@ -50,6 +50,21 @@ function LabelSettingsComponent() {
     setDialogOpen(false);
     setEditing(null);
     await mutate();
+  });
+
+  const handleDelete = useMemoizedFn(async () => {
+    if (!deleting) {
+      return;
+    }
+    try {
+      await dbDeleteLabel(deleting.id);
+      toast.success(LABELS.labelSettings.deleted(deleting.name));
+      setDeleting(null);
+      await mutate();
+    } catch (e) {
+      await logMessage('error', `[db] delete label failed: ${e}`);
+      toast.error(String(e));
+    }
   });
 
   return (
@@ -104,20 +119,7 @@ function LabelSettingsComponent() {
             <AlertDialogCancel>{LABELS.common.cancel}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-white hover:bg-destructive/90"
-              onClick={async () => {
-                if (!deleting) {
-                  return;
-                }
-                try {
-                  await dbDeleteLabel(deleting.id);
-                  toast.success(LABELS.labelSettings.deleted(deleting.name));
-                  setDeleting(null);
-                  await mutate();
-                } catch (e) {
-                  await logMessage('error', `[db] delete label failed: ${e}`);
-                  toast.error(String(e));
-                }
-              }}
+              onClick={handleDelete}
             >
               {LABELS.common.delete}
             </AlertDialogAction>
@@ -210,19 +212,22 @@ function LabelFormDialog({
   editing: Label | null;
   onSaved: (label: Label) => void;
 }) {
+  const { data: labels } = useLabels();
   const [name, setName] = useState('');
   const [color, setColor] = useState('#22c55e');
-  const [order, setOrder] = useState(0);
+  const [order, setOrder] = useState(1);
   const [subLabelText, setSubLabelText] = useState('');
   const [subLabels, setSubLabels] = useState<string[]>([]);
-  const [saving, setSaving] = useState(false);
 
   const isEditing = editing !== null;
+
+  // 新增时自动分配下一个 order（现有最大 + 1，起始 1）
+  const nextOrder = (labels ?? []).reduce((max, l) => Math.max(max, l.order), 0) + 1;
 
   const reset = useMemoizedFn(() => {
     setName(editing?.name ?? '');
     setColor(editing?.color ?? '#22c55e');
-    setOrder(editing?.order ?? 0);
+    setOrder(editing?.order ?? nextOrder);
     setSubLabels(editing?.sub_labels ?? []);
     setSubLabelText('');
   });
@@ -232,6 +237,33 @@ function LabelFormDialog({
       reset();
     }
   }, [open, reset]);
+
+  const handleSave = useLockFn(async () => {
+    if (!name.trim()) {
+      toast.error(LABELS.labelSettings.nameRequired);
+      return;
+    }
+    if (isEditing) {
+      const updated = await dbUpdateLabel({
+        id: editing!.id,
+        name: name.trim(),
+        color,
+        order,
+        sub_labels: subLabels,
+      });
+      toast.success(LABELS.labelSettings.updated(updated.name));
+      await onSaved(updated);
+    } else {
+      const created = await dbCreateLabel({
+        name: name.trim(),
+        color,
+        order,
+        sub_labels: subLabels,
+      });
+      toast.success(LABELS.labelSettings.added(created.name));
+      await onSaved(created);
+    }
+  });
 
   return (
     <Dialog
@@ -274,12 +306,12 @@ function LabelFormDialog({
             <label className="text-sm font-medium">{LABELS.labelSettings.subLabels}</label>
             {subLabels.length > 0 && (
               <div className="flex flex-wrap gap-1">
-                {subLabels.map((s, i) => (
-                  <Badge key={`${s}-${i}`} variant="secondary" className="gap-1">
+                {subLabels.map((s) => (
+                  <Badge key={s} variant="secondary" className="gap-1">
                     {s}
                     <button
                       className="hover:text-destructive"
-                      onClick={() => setSubLabels(subLabels.filter((_, idx) => idx !== i))}
+                      onClick={() => setSubLabels(subLabels.filter((x) => x !== s))}
                     >
                       <X className="size-3" />
                     </button>
@@ -295,7 +327,9 @@ function LabelFormDialog({
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && subLabelText.trim()) {
                     e.preventDefault();
-                    setSubLabels([...subLabels, subLabelText.trim()]);
+                    if (!subLabels.includes(subLabelText.trim())) {
+                      setSubLabels([...subLabels, subLabelText.trim()]);
+                    }
                     setSubLabelText('');
                   }
                 }}
@@ -306,7 +340,9 @@ function LabelFormDialog({
                 size="icon"
                 onClick={() => {
                   if (subLabelText.trim()) {
-                    setSubLabels([...subLabels, subLabelText.trim()]);
+                    if (!subLabels.includes(subLabelText.trim())) {
+                      setSubLabels([...subLabels, subLabelText.trim()]);
+                    }
                     setSubLabelText('');
                   }
                 }}
@@ -324,43 +360,7 @@ function LabelFormDialog({
               </Button>
             }
           />
-          <Button
-            disabled={saving || !name.trim()}
-            onClick={async () => {
-              if (!name.trim()) {
-                toast.error(LABELS.labelSettings.nameRequired);
-                return;
-              }
-              setSaving(true);
-              try {
-                if (isEditing) {
-                  const updated = await dbUpdateLabel({
-                    id: editing!.id,
-                    name: name.trim(),
-                    color,
-                    order,
-                    sub_labels: subLabels,
-                  });
-                  toast.success(LABELS.labelSettings.updated(updated.name));
-                  await onSaved(updated);
-                } else {
-                  const created = await dbCreateLabel({
-                    name: name.trim(),
-                    color,
-                    order,
-                    sub_labels: subLabels,
-                  });
-                  toast.success(LABELS.labelSettings.added(created.name));
-                  await onSaved(created);
-                }
-              } catch (e) {
-                await logMessage('error', `[db] save label failed: ${e}`);
-                toast.error(String(e));
-              } finally {
-                setSaving(false);
-              }
-            }}
-          >
+          <Button disabled={!name.trim()} onClick={handleSave}>
             {LABELS.common.save}
           </Button>
         </DialogFooter>

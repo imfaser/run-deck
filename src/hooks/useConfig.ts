@@ -2,7 +2,6 @@ import useSWR from 'swr';
 import { useMemoizedFn, useLockFn } from 'ahooks';
 import { toast } from 'sonner';
 import { getConfig, updateConfig, setLogLevel } from '@/services/cmds';
-import { setLogLevelFilter } from '@/services/cmds';
 import { type Config } from '@/schemas/config';
 import { LABELS } from '@/constants/labels';
 
@@ -38,7 +37,6 @@ export function useConfig() {
       c.log_level = level;
     });
     setLogLevel(level);
-    setLogLevelFilter(level);
   });
 
   const updateHome = useMemoizedFn((home: Config['frontend']['home']) => {
@@ -59,6 +57,24 @@ export function useConfig() {
     });
   });
 
+  const updateLogMaxSizeMb = useMemoizedFn((value: number) => {
+    patchConfig((c) => {
+      c.log_max_size_mb = value;
+    });
+  });
+
+  const updateLogKeepFiles = useMemoizedFn((value: number) => {
+    patchConfig((c) => {
+      c.log_keep_files = value;
+    });
+  });
+
+  const updateLogRetentionDays = useMemoizedFn((value: number) => {
+    patchConfig((c) => {
+      c.log_retention_days = value;
+    });
+  });
+
   const updateMcp = useMemoizedFn((mcp: Config['mcp']) => {
     patchConfig((c) => {
       c.mcp = mcp;
@@ -71,6 +87,9 @@ export function useConfig() {
     updateHome,
     updateMode,
     updateShell,
+    updateLogMaxSizeMb,
+    updateLogKeepFiles,
+    updateLogRetentionDays,
     updateMcp,
   };
 }

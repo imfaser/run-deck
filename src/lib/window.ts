@@ -22,8 +22,8 @@ export async function openLabelSettings(): Promise<void> {
       appWindow.scaleFactor(),
     ]);
 
-    const width = 420;
-    const height = 560;
+    const width = 800;
+    const height = 600;
     const x = Math.round(pos.x + (size.width - width * factor) / 2);
     const y = Math.round(pos.y + (size.height - height * factor) / 2);
 

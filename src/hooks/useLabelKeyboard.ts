@@ -7,6 +7,7 @@ export interface UseLabelKeyboardOpts {
   onSave?: () => void;
   onSpaceDown?: () => void;
   onSpaceUp?: () => void;
+  onEscape?: () => void;
   enabled?: boolean;
 }
 
@@ -18,9 +19,10 @@ export function useLabelKeyboard({
   onSave,
   onSpaceDown,
   onSpaceUp,
+  onEscape,
   enabled = true,
 }: UseLabelKeyboardOpts) {
-  const latest = useLatest({ onSave, onSpaceDown, onSpaceUp });
+  const latest = useLatest({ onSave, onSpaceDown, onSpaceUp, onEscape });
 
   useEffect(() => {
     if (!enabled) {
@@ -77,6 +79,7 @@ export function useLabelKeyboard({
           s.setTool('box' as AnnotationType);
           break;
         case 'Escape':
+          latest.current.onEscape?.();
           if (s.pendingAnnotation || s.showObjectSelectPopup) {
             s.setShowObjectSelectPopup(false);
           }

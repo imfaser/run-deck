@@ -120,3 +120,57 @@ async fn test_delete_label() {
     let labels = label_ops::list_labels(&mut db).await.unwrap();
     assert!(labels.is_empty());
 }
+
+#[tokio::test]
+async fn test_create_label_rejects_order_zero() {
+    let mut db = common::setup_db().await;
+    let err = label_ops::create_label(&mut db, "tumor", "#ff0000", 0, vec![])
+        .await
+        .unwrap_err();
+    assert!(err.to_string().contains("order 必须大于等于 1"));
+}
+
+#[tokio::test]
+async fn test_create_label_duplicate_order_conflicts() {
+    let mut db = common::setup_db().await;
+    label_ops::create_label(&mut db, "a", "#000", 1, vec![])
+        .await
+        .unwrap();
+    let err = label_ops::create_label(&mut db, "b", "#111", 1, vec![])
+        .await
+        .unwrap_err();
+    assert!(err.to_string().contains("UNIQUE") || err.to_string().contains("unique"));
+}
+
+#[tokio::test]
+async fn test_reorder_labels_swap_orders() {
+    let mut db = common::setup_db().await;
+    let l1 = label_ops::create_label(&mut db, "a", "#000", 1, vec![])
+        .await
+        .unwrap();
+    let l2 = label_ops::create_label(&mut db, "b", "#111", 2, vec![])
+        .await
+        .unwrap();
+
+    label_ops::reorder_labels(&mut db, vec![(l1.id, 2), (l2.id, 1)])
+        .await
+        .unwrap();
+
+    let labels = label_ops::list_labels(&mut db).await.unwrap();
+    let l1_ref = labels.iter().find(|l| l.id == l1.id).unwrap();
+    let l2_ref = labels.iter().find(|l| l.id == l2.id).unwrap();
+    assert_eq!(l1_ref.order, 2);
+    assert_eq!(l2_ref.order, 1);
+}
+
+#[tokio::test]
+async fn test_reorder_labels_rejects_order_zero() {
+    let mut db = common::setup_db().await;
+    let l1 = label_ops::create_label(&mut db, "a", "#000", 1, vec![])
+        .await
+        .unwrap();
+    let err = label_ops::reorder_labels(&mut db, vec![(l1.id, 0)])
+        .await
+        .unwrap_err();
+    assert!(err.to_string().contains("order 必须大于等于 1"));
+}

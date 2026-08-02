@@ -9,6 +9,9 @@ pub async fn create_label(
     order: i32,
     sub_labels: Vec<String>,
 ) -> Result<Label> {
+    if order < 1 {
+        anyhow::bail!("order 必须大于等于 1");
+    }
     let label = toasty::create!(Label {
         name,
         color,
@@ -43,6 +46,9 @@ pub async fn update_label(
         update = update.color(color);
     }
     if let Some(order) = order {
+        if order < 1 {
+            anyhow::bail!("order 必须大于等于 1");
+        }
         update = update.order(order);
     }
     if let Some(subs) = sub_labels {
@@ -58,7 +64,17 @@ pub async fn reorder_labels(
     db: &mut toasty::Db,
     id_order_pairs: Vec<(uuid::Uuid, i32)>,
 ) -> Result<()> {
+    // 两阶段更新：先全部设为负数（避开 unique 冲突），再设为目标值。
+    // 直接逐条设目标值会在 order 交换（如 1↔3）时撞 unique 约束。
+    for (id, _) in &id_order_pairs {
+        let mut label = Label::get_by_id(db, id).await?;
+        let tmp = -label.order;
+        label.update().order(tmp).exec(db).await?;
+    }
     for (id, order) in id_order_pairs {
+        if order < 1 {
+            anyhow::bail!("order 必须大于等于 1");
+        }
         let mut label = Label::get_by_id(db, &id).await?;
         label.update().order(order).exec(db).await?;
     }

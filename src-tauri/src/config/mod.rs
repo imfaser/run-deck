@@ -35,6 +35,10 @@ pub struct Config {
     pub log_level: String,
     #[serde(default = "default_log_retention_days")]
     pub log_retention_days: u32,
+    #[serde(default = "default_log_max_size_mb")]
+    pub log_max_size_mb: u64,
+    #[serde(default = "default_log_keep_files")]
+    pub log_keep_files: usize,
     #[serde(default = "default_shell")]
     pub shell: String,
     #[serde(default)]
@@ -51,6 +55,14 @@ fn default_log_retention_days() -> u32 {
     logging::DEFAULT_RETENTION_DAYS
 }
 
+fn default_log_max_size_mb() -> u64 {
+    logging::DEFAULT_LOG_MAX_SIZE_MB
+}
+
+fn default_log_keep_files() -> usize {
+    logging::KEEP_LOG_FILES
+}
+
 fn default_shell() -> String {
     "auto".to_string()
 }
@@ -60,6 +72,8 @@ impl Default for Config {
         Self {
             log_level: default_log_level(),
             log_retention_days: default_log_retention_days(),
+            log_max_size_mb: default_log_max_size_mb(),
+            log_keep_files: default_log_keep_files(),
             shell: default_shell(),
             frontend: FrontendConfig::default(),
             mcp: HashMap::new(),

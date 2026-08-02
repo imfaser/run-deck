@@ -41,11 +41,13 @@ function buildStoreAdapter(): CanvasStoreAdapter {
 function getCursorStyle(stateValue: unknown, mode: string): string {
   return match(stateValue)
     .with('panning', () => 'grabbing')
+    .with('moving', () => 'grabbing')
     .with('spaceHeld', () => 'grab')
     .otherwise(() =>
       match(mode)
         .with('create', () => 'crosshair')
         .with('delete', () => 'not-allowed')
+        .with('move', () => 'grab')
         .otherwise(() => 'default')
     );
 }
@@ -94,7 +96,7 @@ export function useCanvasInteraction() {
   useEffect(() => {
     const onWindowMouseUp = () => {
       const stateValue = actor.getSnapshot().value as string;
-      if (stateValue === 'panning' || stateValue === 'boxDrawn') {
+      if (stateValue === 'panning' || stateValue === 'boxDrawn' || stateValue === 'moving') {
         safeSend({ type: 'MOUSE_UP' });
       }
     };
@@ -104,6 +106,14 @@ export function useCanvasInteraction() {
 
   const mode = useLabel3DCanvasStore((s) => s.mode);
   const cursorStyle = getCursorStyle(snapshot.value, mode);
+
+  // 对象选择弹层关闭后清掉残留 tempBox，避免"选择"模式拖动时黄色虚框仍在
+  const showObjectSelectPopup = useLabel3DCanvasStore((s) => s.showObjectSelectPopup);
+  useEffect(() => {
+    if (!showObjectSelectPopup && actor.getSnapshot().context.tempBox) {
+      safeSend({ type: 'CLEAR_TEMP_BOX' });
+    }
+  }, [showObjectSelectPopup, actor, safeSend]);
 
   function handleStageMouseDown(e: { evt: { button: number; clientX: number; clientY: number } }) {
     const evt = e.evt;
@@ -120,7 +130,9 @@ export function useCanvasInteraction() {
 
   function handleStageMouseMove(e: { evt: { clientX: number; clientY: number } }) {
     const imgPos = canvasRefs.getPointerImagePos(canvasRefs.getStage(), canvasRefs.getGroup());
-    useLabel3DCanvasStore.getState().setCursorImagePos(imgPos);
+    const s = useLabel3DCanvasStore.getState();
+    s.setCursorImagePos(imgPos);
+    s.setCursorScreenPos({ x: e.evt.clientX, y: e.evt.clientY });
     safeSend({
       type: 'MOUSE_MOVE',
       clientX: e.evt.clientX,
@@ -148,12 +160,17 @@ export function useCanvasInteraction() {
     safeSend({ type: 'RESET' });
   }
 
+  function handleEscape() {
+    safeSend({ type: 'ESC' });
+  }
+
   const handleStageMouseDownMemo = useMemoizedFn(handleStageMouseDown);
   const handleStageMouseMoveMemo = useMemoizedFn(handleStageMouseMove);
   const handleStageMouseUpMemo = useMemoizedFn(handleStageMouseUp);
   const spaceDownMemo = useMemoizedFn(spaceDown);
   const spaceUpMemo = useMemoizedFn(spaceUp);
   const handleResetMemo = useMemoizedFn(handleReset);
+  const handleEscapeMemo = useMemoizedFn(handleEscape);
 
   return {
     snapshot,
@@ -166,6 +183,7 @@ export function useCanvasInteraction() {
     spaceDown: spaceDownMemo,
     spaceUp: spaceUpMemo,
     handleReset: handleResetMemo,
+    handleEscape: handleEscapeMemo,
   };
 }
 

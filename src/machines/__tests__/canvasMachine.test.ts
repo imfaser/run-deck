@@ -362,6 +362,33 @@ describe('canvasMachine', () => {
       expect(actor.getSnapshot().context.tempBox).toBeNull();
     });
 
+    it('commitBox with pendingAnnotation keeps tempBox, CLEAR_TEMP_BOX then clears it', () => {
+      const store = createMockStore({
+        mode: 'create',
+        tool: 'box',
+        imageWidth: 512,
+        imageHeight: 512,
+        pendingAnnotation: { type: 'box', box: { id: 'b1', x1: 50, y1: 50, x2: 150, y2: 150 } },
+      });
+      const actor = startMachine(store);
+      actor.start();
+      actor.send({
+        type: 'MOUSE_DOWN',
+        button: 0,
+        clientX: 10,
+        clientY: 10,
+        imageX: 50,
+        imageY: 50,
+      });
+      actor.send({ type: 'MOUSE_MOVE', clientX: 20, clientY: 20, imageX: 150, imageY: 150 });
+      actor.send({ type: 'MOUSE_UP' });
+      // 残留场景：pending box 保留 tempBox 供 popup 渲染
+      expect(actor.getSnapshot().context.tempBox).not.toBeNull();
+      // popup 关闭后 CLEAR_TEMP_BOX 清理残留
+      actor.send({ type: 'CLEAR_TEMP_BOX' });
+      expect(actor.getSnapshot().context.tempBox).toBeNull();
+    });
+
     it('MOUSE_UP with too small box does not commit', () => {
       const store = createMockStore({
         mode: 'create',
@@ -616,6 +643,145 @@ describe('canvasMachine', () => {
       a4.send({ type: 'MOUSE_MOVE', clientX: 20, clientY: 20, imageX: 100, imageY: 100 });
       a4.send({ type: 'RESET' });
       expect(a4.getSnapshot().value).toBe('idle');
+    });
+  });
+
+  // ─── moving state (move mode) ────────────────────────────────────
+
+  describe('moving state (move mode)', () => {
+    function startInMove(store?: CanvasStoreAdapter) {
+      const s = store ?? createMockStore({ mode: 'move' });
+      const actor = startMachine(s);
+      actor.start();
+      return { s, actor };
+    }
+
+    it('idle → MOUSE_DOWN in move mode → moving', () => {
+      const { actor } = startInMove();
+      actor.send({ type: 'MOUSE_DOWN', button: 0, clientX: 100, clientY: 100 });
+      expect(actor.getSnapshot().value).toBe('moving');
+    });
+
+    it('MOUSE_MOVE in moving calls setStagePos', () => {
+      const s = createMockStore({ mode: 'move' });
+      const actor = startMachine(s);
+      actor.start();
+      actor.send({ type: 'MOUSE_DOWN', button: 0, clientX: 100, clientY: 100 });
+      actor.send({ type: 'MOUSE_MOVE', clientX: 150, clientY: 120 });
+      expect(s.setStagePos).toHaveBeenCalled();
+    });
+
+    it('MOUSE_UP from moving goes to idle', () => {
+      const { actor } = startInMove();
+      actor.send({ type: 'MOUSE_DOWN', button: 0, clientX: 100, clientY: 100 });
+      actor.send({ type: 'MOUSE_UP' });
+      expect(actor.getSnapshot().value).toBe('idle');
+    });
+
+    it('RESET from moving goes to idle', () => {
+      const { actor } = startInMove();
+      actor.send({ type: 'MOUSE_DOWN', button: 0, clientX: 100, clientY: 100 });
+      actor.send({ type: 'RESET' });
+      expect(actor.getSnapshot().value).toBe('idle');
+    });
+
+    it('move mode + tool=box → isMoveMode guard wins over isCreateBoxMode', () => {
+      const s = createMockStore({ mode: 'move', tool: 'box', imageWidth: 512, imageHeight: 512 });
+      const actor = startMachine(s);
+      actor.start();
+      actor.send({
+        type: 'MOUSE_DOWN',
+        button: 0,
+        clientX: 10,
+        clientY: 10,
+        imageX: 50,
+        imageY: 50,
+      });
+      expect(actor.getSnapshot().value).toBe('moving');
+    });
+
+    it('MOUSE_DOWN with non-primary button in move mode stays idle', () => {
+      const { actor } = startInMove();
+      actor.send({ type: 'MOUSE_DOWN', button: 2, clientX: 100, clientY: 100 });
+      expect(actor.getSnapshot().value).toBe('idle');
+    });
+
+    it('CLEAR_TEMP_BOX in moving clears tempBox', () => {
+      const s = createMockStore({ mode: 'move' });
+      const actor = startMachine(s);
+      actor.start();
+      actor.send({ type: 'MOUSE_DOWN', button: 0, clientX: 100, clientY: 100 });
+      expect(actor.getSnapshot().value).toBe('moving');
+      actor.send({ type: 'CLEAR_TEMP_BOX' });
+      expect(actor.getSnapshot().context.tempBox).toBeNull();
+    });
+  });
+
+  // ─── ESC event ───────────────────────────────────────────────────
+
+  describe('ESC event', () => {
+    it('ESC from drawingBox goes to idle and clears tempBox', () => {
+      const store = createMockStore({
+        mode: 'create',
+        tool: 'box',
+        imageWidth: 512,
+        imageHeight: 512,
+      });
+      const actor = startMachine(store);
+      actor.start();
+      actor.send({
+        type: 'MOUSE_DOWN',
+        button: 0,
+        clientX: 10,
+        clientY: 10,
+        imageX: 50,
+        imageY: 50,
+      });
+      expect(actor.getSnapshot().value).toBe('drawingBox');
+      actor.send({ type: 'ESC' });
+      expect(actor.getSnapshot().value).toBe('idle');
+      expect(actor.getSnapshot().context.tempBox).toBeNull();
+      expect(actor.getSnapshot().context.boxStart).toBeNull();
+    });
+
+    it('ESC from boxDrawn goes to idle and clears tempBox', () => {
+      const store = createMockStore({
+        mode: 'create',
+        tool: 'box',
+        imageWidth: 512,
+        imageHeight: 512,
+      });
+      const actor = startMachine(store);
+      actor.start();
+      actor.send({
+        type: 'MOUSE_DOWN',
+        button: 0,
+        clientX: 10,
+        clientY: 10,
+        imageX: 50,
+        imageY: 50,
+      });
+      actor.send({ type: 'MOUSE_MOVE', clientX: 20, clientY: 20, imageX: 150, imageY: 150 });
+      expect(actor.getSnapshot().value).toBe('boxDrawn');
+      actor.send({ type: 'ESC' });
+      expect(actor.getSnapshot().value).toBe('idle');
+      expect(actor.getSnapshot().context.tempBox).toBeNull();
+    });
+
+    it('ESC in idle does nothing', () => {
+      const actor = startMachine();
+      actor.start();
+      actor.send({ type: 'ESC' });
+      expect(actor.getSnapshot().value).toBe('idle');
+    });
+
+    it('ESC in moving does not exit unexpectedly', () => {
+      const actor = startMachine(createMockStore({ mode: 'move' }));
+      actor.start();
+      actor.send({ type: 'MOUSE_DOWN', button: 0, clientX: 100, clientY: 100 });
+      actor.send({ type: 'ESC' });
+      // moving 状态无 ESC handler，保持在 moving
+      expect(actor.getSnapshot().value).toBe('moving');
     });
   });
 

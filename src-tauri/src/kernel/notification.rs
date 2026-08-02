@@ -6,6 +6,7 @@ use tauri::{AppHandle, Emitter as _};
 pub enum FrontendEvent {
     Ping { timestamp: String },
     DbChanged,
+    ConfigChanged,
 }
 
 pub struct NotificationSystem;
@@ -22,6 +23,7 @@ impl NotificationSystem {
         match event {
             FrontendEvent::Ping { timestamp } => ("run-deck://ping", json!(timestamp)),
             FrontendEvent::DbChanged => ("run-deck://db-changed", json!(null)),
+            FrontendEvent::ConfigChanged => ("run-deck://config-changed", json!(null)),
         }
     }
 }

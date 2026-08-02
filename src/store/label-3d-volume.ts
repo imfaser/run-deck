@@ -222,6 +222,10 @@ export const useLabel3DVolumeStore = create<Label3DVolumeState>()(
     },
 
     requestLoadSlice: (index) => {
+      // 加载中丢弃新请求，避免并发 raw_slice IPC（配合 useThrottleFn 双保险）
+      if (get().isLoadingSlice) {
+        return;
+      }
       const { dirty } = useLabel3DCanvasStore.getState();
       if (dirty) {
         set((s) => {

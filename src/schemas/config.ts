@@ -47,6 +47,8 @@ export type FrontendConfig = z.infer<typeof FrontendConfigSchema>;
 export const ConfigSchema = z.object({
   log_level: LogLevelSchema.default('info'),
   log_retention_days: z.number().int().positive().default(30),
+  log_max_size_mb: z.number().int().positive().default(1),
+  log_keep_files: z.number().int().positive().default(8),
   shell: ShellTypeSchema.default('auto'),
   frontend: FrontendConfigSchema.default(() => ({
     home: 'overview' as const,

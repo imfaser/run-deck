@@ -1,6 +1,5 @@
-import { useEffect } from 'react';
-import { useMemoizedFn } from 'ahooks';
-import { MousePointer2, CircleDot, CircleMinus, Square, Eraser } from 'lucide-react';
+import { useMemoizedFn, useThrottleFn, useUpdateEffect } from 'ahooks';
+import { MousePointer2, CircleDot, CircleMinus, Square, Eraser, Hand } from 'lucide-react';
 import { Label3DToolbar } from './Label3DToolbar';
 import { Label3DCanvas } from './Label3DCanvas';
 import { Label3DKeyframePanel } from './Label3DKeyframePanel';
@@ -47,19 +46,28 @@ export function Label3D({ onReset }: Label3DProps) {
     onSave: handleSave,
     onSpaceDown: interaction.spaceDown,
     onSpaceUp: interaction.spaceUp,
+    onEscape: interaction.handleEscape,
   });
 
+  const handleReset = interaction.handleReset;
+
   // 切片切换 → 状态机 RESET，清 tempBox 回 idle
-  useEffect(() => {
-    interaction.handleReset();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [volume.currentIndex]);
+  useUpdateEffect(() => {
+    handleReset();
+  }, [volume.currentIndex, handleReset]);
+
+  const { run: throttledSliceSelect } = useThrottleFn(
+    (index: number) => {
+      volume.requestLoadSlice(index);
+    },
+    { wait: 200 }
+  );
 
   function handleSliceSelect(index: number) {
     if (index === volume.currentIndex) {
       return;
     }
-    volume.requestLoadSlice(index);
+    throttledSliceSelect(index);
   }
 
   return (
@@ -77,6 +85,12 @@ export function Label3D({ onReset }: Label3DProps) {
         <ModeToolsPanel />
 
         <div className="flex min-w-0 flex-1 flex-col">
+          <Label3DSliceSlider
+            totalSlices={volume.volume?.totalSlices ?? 0}
+            currentIndex={volume.currentIndex}
+            onSelect={handleSliceSelect}
+            disabled={!volume.volume}
+          />
           <div className="relative min-h-0 flex-1 bg-muted/30">
             <Label3DCanvas
               canEdit={canEdit}
@@ -84,12 +98,6 @@ export function Label3D({ onReset }: Label3DProps) {
               interaction={interaction}
             />
           </div>
-          <Label3DSliceSlider
-            totalSlices={volume.volume?.totalSlices ?? 0}
-            currentIndex={volume.currentIndex}
-            onSelect={handleSliceSelect}
-            disabled={!volume.volume}
-          />
         </div>
 
         <Label3DKeyframePanel
@@ -147,6 +155,13 @@ function ModeToolsPanel() {
       icon: MousePointer2,
       active: mode === 'select',
       onClick: () => useLabel3DCanvasStore.getState().setMode('select'),
+    },
+    {
+      key: 'move',
+      label: LABELS.label3d.move,
+      icon: Hand,
+      active: mode === 'move',
+      onClick: () => useLabel3DCanvasStore.getState().setMode('move'),
     },
     {
       key: 'p_point',

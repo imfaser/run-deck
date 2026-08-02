@@ -1,14 +1,13 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from '@tanstack/react-router';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { Home, Settings, Sun, Moon, Minus, Square, Copy, X } from 'lucide-react';
+import { Home, Settings, Terminal, Sun, Moon, Minus, Square, Copy, X } from 'lucide-react';
 import { useMount, useMemoizedFn } from 'ahooks';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useAppStore } from '@/store/app';
 import { useTheme } from '@/components/theme-provider';
-import { useConfig } from '@/hooks/useConfig';
 import { LABELS } from '@/constants/labels';
 
 const appWindow = getCurrentWindow();
@@ -23,6 +22,7 @@ interface FixedTab {
 const fixedTabs: FixedTab[] = [
   { id: 'overview', title: LABELS.nav.overview, icon: Home, route: '/overview' },
   { id: 'config', title: LABELS.nav.config, icon: Settings, route: '/config' },
+  { id: 'logs', title: LABELS.nav.logs, icon: Terminal, route: '/logs' },
 ];
 
 const routeTitles: Record<string, string> = {
@@ -156,7 +156,6 @@ export default function TitleBar() {
   const location = useLocation();
   const { tabs, activeTab, setActiveTab, removeTab } = useAppStore();
   const { theme, setTheme } = useTheme();
-  const { updateMode } = useConfig();
   const [isMaximized, setIsMaximized] = useState(false);
 
   useMount(async () => {
@@ -199,7 +198,6 @@ export default function TitleBar() {
         onToggleTheme={() => {
           const next = theme === 'dark' ? 'light' : 'dark';
           setTheme(next);
-          updateMode(next);
         }}
       />
     </div>

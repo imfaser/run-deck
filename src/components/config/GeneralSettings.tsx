@@ -10,16 +10,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import type { Config, LogLevel, ShellType } from '@/schemas/config';
+import type { Config, ShellType } from '@/schemas/config';
 import { LABELS } from '@/constants/labels';
-
-const LOG_LEVEL_ITEMS: Record<LogLevel, string> = {
-  error: LABELS.logLevel.error,
-  warn: LABELS.logLevel.warn,
-  info: LABELS.logLevel.info,
-  debug: LABELS.logLevel.debug,
-  trace: LABELS.logLevel.trace,
-};
 
 const HOME_ITEMS: Record<Config['frontend']['home'], string> = {
   overview: LABELS.nav.overview,
@@ -39,7 +31,7 @@ const SHELL_ITEMS: Record<ShellType, string> = {
 };
 
 export default function GeneralSettings() {
-  const { config, updateLogLevel, updateHome, updateMode, updateShell } = useConfig();
+  const { config, updateHome, updateMode, updateShell } = useConfig();
 
   if (!config) {
     return null;
@@ -52,28 +44,6 @@ export default function GeneralSettings() {
           <CardTitle>{LABELS.settings.title}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <SettingRow label={LABELS.settings.logLevel}>
-            <Select
-              value={config.log_level}
-              onValueChange={(v) => updateLogLevel(v as LogLevel)}
-              items={LOG_LEVEL_ITEMS}
-            >
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectLabel>{LABELS.settings.logLevel}</SelectLabel>
-                  {Object.entries(LOG_LEVEL_ITEMS).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </SettingRow>
-
           <SettingRow label={LABELS.settings.homeRoute}>
             <Select
               value={config.frontend.home}

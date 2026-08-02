@@ -1,4 +1,6 @@
-use logging::{setup_log, DEFAULT_RETENTION_DAYS};
+use logging::{
+    setup_log, DEFAULT_LOG_MAX_SIZE_MB, DEFAULT_RETENTION_DAYS, KEEP_LOG_FILES,
+};
 use std::fs;
 use tempfile::TempDir;
 
@@ -7,7 +9,13 @@ fn test_log_file_created() {
     let tmp = TempDir::new().unwrap();
     let log_dir = tmp.path().join("logs");
 
-    setup_log(Some(&log_dir), "info", DEFAULT_RETENTION_DAYS);
+    setup_log(
+        Some(&log_dir),
+        "info",
+        DEFAULT_RETENTION_DAYS,
+        DEFAULT_LOG_MAX_SIZE_MB,
+        KEEP_LOG_FILES,
+    );
 
     log::info!(target: "app", "test message from setup");
 

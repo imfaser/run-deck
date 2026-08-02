@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useMount, useUpdateEffect } from 'ahooks';
 import { Stage, Layer, Group, Image as KImage, Circle, Rect, Transformer } from 'react-konva';
 import type Konva from 'konva';
 import { match, P } from 'ts-pattern';
@@ -60,22 +61,31 @@ export function Label3DCanvas({ canEdit = true, sliceImageUrl, interaction }: La
 
   const baseImage = useKonvaImage(sliceImageUrl ?? null);
 
-  const annotations = useCanvasAnnotations({
+  const {
+    fitToImage,
+    handleAnnotationClick,
+    handleDragEnd,
+    handleTransformEnd,
+    handleWheel,
+    handleStageClick,
+  } = useCanvasAnnotations({
     dims: { stageWidth: stageSize.width, stageHeight: stageSize.height },
     maxScale: 5,
   });
 
   // 注册共享 refs
-  useEffect(() => {
+  useMount(() => {
     canvasRefs.setStage(stageRef.current);
     canvasRefs.setGroup(groupRef.current);
     canvasRefs.setTransformer(transformerRef.current);
-  }, []);
+  });
 
-  // 图像加载后同步尺寸到 store
-  useEffect(() => {
+  // 图像加载后同步尺寸到 store + 每次进入自动 fit 一次（跳过首次 baseImage=null）
+  useUpdateEffect(() => {
     if (baseImage && baseImage.width && baseImage.height) {
-      useLabel3DCanvasStore.getState().setImageDimensions(baseImage.width, baseImage.height);
+      const s = useLabel3DCanvasStore.getState();
+      s.setImageDimensions(baseImage.width, baseImage.height);
+      s.setFitImageTrigger();
     }
   }, [baseImage]);
 
@@ -117,9 +127,9 @@ export function Label3DCanvas({ canEdit = true, sliceImageUrl, interaction }: La
   // fitImageTrigger → 适应图像
   useEffect(() => {
     if (fitImageTrigger > 0) {
-      annotations.fitToImage();
+      fitToImage();
     }
-  }, [fitImageTrigger, annotations]);
+  }, [fitImageTrigger, fitToImage]);
 
   const tempBox = interaction.snapshot.context.tempBox;
   const tempBoxVisible = canEdit && tempBox && (tempBox.w > 0 || tempBox.h > 0);
@@ -161,8 +171,8 @@ export function Label3DCanvas({ canEdit = true, sliceImageUrl, interaction }: La
         scaleY={1 / stageScale}
         draggable={canEdit && mode === 'select'}
         listening={canEdit}
-        onClick={(e) => annotations.handleAnnotationClick(point, e)}
-        onDragEnd={(e) => annotations.handleDragEnd(point, e)}
+        onClick={(e) => handleAnnotationClick(point, e)}
+        onDragEnd={(e) => handleDragEnd(point, e)}
       />
     );
   }
@@ -185,9 +195,9 @@ export function Label3DCanvas({ canEdit = true, sliceImageUrl, interaction }: La
         hitStrokeWidth={cfg.hitStrokeWidth}
         draggable={canEdit && mode === 'select'}
         listening={canEdit}
-        onClick={(e) => annotations.handleAnnotationClick(box, e)}
-        onDragEnd={(e) => annotations.handleDragEnd(box, e)}
-        onTransformEnd={annotations.handleTransformEnd}
+        onClick={(e) => handleAnnotationClick(box, e)}
+        onDragEnd={(e) => handleDragEnd(box, e)}
+        onTransformEnd={handleTransformEnd}
       />
     );
   }
@@ -202,8 +212,8 @@ export function Label3DCanvas({ canEdit = true, sliceImageUrl, interaction }: La
         onMouseDown={interaction.handleStageMouseDown}
         onMouseMove={interaction.handleStageMouseMove}
         onMouseUp={interaction.handleStageMouseUp}
-        onWheel={annotations.handleWheel}
-        onClick={annotations.handleStageClick}
+        onWheel={handleWheel}
+        onClick={handleStageClick}
       >
         <Layer>
           <Group

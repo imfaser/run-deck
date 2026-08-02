@@ -54,6 +54,7 @@ export type CanvasEvent =
     }
   | { type: 'MOUSE_MOVE'; clientX: number; clientY: number; imageX?: number; imageY?: number }
   | { type: 'MOUSE_UP' }
+  | { type: 'ESC' }
   | { type: 'CLEAR_TEMP_BOX' }
   | { type: 'RESET' };
 
@@ -66,8 +67,9 @@ export const canvasMachine = setup({
   },
   guards: {
     isPrimaryButton: ({ event }) => event.type === 'MOUSE_DOWN' && event.button === 0,
+    isMoveMode: ({ context, event }) =>
+      context.store.mode === 'move' && event.type === 'MOUSE_DOWN' && event.button === 0,
     isCreateBoxMode: ({ context }) => {
-      // 修复：增加「已加载图像」前提
       return (
         context.store.mode === 'create' &&
         context.store.tool === 'box' &&
@@ -152,6 +154,8 @@ export const canvasMachine = setup({
       return {};
     }),
     resetBox: assign(({ context }) => {
+      // 若已有 pending box（已 commit 待选对象），仅清 boxStart，
+      // 保留 tempBox 供 ObjectSelectPopup 渲染；否则全部清空（ESC/放弃绘制场景）。
       if (context.store.pendingAnnotation?.type === 'box') {
         return { boxStart: null };
       }
@@ -176,11 +180,17 @@ export const canvasMachine = setup({
     idle: {
       on: {
         RESET: { actions: 'clearTempBox' },
+        MOUSE_MOVE: { target: 'idle' },
         SPACE_DOWN: {
           target: 'spaceHeld',
           actions: 'setSpaceDown',
         },
         MOUSE_DOWN: [
+          {
+            guard: 'isMoveMode',
+            target: 'moving',
+            actions: 'startPan',
+          },
           {
             guard: 'isCreateBoxMode',
             target: 'drawingBox',
@@ -201,6 +211,7 @@ export const canvasMachine = setup({
           target: 'idle',
           actions: ['clearTempBox', 'setSpaceUp'],
         },
+        MOUSE_MOVE: { target: 'spaceHeld' },
         SPACE_UP: {
           target: 'idle',
           actions: 'setSpaceUp',
@@ -209,6 +220,26 @@ export const canvasMachine = setup({
           target: 'panning',
           actions: 'startPan',
           guard: 'isPrimaryButton',
+        },
+        CLEAR_TEMP_BOX: {
+          actions: 'clearTempBox',
+        },
+      },
+    },
+    moving: {
+      on: {
+        RESET: {
+          target: 'idle',
+          actions: 'clearTempBox',
+        },
+        MOUSE_MOVE: {
+          actions: 'updatePan',
+        },
+        MOUSE_UP: {
+          target: 'idle',
+        },
+        CLEAR_TEMP_BOX: {
+          actions: 'clearTempBox',
         },
       },
     },
@@ -230,6 +261,9 @@ export const canvasMachine = setup({
         MOUSE_UP: {
           target: 'idle',
         },
+        CLEAR_TEMP_BOX: {
+          actions: 'clearTempBox',
+        },
       },
     },
     drawingBox: {
@@ -237,6 +271,10 @@ export const canvasMachine = setup({
         RESET: {
           target: 'idle',
           actions: ['clearTempBox', 'setSpaceUp'],
+        },
+        ESC: {
+          target: 'idle',
+          actions: 'resetBox',
         },
         SPACE_UP: {
           actions: 'setSpaceUp',
@@ -252,6 +290,9 @@ export const canvasMachine = setup({
           target: 'idle',
           actions: 'resetBox',
         },
+        CLEAR_TEMP_BOX: {
+          actions: 'clearTempBox',
+        },
       },
     },
     boxDrawn: {
@@ -259,6 +300,10 @@ export const canvasMachine = setup({
         RESET: {
           target: 'idle',
           actions: ['clearTempBox', 'setSpaceUp'],
+        },
+        ESC: {
+          target: 'idle',
+          actions: 'resetBox',
         },
         SPACE_UP: {
           actions: 'setSpaceUp',
@@ -280,6 +325,9 @@ export const canvasMachine = setup({
             actions: 'resetBox',
           },
         ],
+        CLEAR_TEMP_BOX: {
+          actions: 'clearTempBox',
+        },
       },
     },
   },

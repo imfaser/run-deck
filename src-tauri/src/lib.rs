@@ -4,9 +4,9 @@ pub mod config;
 pub mod kernel;
 pub mod setup;
 
-use logging::{logging, Type};
+use logging::{logging, set_log_emitter, set_emitter_enabled, Type};
 use std::sync::OnceLock;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 use kernel::context::AppContext;
 use mcp::McpManager;
@@ -44,9 +44,32 @@ pub fn run() {
 
             // Initialize logging with log directory
             let log_dir = config::dirs::app_logs_dir().ok();
-            let log_level = config.data_arc().log_level.clone();
-            let retention_days = config.data_arc().log_retention_days;
-            logging::setup_log(log_dir.as_deref(), &log_level, retention_days);
+            let data = config.data_arc();
+            let log_level = data.log_level.clone();
+            let retention_days = data.log_retention_days;
+            let max_size_mb = data.log_max_size_mb;
+            let keep_files = data.log_keep_files;
+            logging::setup_log(
+                log_dir.as_deref(),
+                &log_level,
+                retention_days,
+                max_size_mb,
+                keep_files,
+            );
+
+            // 注册日志事件流回调：emit run-deck://log-line 供 /logs 实时查看
+            let emitter_app = app.handle().clone();
+            set_log_emitter(Box::new(move |ts, level, message| {
+                let _ = emitter_app.emit(
+                    "run-deck://log-line",
+                    serde_json::json!({ "ts": ts, "level": level, "message": message }),
+                );
+            }))
+            .map_err(|e| {
+                logging!(warn, Type::Setup, "Failed to set log emitter: {e}");
+            })
+            .ok();
+            set_emitter_enabled(false);
 
             utils::log_app_info();
             logging!(info, Type::Setup, "应用启动完成");

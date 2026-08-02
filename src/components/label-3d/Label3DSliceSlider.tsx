@@ -15,7 +15,9 @@ export function Label3DSliceSlider({
   onSelect,
   disabled,
 }: Label3DSliceSliderProps) {
-  const max = Math.max(0, totalSlices - 1);
+  // Base UI 要求 max > min；无切片（totalSlices<=1）时退化为 min=0/max=1 的禁用态
+  const hasSlices = totalSlices > 1;
+  const max = hasSlices ? totalSlices - 1 : 1;
 
   return (
     <div className="flex h-11 shrink-0 items-center gap-3 border-t border-border px-3">
