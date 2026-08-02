@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { Settings, Activity, Box } from 'lucide-react';
+import { Settings, Activity, Box, Terminal } from 'lucide-react';
 import { useAppStore } from '@/store/app';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LABELS } from '@/constants/labels';
@@ -20,6 +20,13 @@ const apps = [
     description: LABELS.overview.configDesc,
     icon: Settings,
     route: '/config',
+  },
+  {
+    id: 'logs',
+    title: LABELS.nav.logs,
+    description: LABELS.overview.logsDesc,
+    icon: Terminal,
+    route: '/logs',
   },
   {
     id: 'mcp-panel',

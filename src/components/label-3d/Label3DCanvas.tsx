@@ -105,7 +105,7 @@ export function Label3DCanvas({ canEdit = true, sliceImageUrl, interaction }: La
     return () => ro.disconnect();
   }, []);
 
-  // 选中框时挂载 Transformer
+  // 选中框时挂载 Transformer（仅对 box，点不做）
   useLayoutEffect(() => {
     const tr = transformerRef.current;
     const stage = stageRef.current;
@@ -116,13 +116,18 @@ export function Label3DCanvas({ canEdit = true, sliceImageUrl, interaction }: La
       tr.nodes([]);
       return;
     }
+    const isBox = objects.some((o) => o.boxes.some((b) => b.id === selectedAnnotationId));
+    if (!isBox) {
+      tr.nodes([]);
+      return;
+    }
     const node = stage.findOne('.' + selectedAnnotationId);
     if (node) {
       tr.nodes([node]);
     } else {
       tr.nodes([]);
     }
-  }, [selectedAnnotationId]);
+  }, [selectedAnnotationId, objects]);
 
   // fitImageTrigger → 适应图像
   useEffect(() => {

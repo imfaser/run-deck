@@ -143,7 +143,10 @@ export function useCanvasInteraction() {
   }
 
   function handleStageMouseUp() {
-    safeSend({ type: 'MOUSE_UP' });
+    const s = actor.getSnapshot().value as string;
+    if (s === 'panning' || s === 'boxDrawn' || s === 'moving') {
+      safeSend({ type: 'MOUSE_UP' });
+    }
   }
 
   function spaceDown() {
@@ -153,7 +156,10 @@ export function useCanvasInteraction() {
   }
 
   function spaceUp() {
-    safeSend({ type: 'SPACE_UP' });
+    const s = actor.getSnapshot().value as string;
+    if (s === 'spaceHeld' || s === 'panning' || s === 'drawingBox' || s === 'boxDrawn') {
+      safeSend({ type: 'SPACE_UP' });
+    }
   }
 
   function handleReset() {

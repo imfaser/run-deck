@@ -103,6 +103,7 @@ export const LABELS = {
   overview: {
     title: '导航',
     configDesc: '首页、主题、MCP 服务器管理',
+    logsDesc: '日志配置与实时日志查看',
     mcpPanelDesc: '查看 MCP 服务器工具、提示、资源',
     labelDesc: '3D 体数据打标：切片浏览、点/框标注',
   },

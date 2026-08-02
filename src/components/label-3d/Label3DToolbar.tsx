@@ -190,7 +190,6 @@ function VolumeConfigDialog({
             <Select
               value={config.dtype}
               onValueChange={(v) => setConfig({ ...config, dtype: v as VolumeConfig['dtype'] })}
-              items={{ u8: 'u8', uint8: 'uint8', u16: 'u16', uint16: 'uint16' }}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -198,9 +197,7 @@ function VolumeConfigDialog({
               <SelectContent>
                 <SelectGroup>
                   <SelectLabel>dtype</SelectLabel>
-                  <SelectItem value="u8">u8</SelectItem>
                   <SelectItem value="uint8">uint8</SelectItem>
-                  <SelectItem value="u16">u16</SelectItem>
                   <SelectItem value="uint16">uint16</SelectItem>
                 </SelectGroup>
               </SelectContent>

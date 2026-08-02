@@ -5,11 +5,24 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
+const hslToHex = (h: number, s: number, l: number): string => {
+  l /= 100;
+  const a = (s * Math.min(l, 1 - l)) / 100;
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12;
+    const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    return Math.round(255 * color)
+      .toString(16)
+      .padStart(2, '0');
+  };
+  return `#${f(0)}${f(8)}${f(4)}`.toUpperCase();
+};
+
 const hexToHsl = (hex: string): [number, number, number] => {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   if (!result) {
     return [0, 0, 0];
-  }
+  };
 
   const r = parseInt(result[1], 16) / 255;
   const g = parseInt(result[2], 16) / 255;
@@ -41,18 +54,12 @@ const hexToHsl = (hex: string): [number, number, number] => {
   return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)];
 };
 
-const hslRegex = /^hsl\(\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)%\s*,\s*(\d+(?:\.\d+)?)%\s*\)$/;
-
 const normalizeColor = (color: string): string => {
   if (color.startsWith('#')) {
     return color.toUpperCase();
-  }
-  if (color.startsWith('hsl')) {
-    const match = color.match(hslRegex);
-    if (match) {
-      const [, h, s, l] = match;
-      return `hsl(${Math.round(Number(h))}, ${Math.round(Number(s))}%, ${Math.round(Number(l))}%)`;
-    }
+  } else if (color.startsWith('hsl')) {
+    const [h, s, l] = color.match(/\d+(\.\d+)?/g)?.map(Number) || [0, 0, 0];
+    return hslToHex(h, s, l);
   }
   return color;
 };
@@ -60,7 +67,7 @@ const normalizeColor = (color: string): string => {
 const trimColorString = (color: string, maxLength = 20): string => {
   if (color.length <= maxLength) {
     return color;
-  }
+  };
   return `${color.slice(0, maxLength - 3)}...`;
 };
 
@@ -71,8 +78,12 @@ export function ColorPicker({
   color: string;
   onChange: (color: string) => void;
 }) {
-  const [hsl, setHsl] = useState<[number, number, number]>([0, 0, 0]);
-  const [colorInput, setColorInput] = useState(color);
+  const [hsl, setHsl] = useState<[number, number, number]>(() => hexToHsl(normalizeColor(color)));
+  const [colorInput, setColorInput] = useState(() => normalizeColor(color));
+
+  useUpdateEffect(() => {
+    handleColorChange(color);
+  }, [color]);
 
   const handleColorChange = useMemoizedFn((newColor: string) => {
     const normalizedColor = normalizeColor(newColor);
@@ -84,22 +95,12 @@ export function ColorPicker({
     if (normalizedColor.startsWith('#')) {
       [h, s, l] = hexToHsl(normalizedColor);
     } else {
-      const match = normalizedColor.match(hslRegex);
-      if (match) {
-        h = Number(match[1]);
-        s = Number(match[2]);
-        l = Number(match[3]);
-      }
+      [h, s, l] = normalizedColor.match(/\d+(\.\d+)?/g)?.map(Number) || [0, 0, 0];
     }
 
     setHsl([h, s, l]);
-    onChange(`hsl(${h.toFixed(1)}, ${s.toFixed(1)}%, ${l.toFixed(1)}%)`);
+    onChange(hslToHex(h, s, l));
   });
-
-  // 外部 color prop 变化时同步内部状态（useMemoizedFn 保证 handleColorChange 引用恒定）
-  useUpdateEffect(() => {
-    handleColorChange(color);
-  }, [color, handleColorChange]);
 
   const handleHueChange = (hue: number) => {
     const newHsl: [number, number, number] = [hue, hsl[1], hsl[2]];
@@ -116,8 +117,8 @@ export function ColorPicker({
       return;
     }
     const rect = el.getBoundingClientRect();
-    const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
-    const y = Math.max(0, Math.min(clientY - rect.top, rect.height));
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
     const s = Math.round((x / rect.width) * 100);
     const l = Math.round(100 - (y / rect.height) * 100);
     const newHsl: [number, number, number] = [hsl[0], s, l];
@@ -145,7 +146,10 @@ export function ColorPicker({
   const handleColorInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const newColor = event.target.value;
     setColorInput(newColor);
-    if (/^#[0-9A-Fa-f]{6}$/.test(newColor) || hslRegex.test(newColor)) {
+    if (
+      /^#[0-9A-Fa-f]{6}$/.test(newColor) ||
+      /^hsl\(\d+,\s*\d+%,\s*\d+%\)$/.test(newColor)
+    ) {
       handleColorChange(newColor);
     }
   };
@@ -200,7 +204,7 @@ export function ColorPicker({
               style={{
                 left: `${hsl[1]}%`,
                 top: `${100 - hsl[2]}%`,
-                backgroundColor: `hsl(${hsl[0]}, ${hsl[1]}%, ${hsl[2]}%)`,
+                backgroundColor: hslToHex(hsl[0], hsl[1], hsl[2]),
               }}
             />
           </div>
@@ -224,7 +228,7 @@ export function ColorPicker({
               value={colorInput}
               onChange={handleColorInputChange}
               className="h-8 flex-grow bg-white text-sm dark:bg-input/30"
-              placeholder="#RRGGBB or hsl(h, s%, l%)"
+              placeholder="#RRGGBB"
             />
             <div
               className="size-8 shrink-0 rounded-md shadow-sm"

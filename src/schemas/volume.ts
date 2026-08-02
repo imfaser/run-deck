@@ -5,7 +5,7 @@ export const OpenVolumeInputSchema = z.object({
   x: z.number().int().positive(),
   y: z.number().int().positive(),
   z: z.number().int().positive(),
-  dtype: z.enum(['u8', 'uint8', 'u16', 'uint16']),
+  dtype: z.enum(['uint8', 'uint16']),
   endian: z.enum(['little', 'le', 'big', 'be']),
   axis: z.enum(['x', 'X', 'y', 'Y', 'z', 'Z']),
 });
@@ -33,7 +33,7 @@ export const VolumeConfigSchema = z.object({
   x: z.number().int().positive(),
   y: z.number().int().positive(),
   z: z.number().int().positive(),
-  dtype: z.enum(['u8', 'uint8', 'u16', 'uint16']),
+  dtype: z.enum(['uint8', 'uint16']),
   endian: z.enum(['little', 'le', 'big', 'be']),
   axis: z.enum(['x', 'X', 'y', 'Y', 'z', 'Z']),
 });
