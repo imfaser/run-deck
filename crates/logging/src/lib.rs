@@ -45,6 +45,7 @@ pub enum Type {
     Update,
     Network,
     Tray,
+    Task,
 }
 
 impl fmt::Display for Type {
@@ -62,6 +63,7 @@ impl fmt::Display for Type {
             Self::Update => write!(f, "[Update]"),
             Self::Network => write!(f, "[Network]"),
             Self::Tray => write!(f, "[Tray]"),
+            Self::Task => write!(f, "[Task]"),
         }
     }
 }

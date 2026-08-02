@@ -22,7 +22,7 @@ const hexToHsl = (hex: string): [number, number, number] => {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   if (!result) {
     return [0, 0, 0];
-  };
+  }
 
   const r = parseInt(result[1], 16) / 255;
   const g = parseInt(result[2], 16) / 255;
@@ -67,7 +67,7 @@ const normalizeColor = (color: string): string => {
 const trimColorString = (color: string, maxLength = 20): string => {
   if (color.length <= maxLength) {
     return color;
-  };
+  }
   return `${color.slice(0, maxLength - 3)}...`;
 };
 
@@ -146,10 +146,7 @@ export function ColorPicker({
   const handleColorInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const newColor = event.target.value;
     setColorInput(newColor);
-    if (
-      /^#[0-9A-Fa-f]{6}$/.test(newColor) ||
-      /^hsl\(\d+,\s*\d+%,\s*\d+%\)$/.test(newColor)
-    ) {
+    if (/^#[0-9A-Fa-f]{6}$/.test(newColor) || /^hsl\(\d+,\s*\d+%,\s*\d+%\)$/.test(newColor)) {
       handleColorChange(newColor);
     }
   };

@@ -6,6 +6,7 @@ vi.mock('@/services/cmds', () => ({
   dbUpsertImage: vi.fn(),
   dbSetAnnotations: vi.fn(),
   dbListAnnotationsByImage: vi.fn(),
+  dbGetImageByHash: vi.fn().mockResolvedValue(null),
   logMessage: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -146,6 +147,8 @@ describe('label-3d-volume store', () => {
       });
 
       await useLabel3DVolumeStore.getState().deleteSlice(2);
+      await Promise.resolve();
+      await Promise.resolve();
       await Promise.resolve();
       await Promise.resolve();
       await Promise.resolve();

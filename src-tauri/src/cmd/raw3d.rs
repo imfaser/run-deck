@@ -17,6 +17,7 @@ use super::{CmdResult, StringifyErr};
 
 use crate::kernel::context::AppContext;
 use crate::kernel::volume_store::VolumeEntry;
+use crate::utils::async_handler::AsyncHandler;
 use logging::{logging, Type};
 
 // ─── Input / Output types ──────────────────────────────────────────
@@ -120,6 +121,10 @@ fn canonicalize_path(path: &str) -> CmdResult<String> {
 pub async fn open_raw(req: OpenRequest) -> CmdResult<OpenResponse> {
     logging!(info, Type::Cmd, "open_raw: path={}", req.path);
 
+    if crate::task::TaskRunner::is_running() {
+        return Err("批量任务运行中，无法打开卷".into());
+    }
+
     let shape = VolumeShape::new(req.z, req.y, req.x);
     let (voxel_size, dtype_name) = match req.dtype.as_str() {
         "u8" | "uint8" => (1usize, "u8"),
@@ -148,9 +153,10 @@ pub async fn open_raw(req: OpenRequest) -> CmdResult<OpenResponse> {
 
     let id = gen_id();
 
-    // Replace into single-slot VolumeStore
+    // Replace into single-slot VolumeStore，并级联删除旧 volume 的 DB 数据
     let store = AppContext::volume_store();
-    store.replace(VolumeEntry {
+    let mut db = AppContext::db().clone();
+    let old = store.replace(VolumeEntry {
         volume_id: id.clone(),
         path: path_str,
         volume: vol,
@@ -160,12 +166,17 @@ pub async fn open_raw(req: OpenRequest) -> CmdResult<OpenResponse> {
         slice_width: slice_w,
         slice_height: slice_h,
     });
+    if let Some(old_entry) = old {
+        if let Err(e) = db::ops::volume_ops::delete_volume_cascade(&mut db, &old_entry.volume_id).await
+        {
+            logging!(warn, Type::Cmd, "open_raw: failed to cascade delete old volume: {e}");
+        }
+    }
 
     // Best-effort sync Volume row to DB
     let x = req.x as i32;
     let y = req.y as i32;
     let z = req.z as i32;
-    let mut db = AppContext::db().clone();
     if let Err(e) =
         db::ops::volume_ops::create_or_get_volume(&mut db, &id, x, y, z, dtype_name, &req.endian, &req.axis)
             .await
@@ -515,6 +526,42 @@ pub fn raw_close(volume_id: String) -> CmdResult {
     }
     // Safe to take now — volume_id matched
     let _entry = store.close();
+    let closed_id = volume_id.clone();
+    // 级联删除该 volume 的 DB 数据
+    if let Err(e) = AsyncHandler::block_on(async move {
+        let mut db = AppContext::db().clone();
+        db::ops::volume_ops::delete_volume_cascade(&mut db, &closed_id).await
+    }) {
+        logging!(warn, Type::Cmd, "raw_close: failed to cascade delete volume: {e}");
+    }
     logging!(info, Type::Cmd, "raw_close: closed volume {volume_id}");
     Ok(())
+}
+
+/// 读取 DB 中唯一 Volume 行并返回当前卷信息。
+#[tauri::command]
+pub async fn get_current_volume() -> CmdResult<Option<OpenResponse>> {
+    let mut db = AppContext::db().clone();
+    let volumes: Vec<db::models::volume::Volume> =
+        db::models::volume::Volume::all().exec(&mut db).await.map_err(|e| e.to_string())?;
+    let Some(volume) = volumes.into_iter().next() else {
+        return Ok(None);
+    };
+
+    let axis = match volume.axis.as_str() {
+        "x" | "X" => Axis::X,
+        "y" | "Y" => Axis::Y,
+        "z" | "Z" => Axis::Z,
+        _ => Axis::Z,
+    };
+    let shape = VolumeShape::new(volume.z as usize, volume.y as usize, volume.x as usize);
+    let total_slices = shape.dim(axis);
+    let (slice_height, slice_width) = shape.perpendicular(axis);
+
+    Ok(Some(OpenResponse {
+        volume_id: volume.id,
+        total_slices,
+        slice_width,
+        slice_height,
+    }))
 }

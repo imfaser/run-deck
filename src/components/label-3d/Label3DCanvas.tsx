@@ -15,6 +15,7 @@ import type { CanvasInteractionApi } from '@/hooks/useCanvasInteraction';
 export interface Label3DCanvasProps {
   canEdit?: boolean;
   sliceImageUrl?: string | null;
+  maskHash?: string | null;
   interaction: CanvasInteractionApi;
 }
 
@@ -41,7 +42,57 @@ function useKonvaImage(src: string | null): HTMLImageElement | null {
   return image;
 }
 
-export function Label3DCanvas({ canEdit = true, sliceImageUrl, interaction }: Label3DCanvasProps) {
+/** 将灰度 mask 转成红色半透明 overlay（>0 上红，二值无阈值）。 */
+function useRedMaskOverlay(maskImage: HTMLImageElement | null): HTMLImageElement | null {
+  const [overlay, setOverlay] = useState<HTMLImageElement | null>(null);
+
+  useEffect(() => {
+    if (!maskImage) {
+      setOverlay(null);
+      return;
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = maskImage.width;
+    canvas.height = maskImage.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      setOverlay(null);
+      return;
+    }
+    ctx.drawImage(maskImage, 0, 0);
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const d = imgData.data;
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i] > 0) {
+        d[i] = 255;
+        d[i + 1] = 0;
+        d[i + 2] = 0;
+        d[i + 3] = 140;
+      } else {
+        d[i + 3] = 0;
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+    const url = canvas.toDataURL('image/png');
+    const img = new window.Image();
+    img.onload = () => setOverlay(img);
+    img.onerror = () => setOverlay(null);
+    img.src = url;
+    return () => {
+      img.onload = null;
+      img.onerror = null;
+    };
+  }, [maskImage]);
+
+  return overlay;
+}
+
+export function Label3DCanvas({
+  canEdit = true,
+  sliceImageUrl,
+  maskHash,
+  interaction,
+}: Label3DCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage | null>(null);
   const groupRef = useRef<Konva.Group | null>(null);
@@ -60,6 +111,8 @@ export function Label3DCanvas({ canEdit = true, sliceImageUrl, interaction }: La
   const { data: labels } = useLabels();
 
   const baseImage = useKonvaImage(sliceImageUrl ?? null);
+  const maskImage = useKonvaImage(maskHash ? `cache://${maskHash}` : null);
+  const maskOverlay = useRedMaskOverlay(maskImage);
 
   const {
     fitToImage,
@@ -234,6 +287,15 @@ export function Label3DCanvas({ canEdit = true, sliceImageUrl, interaction }: La
                 image={baseImage}
                 width={imageWidth || baseImage.width}
                 height={imageHeight || baseImage.height}
+              />
+            )}
+
+            {maskOverlay && (
+              <KImage
+                image={maskOverlay}
+                width={imageWidth || maskOverlay.width}
+                height={imageHeight || maskOverlay.height}
+                listening={false}
               />
             )}
 

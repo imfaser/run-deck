@@ -8,6 +8,7 @@ import {
   dbUpsertImage,
   dbSetAnnotations,
   dbListAnnotationsByImage,
+  dbGetImageByHash,
   logMessage,
 } from '@/services/cmds';
 import { useLabel3DCanvasStore } from '@/store/label-3d-canvas';
@@ -43,6 +44,7 @@ export interface Label3DVolumeState {
   volume: OpenVolumeResponse | null;
   currentIndex: number;
   currentImageHash: string | null;
+  currentMaskHash: string | null;
   sliceImageUrl: string | null;
   isLoadingSlice: boolean;
   isSaving: boolean;
@@ -56,6 +58,7 @@ export interface Label3DVolumeState {
   loadSliceByIndex: (index: number) => Promise<void>;
   saveCurrent: () => Promise<boolean>;
   saveEmptyForHash: (hash: string, index: number) => Promise<void>;
+  setCurrentMaskHash: (hash: string | null) => void;
   requestLoadSlice: (index: number) => void;
   applyPendingLoad: () => void;
   confirmSave: () => Promise<void>;
@@ -70,6 +73,7 @@ export const useLabel3DVolumeStore = create<Label3DVolumeState>()(
     volume: null,
     currentIndex: 0,
     currentImageHash: null,
+    currentMaskHash: null,
     sliceImageUrl: null,
     isLoadingSlice: false,
     isSaving: false,
@@ -91,6 +95,7 @@ export const useLabel3DVolumeStore = create<Label3DVolumeState>()(
         // 读走 SWR：先落缓存（不重新请求），再供画布消费，
         // 保证 useSliceAnnotations 与画布工作副本一致
         const annotations = await dbListAnnotationsByImage(slice.imageHash);
+        const image = await dbGetImageByHash(slice.imageHash);
         await mutate(['slice-annotations', slice.imageHash], annotations, { revalidate: false });
         const canvas = useLabel3DCanvasStore.getState();
         canvas.loadObjects(dbAnnotationsToObjects(annotations));
@@ -100,6 +105,7 @@ export const useLabel3DVolumeStore = create<Label3DVolumeState>()(
         set((s) => {
           s.currentIndex = index;
           s.currentImageHash = slice.imageHash;
+          s.currentMaskHash = image?.mask_hash ?? null;
           s.sliceImageUrl = dataUrl;
           s.isLoadingSlice = false;
         });
@@ -134,6 +140,7 @@ export const useLabel3DVolumeStore = create<Label3DVolumeState>()(
           s.volume = res;
           s.currentIndex = 0;
           s.currentImageHash = null;
+          s.currentMaskHash = null;
           s.sliceImageUrl = null;
         });
         await logMessage(
@@ -148,6 +155,12 @@ export const useLabel3DVolumeStore = create<Label3DVolumeState>()(
         toast.error(LABELS.label3d.openFailed(e));
         return null;
       }
+    },
+
+    setCurrentMaskHash: (hash) => {
+      set((s) => {
+        s.currentMaskHash = hash;
+      });
     },
 
     saveEmptyForHash: async (hash, index) => {

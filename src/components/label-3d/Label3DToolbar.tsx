@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 import { toast } from 'sonner';
-import { FolderOpen, Maximize2, Save, Tags, RotateCcw } from 'lucide-react';
+import { mutate } from 'swr';
+import { FolderOpen, Maximize2, Save, Tags, RotateCcw, Sparkles, ListChecks } from 'lucide-react';
 import { useMemoizedFn, useLockFn } from 'ahooks';
 import { createLocalStorageState } from 'foxact/create-local-storage-state';
 import { Button } from '@/components/ui/button';
@@ -24,10 +25,15 @@ import {
   DialogClose,
 } from '@/components/ui/dialog';
 import { useLabel3DCanvasStore } from '@/store/label-3d-canvas';
-import { openLabelSettings } from '@/lib/window';
+import { openLabelSettings, openTasks } from '@/lib/window';
+import { objectToDbAnnotation, type AnnotationObject } from '@/lib/annotationMapping';
+import { aiRecognizeSlice } from '@/services/tasks';
+import { useTasks } from '@/hooks/useTasks';
+import { useTaskChanged } from '@/hooks/useTaskChanged';
 import { logMessage } from '@/services/cmds';
 import { LABELS } from '@/constants/labels';
 import type { Label } from '@/schemas/label';
+import type { AiObjectInput } from '@/schemas/task';
 import type { VolumeConfig } from '@/schemas/volume';
 import type { Label3DVolume } from '@/hooks/useLabel3DVolume';
 
@@ -45,6 +51,15 @@ const [useLastConfig, , useSetLastConfig] = createLocalStorageState<VolumeConfig
   'run-deck:label-3d:volume-config',
   null
 );
+
+function objectsToAiInputs(objects: AnnotationObject[]): AiObjectInput[] {
+  return objects
+    .filter((o) => o.points.length > 0 || o.boxes.length > 0)
+    .map((o) => {
+      const db = objectToDbAnnotation(o);
+      return { id: db.id, label_id: db.label_id, points: db.points, boxes: db.boxes };
+    });
+}
 
 interface Label3DToolbarProps {
   volume: Label3DVolume;
@@ -65,6 +80,10 @@ export function Label3DToolbar({ volume, canEdit, onOpen, onReset, onSave }: Lab
   const dirty = useLabel3DCanvasStore((s) => s.dirty);
   const isSaving = volume.isSaving;
 
+  const { data: tasks } = useTasks();
+  useTaskChanged();
+  const anyTaskRunning = (tasks ?? []).some((t) => t.status === 'Running');
+
   const handleChooseFile = useLockFn(async () => {
     try {
       const selected = await openFileDialog({
@@ -80,6 +99,32 @@ export function Label3DToolbar({ volume, canEdit, onOpen, onReset, onSave }: Lab
       }
     } catch (e) {
       await logMessage('error', `[toolbar] open file dialog failed: ${e}`);
+    }
+  });
+
+  const handleAiRecognize = useLockFn(async () => {
+    const vol = volume.volume;
+    if (!vol || !volume.currentImageHash) {
+      return;
+    }
+    const canvas = useLabel3DCanvasStore.getState();
+    if (canvas.objects.length === 0) {
+      toast.warning(LABELS.label3d.aiNoObjects);
+      return;
+    }
+    try {
+      const res = await aiRecognizeSlice(
+        vol.volumeId,
+        volume.currentIndex,
+        objectsToAiInputs(canvas.objects)
+      );
+      volume.setCurrentMaskHash(res.maskHash);
+      canvas.setDirty(false);
+      await mutate(['slice-annotations', volume.currentImageHash]);
+      toast.success(LABELS.label3d.aiDone);
+    } catch (e) {
+      await logMessage('error', `[ai] recognize slice failed: ${e}`);
+      toast.error(LABELS.label3d.aiFailed(e));
     }
   });
 
@@ -114,6 +159,20 @@ export function Label3DToolbar({ volume, canEdit, onOpen, onReset, onSave }: Lab
         <Button size="sm" onClick={onSave} disabled={!canEdit || !dirty || isSaving}>
           <Save data-icon="inline-start" />
           {LABELS.label3d.save}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleAiRecognize}
+          disabled={!canEdit || anyTaskRunning}
+          title={anyTaskRunning ? LABELS.label3d.aiRunning : LABELS.label3d.aiRecognize}
+        >
+          <Sparkles data-icon="inline-start" />
+          {LABELS.label3d.aiRecognize}
+        </Button>
+        <Button size="sm" variant="outline" onClick={openTasks}>
+          <ListChecks data-icon="inline-start" />
+          {LABELS.label3d.tasks}
         </Button>
         <Button size="sm" variant="outline" onClick={openLabelSettings}>
           <Tags data-icon="inline-start" />

@@ -3814,9 +3814,12 @@ name = "nimg"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64 0.22.1",
  "bytemuck",
+ "image",
  "memmap2",
  "ndarray",
+ "serde_json",
  "tempfile",
 ]
 

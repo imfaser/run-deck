@@ -4,16 +4,19 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useSWRConfig } from 'swr';
 import { logMessage } from '@/services/cmds';
 import { LABELS_KEY } from './useLabels';
+import { TASKS_KEY } from './useTasks';
 
 export const DB_CHANGED_EVENT = 'run-deck://db-changed';
 
 const SLICE_SUMMARIES_PREFIX = 'slice-summaries';
 const SLICE_ANNOTATIONS_PREFIX = 'slice-annotations';
 
-/** 命中 labels / slice-summaries / slice-annotations 前缀的 SWR key */
+/** 命中 labels / slice-summaries / slice-annotations / tasks 前缀的 SWR key */
 function isRevalidatableKey(key: unknown): boolean {
   return (
     key === LABELS_KEY ||
+    key === TASKS_KEY ||
+    key === 'current-volume' ||
     (Array.isArray(key) && String(key[0]) === SLICE_SUMMARIES_PREFIX) ||
     (Array.isArray(key) && String(key[0]) === SLICE_ANNOTATIONS_PREFIX)
   );

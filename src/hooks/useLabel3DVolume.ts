@@ -13,6 +13,7 @@ export type Label3DVolume = Pick<
   | 'volume'
   | 'currentIndex'
   | 'currentImageHash'
+  | 'currentMaskHash'
   | 'sliceImageUrl'
   | 'isLoadingSlice'
   | 'isSaving'
@@ -20,6 +21,7 @@ export type Label3DVolume = Pick<
   | 'openVolume'
   | 'loadSliceByIndex'
   | 'saveCurrent'
+  | 'setCurrentMaskHash'
   | 'requestLoadSlice'
   | 'applyPendingLoad'
   | 'confirmSave'
@@ -40,6 +42,7 @@ export function useLabel3DVolume(_opts: UseLabel3DVolumeOpts = {}): Label3DVolum
       volume: s.volume,
       currentIndex: s.currentIndex,
       currentImageHash: s.currentImageHash,
+      currentMaskHash: s.currentMaskHash,
       sliceImageUrl: s.sliceImageUrl,
       isLoadingSlice: s.isLoadingSlice,
       isSaving: s.isSaving,
@@ -47,6 +50,7 @@ export function useLabel3DVolume(_opts: UseLabel3DVolumeOpts = {}): Label3DVolum
       openVolume: s.openVolume,
       loadSliceByIndex: s.loadSliceByIndex,
       saveCurrent: s.saveCurrent,
+      setCurrentMaskHash: s.setCurrentMaskHash,
       requestLoadSlice: s.requestLoadSlice,
       applyPendingLoad: s.applyPendingLoad,
       confirmSave: s.confirmSave,

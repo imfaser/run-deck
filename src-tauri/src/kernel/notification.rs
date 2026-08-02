@@ -7,6 +7,7 @@ pub enum FrontendEvent {
     Ping { timestamp: String },
     DbChanged,
     ConfigChanged,
+    TaskChanged { task_id: uuid::Uuid },
 }
 
 pub struct NotificationSystem;
@@ -24,6 +25,9 @@ impl NotificationSystem {
             FrontendEvent::Ping { timestamp } => ("run-deck://ping", json!(timestamp)),
             FrontendEvent::DbChanged => ("run-deck://db-changed", json!(null)),
             FrontendEvent::ConfigChanged => ("run-deck://config-changed", json!(null)),
+            FrontendEvent::TaskChanged { task_id } => {
+                ("run-deck://task-changed", json!({ "taskId": task_id.to_string() }))
+            }
         }
     }
 }

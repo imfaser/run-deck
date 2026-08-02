@@ -1,11 +1,14 @@
 import { convertFileSrc } from '@tauri-apps/api/core';
 
 /**
- * 将 cache:// 协议的 hash 转为 webview 可加载的 URL。
+ * 将 cache hash 转为 webview 可加载的 URL。
  * cache:// 协议由 register_uri_scheme_protocol 注册，必须经 convertFileSrc 转换。
+ * 兼容 `cache://<hash>` 与裸 `<hash>` 两种输入，剥离前缀后再转换，
+ * 避免 convertFileSrc 把 `cache://` 也编码进路径导致 404。
  */
 export function cacheUrl(hash: string): string {
-  return convertFileSrc(hash, 'cache');
+  const plain = hash.replace(/^cache:\/\//, '');
+  return convertFileSrc(plain, 'cache');
 }
 
 /**

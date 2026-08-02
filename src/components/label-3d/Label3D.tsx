@@ -95,6 +95,7 @@ export function Label3D({ onReset }: Label3DProps) {
             <Label3DCanvas
               canEdit={canEdit}
               sliceImageUrl={volume.sliceImageUrl}
+              maskHash={volume.currentMaskHash}
               interaction={interaction}
             />
           </div>

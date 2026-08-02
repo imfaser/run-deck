@@ -7,8 +7,8 @@ export const Route = createRootRoute({
 
 function RootComponent() {
   const location = useLocation();
-  // label-settings 窗口使用自己的迷你标题栏，不走主布局
-  if (location.pathname === '/label-settings') {
+  // 独立窗口使用自己的迷你标题栏，不走主布局
+  if (location.pathname === '/label-settings' || location.pathname === '/tasks') {
     return <Outlet />;
   }
   return (

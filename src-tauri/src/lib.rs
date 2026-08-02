@@ -3,6 +3,7 @@ pub mod cmd;
 pub mod config;
 pub mod kernel;
 pub mod setup;
+pub mod task;
 
 use logging::{logging, set_log_emitter, set_emitter_enabled, Type};
 use std::sync::OnceLock;

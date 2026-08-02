@@ -171,6 +171,53 @@ pub async fn list_annotations_by_image(
     Ok(annotations)
 }
 
+/// 将已加载（含 boxes/points）的 Annotation 转为写入输入。
+pub fn annotation_to_input(anno: &Annotation) -> AnnotationInput {
+    AnnotationInput {
+        id: anno.id.clone(),
+        label_id: anno.label_id,
+        boxes: anno
+            .boxes
+            .iter()
+            .map(|b| BoxInput {
+                id: b.id.clone(),
+                box_type: b.box_type.clone(),
+                x1: b.x1,
+                y1: b.y1,
+                x2: b.x2,
+                y2: b.y2,
+            })
+            .collect(),
+        points: anno
+            .points
+            .iter()
+            .map(|p| PointInput {
+                id: p.id.clone(),
+                x: p.x,
+                y: p.y,
+                sign: p.sign.clone(),
+            })
+            .collect(),
+    }
+}
+
+/// 读取指定 image 现有标注并合并额外标注后整体写入（detect 批量任务使用）。
+pub async fn merge_annotations_input(
+    db: &mut toasty::Db,
+    hash: &str,
+    additional: Vec<AnnotationInput>,
+) -> Result<Image> {
+    if additional.is_empty() {
+        return Image::get_by_hash(db, &hash.to_string())
+            .await
+            .map_err(anyhow::Error::from);
+    }
+    let existing = list_annotations_by_image(db, hash).await?;
+    let mut inputs: Vec<AnnotationInput> = existing.iter().map(annotation_to_input).collect();
+    inputs.extend(additional);
+    set_annotations(db, hash, inputs).await
+}
+
 pub async fn list_annotation_counts(
     db: &mut toasty::Db,
     volume_id: &str,

@@ -1,9 +1,11 @@
+pub mod ai;
 pub mod config;
 pub mod db;
 pub mod general;
 pub mod log;
 pub mod mcp;
 pub mod raw3d;
+pub mod task;
 
 use std::fmt::Display;
 
