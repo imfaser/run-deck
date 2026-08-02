@@ -10,7 +10,6 @@ export interface TaskFormDraft {
   rangeStart: number;
   rangeEnd: number;
   usePrevMask: boolean;
-  multimaskOutput: boolean;
   targets: { labelId: string; subLabels: string[] }[];
 }
 

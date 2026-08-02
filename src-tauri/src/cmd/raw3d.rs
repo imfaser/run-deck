@@ -1,3 +1,4 @@
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use arrow::array::{
@@ -6,6 +7,7 @@ use arrow::array::{
 };
 use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
+use db::models::annotation::PointSign;
 use nimg::raw::{Axis, Endian, RawVolume, VolumeShape, VoxBuf};
 use parquet::arrow::ArrowWriter;
 use parquet::basic::Compression;
@@ -508,6 +510,161 @@ pub fn parquet_export_masks(
     writer
         .close()
         .map_err(|e| format!("failed to close parquet writer: {e}"))?;
+
+    Ok(output_path)
+}
+
+/// 导出当前 volume 全部切片的 PNG + 标注为 parquet。
+///
+/// 每行一个切片，列为：`index`(切片序号), `hash`, `slice`(切片 PNG), `mask`(mask PNG),
+/// `label`/`boxes`/`point` 各为对象数组（`label` 为去重标签，`boxes`/`point` 携带 `label_id`）。
+#[tauri::command]
+pub async fn parquet_export_slices(volume_id: String, output_path: String) -> CmdResult<String> {
+    logging!(info, Type::Cmd, "parquet_export_slices: volume={volume_id} -> {output_path}");
+
+    // 持锁期间同步读出全部切片，避免跨 await 持有 MutexGuard。
+    // 内存占用与 volume 大小成正比（gray8 + hash_bytes + 生成中的 PNG）。
+    let (slices, volume_meta) = {
+        let store = AppContext::volume_store();
+        let guard = store.lock();
+        let entry = guard.as_ref().ok_or("volume not loaded")?;
+        if entry.volume_id != volume_id {
+            return Err("volume not found".into());
+        }
+        let shape = entry.volume.shape();
+        let axis = match entry.axis {
+            Axis::X => "x",
+            Axis::Y => "y",
+            Axis::Z => "z",
+        };
+        let dtype = match entry.voxel_size {
+            1 => "u8",
+            2 => "u16",
+            other => return Err(format!("unsupported voxel size: {other}")),
+        };
+        let endian = match entry.volume.endian() {
+            nimg::raw::Endian::Little => "little",
+            nimg::raw::Endian::Big => "big",
+        };
+        let volume_meta = parquet_export::batch::VolumeMeta {
+            axis: axis.to_string(),
+            dtype: dtype.to_string(),
+            endian: endian.to_string(),
+            x: shape.x as i32,
+            y: shape.y as i32,
+            z: shape.z as i32,
+        };
+        let mut out = Vec::with_capacity(entry.total_slices);
+        for index in 0..entry.total_slices as i32 {
+            out.push(crate::task::runner::read_slice_from_entry(entry, index)?);
+        }
+        (out, volume_meta)
+    };
+
+    let mut db = AppContext::db().clone();
+    let labels = db::ops::label_ops::list_labels(&mut db)
+        .await
+        .map_err(|e| e.to_string())?;
+    let label_name: HashMap<uuid::Uuid, String> =
+        labels.iter().map(|l| (l.id, l.name.clone())).collect();
+
+    // 批量加载 volume 的 images + 标注，避免 N 次往返
+    let images = db::ops::image_ops::list_images_by_volume(&mut db, &volume_id)
+        .await
+        .map_err(|e| e.to_string())?;
+    let mask_by_hash: HashMap<String, Option<String>> = images
+        .iter()
+        .map(|i| (i.hash.clone(), i.mask_hash.clone()))
+        .collect();
+    let annos_by_hash: HashMap<String, Vec<db::models::annotation::Annotation>> =
+        db::ops::annotation_ops::list_annotations_by_volume(&mut db, &volume_id)
+            .await
+            .map_err(|e| e.to_string())?
+            .into_iter()
+            .fold(HashMap::<String, Vec<_>>::new(), |mut acc, a| {
+                acc.entry(a.image_id.clone()).or_default().push(a);
+                acc
+            });
+
+    let mut rows: Vec<parquet_export::batch::SliceRow> = Vec::with_capacity(slices.len());
+    for slice in &slices {
+        let image_hash = hex::encode(Sha256::digest(&slice.hash_bytes));
+        let slice_png =
+            nimg::ops::slice_to_png_bytes(&slice.gray8, slice.width, slice.height)
+                .map_err(|e| e.to_string())?;
+
+        let mask_png = mask_by_hash
+            .get(&image_hash)
+            .and_then(|m| m.as_deref())
+            .map(|mh| {
+                let path = AppContext::content_cache().get_path(mh);
+                if path.exists() {
+                    std::fs::read(&path).ok()
+                } else {
+                    None
+                }
+            })
+            .flatten();
+
+        let annos = annos_by_hash.get(&image_hash).map(Vec::as_slice).unwrap_or(&[]);
+
+        // label：切片内去重
+        let mut seen = HashSet::new();
+        let mut labels_rows = Vec::new();
+        for a in annos {
+            if seen.insert(a.label_id) {
+                labels_rows.push(parquet_export::batch::LabelRow {
+                    label_id: a.label_id.to_string(),
+                    name: label_name
+                        .get(&a.label_id)
+                        .cloned()
+                        .unwrap_or_else(|| a.label_id.to_string()),
+                });
+            }
+        }
+
+        let boxes_rows = annos
+            .iter()
+            .flat_map(|a| {
+                a.boxes.iter().map(|b| parquet_export::batch::BoxRow {
+                    label_id: a.label_id.to_string(),
+                    x1: b.x1 as f32,
+                    y1: b.y1 as f32,
+                    x2: b.x2 as f32,
+                    y2: b.y2 as f32,
+                })
+            })
+            .collect();
+
+        let points_rows = annos
+            .iter()
+            .flat_map(|a| {
+                a.points.iter().map(|p| parquet_export::batch::PointRow {
+                    label_id: a.label_id.to_string(),
+                    x: p.x as f32,
+                    y: p.y as f32,
+                    sign: match p.sign {
+                        PointSign::Positive => "positive",
+                        PointSign::Negative => "negative",
+                    }
+                    .to_string(),
+                })
+            })
+            .collect();
+
+        rows.push(parquet_export::batch::SliceRow {
+            index: slice.index,
+            hash: image_hash,
+            slice_png,
+            mask_png,
+            labels: labels_rows,
+            boxes: boxes_rows,
+            points: points_rows,
+        });
+    }
+
+    parquet_export::batch::write_slices_parquet(&rows, &output_path, Some(&volume_meta))
+        .map_err(|e| e.to_string())?;
 
     Ok(output_path)
 }

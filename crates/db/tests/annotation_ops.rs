@@ -585,3 +585,75 @@ async fn test_list_annotation_counts() {
     let no_annotations = list_annotation_counts(&mut db, "vol-missing").await.unwrap();
     assert!(no_annotations.is_empty());
 }
+
+#[tokio::test]
+async fn test_list_annotations_by_volume() {
+    let mut db = common::setup_db().await;
+
+    let label = label_ops::create_label(&mut db, "tumor", "#ff0000", 1, vec![])
+        .await
+        .unwrap();
+
+    for i in 0..3 {
+        image_ops::upsert_image(
+            &mut db,
+            &format!("slice-{i}"),
+            None,
+            100,
+            100,
+            ImageType::Slice,
+            Some("vol-001"),
+            Some(i),
+            None,
+        )
+        .await
+        .unwrap();
+    }
+
+    set_annotations(
+        &mut db,
+        "slice-0",
+        vec![AnnotationInput {
+            id: "a-0".to_string(),
+            label_id: label.id,
+            boxes: vec![],
+            points: vec![],
+        }],
+    )
+    .await
+    .unwrap();
+
+    set_annotations(
+        &mut db,
+        "slice-1",
+        vec![
+            AnnotationInput {
+                id: "a-1a".to_string(),
+                label_id: label.id,
+                boxes: vec![],
+                points: vec![],
+            },
+            AnnotationInput {
+                id: "a-1b".to_string(),
+                label_id: label.id,
+                boxes: vec![],
+                points: vec![],
+            },
+        ],
+    )
+    .await
+    .unwrap();
+
+    let annos = db::ops::annotation_ops::list_annotations_by_volume(&mut db, "vol-001")
+        .await
+        .unwrap();
+    assert_eq!(annos.len(), 3);
+    let mut image_ids: Vec<&str> = annos.iter().map(|a| a.image_id.as_str()).collect();
+    image_ids.sort_unstable();
+    assert_eq!(image_ids, vec!["slice-0", "slice-1", "slice-1"]);
+
+    let empty = db::ops::annotation_ops::list_annotations_by_volume(&mut db, "vol-missing")
+        .await
+        .unwrap();
+    assert!(empty.is_empty());
+}

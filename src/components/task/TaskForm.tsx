@@ -42,7 +42,6 @@ const formSchema = z
     rangeStart: z.number(),
     rangeEnd: z.number(),
     usePrevMask: z.boolean(),
-    multimaskOutput: z.boolean(),
     targets: z.array(
       z.object({
         labelId: z.string(),
@@ -119,7 +118,6 @@ function TaskFormFields({
       rangeStart: editing?.range_start ?? 0,
       rangeEnd: editing?.range_end ?? (currentVolume ? currentVolume.totalSlices - 1 : 0),
       usePrevMask: editing?.params.use_prev_mask ?? true,
-      multimaskOutput: editing?.params.multimask_output ?? true,
       targets: buildTargets(),
     },
   });
@@ -127,7 +125,6 @@ function TaskFormFields({
   const { errors } = form.formState;
   const kind = useWatch({ control: form.control, name: 'kind' });
   const usePrevMask = useWatch({ control: form.control, name: 'usePrevMask' });
-  const multimaskOutput = useWatch({ control: form.control, name: 'multimaskOutput' });
   const targets = useWatch({ control: form.control, name: 'targets' });
 
   async function handleSave() {
@@ -147,7 +144,6 @@ function TaskFormFields({
 
     const params = {
       use_prev_mask: values.usePrevMask,
-      multimask_output: values.multimaskOutput,
       targets: values.targets
         .filter((t) => t.enabled)
         .map((t) => ({ label_id: t.labelId, sub_labels: t.subLabels })),
@@ -267,11 +263,6 @@ function TaskFormFields({
                 label={LABELS.tasks.usePrevMask}
                 checked={usePrevMask}
                 onChange={(v) => form.setValue('usePrevMask', v)}
-              />
-              <SwitchRow
-                label={LABELS.tasks.multimask}
-                checked={multimaskOutput}
-                onChange={(v) => form.setValue('multimaskOutput', v)}
               />
             </div>
           ) : (

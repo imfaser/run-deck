@@ -1,8 +1,17 @@
 import { useState } from 'react';
-import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
+import { open as openFileDialog, save as saveFileDialog } from '@tauri-apps/plugin-dialog';
 import { toast } from 'sonner';
 import { mutate } from 'swr';
-import { FolderOpen, Maximize2, Save, Tags, RotateCcw, Sparkles, ListChecks } from 'lucide-react';
+import {
+  FolderOpen,
+  Maximize2,
+  Save,
+  Tags,
+  RotateCcw,
+  Sparkles,
+  ListChecks,
+  FileDown,
+} from 'lucide-react';
 import { useMemoizedFn, useLockFn } from 'ahooks';
 import { createLocalStorageState } from 'foxact/create-local-storage-state';
 import { Button } from '@/components/ui/button';
@@ -28,6 +37,7 @@ import { useLabel3DCanvasStore } from '@/store/label-3d-canvas';
 import { openLabelSettings, openTasks } from '@/lib/window';
 import { objectToDbAnnotation, type AnnotationObject } from '@/lib/annotationMapping';
 import { aiRecognizeSlice } from '@/services/tasks';
+import { parquetExportSlices } from '@/services/cmds';
 import { useTasks } from '@/hooks/useTasks';
 import { useTaskChanged } from '@/hooks/useTaskChanged';
 import { logMessage } from '@/services/cmds';
@@ -145,6 +155,28 @@ export function Label3DToolbar({ volume, canEdit, onOpen, onReset, onSave }: Lab
     useLabel3DCanvasStore.getState().setFitImageTrigger();
   });
 
+  const handleExport = useLockFn(async () => {
+    const vol = volume.volume;
+    if (!vol) {
+      return;
+    }
+    try {
+      const selected = await saveFileDialog({
+        title: LABELS.label3d.exportSelect,
+        defaultPath: `${vol.volumeId}.parquet`,
+        filters: [{ name: 'Parquet', extensions: ['parquet'] }],
+      });
+      if (typeof selected !== 'string') {
+        return;
+      }
+      await parquetExportSlices(vol.volumeId, selected);
+      toast.success(LABELS.label3d.parquetExported);
+    } catch (e) {
+      await logMessage('error', `[export] parquet export failed: ${e}`);
+      toast.error(LABELS.label3d.exportFailed(e));
+    }
+  });
+
   return (
     <div className="flex h-11 shrink-0 items-center justify-between gap-2 border-b border-border px-2">
       <div className="flex items-center gap-1">
@@ -173,6 +205,10 @@ export function Label3DToolbar({ volume, canEdit, onOpen, onReset, onSave }: Lab
         <Button size="sm" variant="outline" onClick={openTasks}>
           <ListChecks data-icon="inline-start" />
           {LABELS.label3d.tasks}
+        </Button>
+        <Button size="sm" variant="outline" onClick={handleExport} disabled={!canEdit}>
+          <FileDown data-icon="inline-start" />
+          {LABELS.label3d.exportParquet}
         </Button>
         <Button size="sm" variant="outline" onClick={openLabelSettings}>
           <Tags data-icon="inline-start" />

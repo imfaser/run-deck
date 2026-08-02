@@ -8,6 +8,7 @@ import { TaskList } from '@/components/task/TaskList';
 import { TaskForm } from '@/components/task/TaskForm';
 import { useTasks } from '@/hooks/useTasks';
 import { useTaskChanged } from '@/hooks/useTaskChanged';
+import { useDbChanged } from '@/hooks/useDbChanged';
 import { getCurrentVolume } from '@/services/tasks';
 import { LABELS } from '@/constants/labels';
 import type { CurrentVolume, Task } from '@/schemas/task';
@@ -25,6 +26,7 @@ function TasksRouteComponent() {
     dedupingInterval: 5_000,
   });
   useTaskChanged();
+  useDbChanged();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);

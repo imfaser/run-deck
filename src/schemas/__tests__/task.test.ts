@@ -49,7 +49,6 @@ describe('TaskSchema', () => {
       range_end: 9,
       params: {
         use_prev_mask: true,
-        multimask_output: false,
         targets: [],
       },
       error: null,
@@ -75,7 +74,6 @@ describe('TaskSchema', () => {
       range_end: 5,
       params: {
         use_prev_mask: false,
-        multimask_output: true,
         targets: [{ label_id: 'L1', sub_labels: ['nucleus'] }],
       },
       error: null,
@@ -104,7 +102,7 @@ describe('TaskSchema', () => {
         volume_id: 'v',
         range_start: 0,
         range_end: 5,
-        params: { use_prev_mask: true, multimask_output: true, targets: [] },
+        params: { use_prev_mask: true, targets: [] },
         error: null,
         progress_current: 0,
         progress_total: 0,
@@ -123,7 +121,7 @@ describe('TaskCreateInputSchema', () => {
       volumeId: 'vol-1',
       rangeStart: 0,
       rangeEnd: 5,
-      params: { use_prev_mask: true, multimask_output: true, targets: [] },
+      params: { use_prev_mask: true, targets: [] },
     });
     expect(input.volumeId).toBe('vol-1');
     expect(input.rangeEnd).toBe(5);
@@ -137,7 +135,7 @@ describe('TaskCreateInputSchema', () => {
         volumeId: 'v',
         rangeStart: 0,
         rangeEnd: 1,
-        params: { use_prev_mask: true, multimask_output: true, targets: [] },
+        params: { use_prev_mask: true, targets: [] },
       })
     ).toThrow();
   });
@@ -150,7 +148,7 @@ describe('TaskCreateInputSchema', () => {
         volumeId: 'v',
         rangeStart: -1,
         rangeEnd: 1,
-        params: { use_prev_mask: true, multimask_output: true, targets: [] },
+        params: { use_prev_mask: true, targets: [] },
       })
     ).toThrow();
   });
@@ -163,7 +161,7 @@ describe('TaskCreateInputSchema', () => {
         volumeId: 'v',
         rangeStart: 0.5,
         rangeEnd: 5,
-        params: { use_prev_mask: true, multimask_output: true, targets: [] },
+        params: { use_prev_mask: true, targets: [] },
       })
     ).toThrow();
   });
@@ -190,7 +188,7 @@ describe('TaskPatchSchema', () => {
       order: 5,
       rangeStart: 1,
       rangeEnd: 10,
-      params: { use_prev_mask: false, multimask_output: false, targets: [] },
+      params: { use_prev_mask: false, targets: [] },
     });
     expect(patch.name).toBe('x');
     expect(patch.enabled).toBe(false);

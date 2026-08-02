@@ -11,7 +11,7 @@ const baseTask = {
   volume_id: 'v',
   range_start: 0,
   range_end: 5,
-  params: { use_prev_mask: true, multimask_output: true, targets: [] },
+  params: { use_prev_mask: true, targets: [] },
   error: null,
   progress_current: 0,
   progress_total: 6,
@@ -79,7 +79,6 @@ describe('useTaskStore', () => {
       rangeStart: 0,
       rangeEnd: 3,
       usePrevMask: false,
-      multimaskOutput: true,
       targets: [],
     };
     useTaskStore.getState().setFormDraft(draft);

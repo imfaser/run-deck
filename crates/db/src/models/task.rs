@@ -26,7 +26,6 @@ pub enum TaskStatus {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct TaskParams {
     pub use_prev_mask: bool,
-    pub multimask_output: bool,
     pub targets: Vec<DetectTarget>,
 }
 

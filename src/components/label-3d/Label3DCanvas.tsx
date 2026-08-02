@@ -30,6 +30,11 @@ function useKonvaImage(src: string | null): HTMLImageElement | null {
     }
     const renderable = toRenderableUrl(src);
     const img = new window.Image();
+    // cache:// 走 convertFileSrc 为 http://cache.localhost/...（跨域），
+    // 需 crossOrigin 使 canvas 不被打污，才能 getImageData 做 mask 上色
+    if (!renderable.startsWith('data:')) {
+      img.crossOrigin = 'anonymous';
+    }
     img.onload = () => setImage(img);
     img.onerror = () => setImage(null);
     img.src = renderable;

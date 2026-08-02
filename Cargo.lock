@@ -4379,6 +4379,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "parquet-export"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "arrow",
+ "parquet",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "paste"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5289,6 +5301,7 @@ dependencies = [
  "mime_guess",
  "nimg",
  "parquet",
+ "parquet-export",
  "serde",
  "serde_json",
  "sha2",

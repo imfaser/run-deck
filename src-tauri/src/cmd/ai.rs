@@ -102,7 +102,7 @@ pub async fn ai_recognize_slice(
     let png = nimg::ops::slice_to_png_bytes(&entry.gray8, entry.width, entry.height)
         .stringify_err()?;
     let image_b64 = base64::engine::general_purpose::STANDARD.encode(&png);
-    let request = nimg::ops::build_segment_request(&image_b64, &objects_json, None, true);
+    let request = nimg::ops::build_segment_request(&image_b64, &objects_json, None, false);
 
     let result = AppContext::mcp_manager()
         .call_tool("sam3", "segment_image", Some(request))

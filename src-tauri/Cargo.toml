@@ -39,6 +39,7 @@ sha2 = "0.10"
 hex = "0.4"
 parquet = { workspace = true }
 arrow = { workspace = true }
+parquet-export = { workspace = true }
 http = "1"
 mime_guess = "2"
 tauri-plugin-pinia = "5.0.0"

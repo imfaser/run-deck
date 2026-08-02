@@ -171,6 +171,24 @@ pub async fn list_annotations_by_image(
     Ok(annotations)
 }
 
+/// 批量加载某个 volume 全部 image 的标注（按 image 分组返回）。
+pub async fn list_annotations_by_volume(
+    db: &mut toasty::Db,
+    volume_id: &str,
+) -> Result<Vec<Annotation>> {
+    let images = Image::filter(Image::fields().volume_id().eq(Some(volume_id.to_string())))
+        .exec(db)
+        .await?;
+    let hashes: Vec<String> = images.into_iter().map(|i| i.hash).collect();
+    if hashes.is_empty() {
+        return Ok(Vec::new());
+    }
+    let annotations = Annotation::filter(Annotation::fields().image_id().in_list(hashes))
+        .exec(db)
+        .await?;
+    Ok(annotations)
+}
+
 /// 将已加载（含 boxes/points）的 Annotation 转为写入输入。
 pub fn annotation_to_input(anno: &Annotation) -> AnnotationInput {
     AnnotationInput {

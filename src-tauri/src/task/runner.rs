@@ -221,6 +221,8 @@ impl TaskRunner {
             {
                 logging!(warn, Type::Task, "Task {}: progress update failed: {e}", task.id);
             }
+            // 写库（mask/annotations）后通知主窗口刷新 slice 面板
+            AppContext::send_event(FrontendEvent::DbChanged);
             Self::emit(task.id);
         }
 
@@ -282,7 +284,7 @@ impl TaskRunner {
             &image_b64,
             &objects_json,
             prev_mask_b64.as_deref(),
-            task.params.multimask_output,
+            false,
         );
 
         let result = AppContext::mcp_manager()

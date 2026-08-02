@@ -1,5 +1,13 @@
 [workspace]
-members = ["crates/logging", "src-tauri", "crates/draft", "crates/mcp", "crates/nimg", "crates/db"]
+members = [
+  "crates/logging",
+  "src-tauri",
+  "crates/draft",
+  "crates/mcp",
+  "crates/nimg",
+  "crates/db",
+  "crates/parquet-export",
+]
 resolver = "2" # 保留 Rust 新依赖解析器
 
 # ===== 最小化构建配置 =====
@@ -37,6 +45,7 @@ logging = { path = "crates/logging" }
 mcp = { path = "crates/mcp" }
 nimg = { path = "crates/nimg" }
 db = { path = "crates/db" }
+parquet-export = { path = "crates/parquet-export" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1" }
 anyhow = "1.0.102"

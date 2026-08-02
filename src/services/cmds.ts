@@ -138,6 +138,10 @@ export async function rawClose(volumeId: string): Promise<void> {
   await invoke('raw_close', { volumeId });
 }
 
+export async function parquetExportSlices(volumeId: string, outputPath: string): Promise<string> {
+  return invoke<string>('parquet_export_slices', { volumeId, outputPath });
+}
+
 // --- Labels ---
 
 export async function dbCreateLabel(input: LabelCreateInput): Promise<Label> {

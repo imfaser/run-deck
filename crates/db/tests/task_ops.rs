@@ -9,7 +9,6 @@ use db::ops::task_ops::{
 fn params() -> TaskParams {
     TaskParams {
         use_prev_mask: true,
-        multimask_output: true,
         targets: vec![],
     }
 }
@@ -335,7 +334,6 @@ async fn test_update_task_params() {
 
     let new_params = TaskParams {
         use_prev_mask: false,
-        multimask_output: false,
         targets: vec![db::models::task::DetectTarget {
             label_id: uuid::Uuid::new_v4(),
             sub_labels: vec!["test".to_string()],
@@ -354,7 +352,6 @@ async fn test_update_task_params() {
     .unwrap();
 
     assert!(!updated.params.use_prev_mask);
-    assert!(!updated.params.multimask_output);
     assert_eq!(updated.params.targets.len(), 1);
 }
 

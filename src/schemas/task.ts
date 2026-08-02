@@ -16,7 +16,6 @@ export type DetectTarget = z.infer<typeof DetectTargetSchema>;
 
 export const TaskParamsSchema = z.object({
   use_prev_mask: z.boolean(),
-  multimask_output: z.boolean(),
   targets: z.array(DetectTargetSchema),
 });
 export type TaskParams = z.infer<typeof TaskParamsSchema>;
