@@ -9,7 +9,7 @@ use db::ops::{annotation_ops, image_ops, label_ops, task_ops};
 use logging::{logging, Type};
 use mcp::ContentBlock;
 use nimg::ops::{
-    BoxPrompt, DetectTarget, MappedBox, PointPrompt, SegmentObject, map_boxes_to_annotations,
+    BoxPrompt, DetectTarget, MappedBox, PointPrompt, map_boxes_to_annotations,
 };
 use sha2::{Digest, Sha256};
 
@@ -251,8 +251,18 @@ impl TaskRunner {
         let annotations = annotation_ops::list_annotations_by_image(db, image_hash)
             .await
             .map_err(|e| e.to_string())?;
-        let objects = annotations_to_segment_objects(&annotations);
-        let objects_json = nimg::ops::annotations_to_segment_objects(&objects);
+        let groups = annotations_to_segment_groups(&annotations);
+        let segment = nimg::ops::build_segment_objects(&groups);
+        if segment.dropped_points > 0 {
+            logging!(
+                warn,
+                Type::Task,
+                "Task {}: dropped {} box-less point(s)",
+                task.id,
+                segment.dropped_points
+            );
+        }
+        let objects_json = nimg::ops::annotations_to_segment_objects(&segment.objects);
 
         let mut prev_mask_b64 = None;
         if task.params.use_prev_mask {
@@ -450,9 +460,9 @@ pub(crate) fn read_slice_from_entry(
     }
 }
 
-fn annotations_to_segment_objects(annos: &[Annotation]) -> Vec<SegmentObject> {
+fn annotations_to_segment_groups(annos: &[Annotation]) -> Vec<nimg::ops::PromptGroup> {
     annos.iter()
-        .map(|a| SegmentObject {
+        .map(|a| nimg::ops::PromptGroup {
             points: a
                 .points
                 .iter()
@@ -462,16 +472,17 @@ fn annotations_to_segment_objects(annos: &[Annotation]) -> Vec<SegmentObject> {
                     label: if p.sign == PointSign::Positive { 1 } else { 0 },
                 })
                 .collect(),
-            box_coords: a
+            boxes: a
                 .boxes
                 .iter()
-                .find(|b| b.box_type == BoxType::Annotate)
+                .filter(|b| b.box_type == BoxType::Annotate)
                 .map(|b| BoxPrompt {
                     x1: b.x1,
                     y1: b.y1,
                     x2: b.x2,
                     y2: b.y2,
-                }),
+                })
+                .collect(),
         })
         .collect()
 }

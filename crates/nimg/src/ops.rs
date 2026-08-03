@@ -28,6 +28,21 @@ pub struct SegmentObject {
     pub box_coords: Option<BoxPrompt>,
 }
 
+/// 单个标注的 SAM 提示分组（一个 annotation，可能含多个 box）。
+#[derive(Debug, Clone)]
+pub struct PromptGroup {
+    pub points: Vec<PointPrompt>,
+    pub boxes: Vec<BoxPrompt>,
+}
+
+/// `build_segment_objects` 的结果。
+#[derive(Debug)]
+pub struct BuildSegmentObjectsResult {
+    pub objects: Vec<SegmentObject>,
+    /// 因没有可归属的 box 而被丢弃的点数。
+    pub dropped_points: usize,
+}
+
 /// locate-anything 检测到的边界框（归一化 0-1000 坐标）。
 #[derive(Debug, Clone, PartialEq)]
 pub struct DetectedBox {
@@ -113,6 +128,66 @@ pub fn annotations_to_segment_objects(annos: &[SegmentObject]) -> Value {
         })
         .collect();
     Value::Array(objects)
+}
+
+/// 判断点是否位于 box 内（含边界）。
+#[must_use]
+pub fn point_in_box(p: &PointPrompt, b: &BoxPrompt) -> bool {
+    p.x >= b.x1 && p.x <= b.x2 && p.y >= b.y1 && p.y <= b.y2
+}
+
+/// 按 box 分组组装 SAM3 objects，保证「点组数 == box 数」。
+///
+/// - 全请求无 box：每个 group 独立产出 `{ points, 无 box }`，各 label 互不合并。
+/// - 存在 box：每个 box 一个 object（含 box 内点）；无 box 可归属的点丢弃并计数，
+///   使每个 object 都带 box，满足 `sam3/transform/segment.py` 的对齐约束。
+#[must_use]
+pub fn build_segment_objects(groups: &[PromptGroup]) -> BuildSegmentObjectsResult {
+    let has_boxes = groups.iter().any(|g| !g.boxes.is_empty());
+    if !has_boxes {
+        let objects: Vec<SegmentObject> = groups
+            .iter()
+            .filter(|g| !g.points.is_empty())
+            .map(|g| SegmentObject {
+                points: g.points.clone(),
+                box_coords: None,
+            })
+            .collect();
+        return BuildSegmentObjectsResult {
+            objects,
+            dropped_points: 0,
+        };
+    }
+
+    let mut objects = Vec::new();
+    let mut dropped_points = 0;
+    for group in groups {
+        if group.boxes.is_empty() {
+            dropped_points += group.points.len();
+            continue;
+        }
+        for b in &group.boxes {
+            let points: Vec<PointPrompt> = group
+                .points
+                .iter()
+                .filter(|p| point_in_box(p, b))
+                .copied()
+                .collect();
+            objects.push(SegmentObject {
+                points,
+                box_coords: Some(*b),
+            });
+        }
+        dropped_points += group
+            .points
+            .iter()
+            .filter(|p| !group.boxes.iter().any(|b| point_in_box(p, b)))
+            .count();
+    }
+    BuildSegmentObjectsResult {
+        objects,
+        dropped_points,
+    }
 }
 
 /// 组装 `sam3/segment_image` 请求参数。
@@ -555,5 +630,131 @@ mod tests {
         assert_eq!(luma.width(), 1);
         assert_eq!(luma.height(), 1);
         assert_eq!(luma.as_raw(), &[42]);
+    }
+
+    // ── build_segment_objects 对齐测试 ────────────────────────────────
+
+    #[test]
+    fn point_in_box_bounds() {
+        let b = BoxPrompt {
+            x1: 10.0,
+            y1: 20.0,
+            x2: 30.0,
+            y2: 40.0,
+        };
+        assert!(point_in_box(&PointPrompt { x: 10.0, y: 20.0, label: 1 }, &b));
+        assert!(point_in_box(&PointPrompt { x: 30.0, y: 40.0, label: 1 }, &b));
+        assert!(!point_in_box(&PointPrompt { x: 9.0, y: 30.0, label: 1 }, &b));
+        assert!(!point_in_box(&PointPrompt { x: 30.0, y: 41.0, label: 1 }, &b));
+    }
+
+    #[test]
+    fn build_segment_objects_points_only_keeps_labels_separate() {
+        let groups = vec![
+            PromptGroup {
+                points: vec![PointPrompt { x: 1.0, y: 2.0, label: 1 }],
+                boxes: vec![],
+            },
+            PromptGroup {
+                points: vec![PointPrompt { x: 3.0, y: 4.0, label: 0 }],
+                boxes: vec![],
+            },
+        ];
+        let res = build_segment_objects(&groups);
+        assert_eq!(res.objects.len(), 2);
+        assert_eq!(res.dropped_points, 0);
+        assert!(res.objects[0].box_coords.is_none());
+        assert!(res.objects[1].box_coords.is_none());
+        assert_eq!(res.objects[0].points.len(), 1);
+        assert_eq!(res.objects[1].points.len(), 1);
+    }
+
+    #[test]
+    fn build_segment_objects_points_only_skips_empty_group() {
+        let groups = vec![PromptGroup {
+            points: vec![],
+            boxes: vec![],
+        }];
+        let res = build_segment_objects(&groups);
+        assert!(res.objects.is_empty());
+        assert_eq!(res.dropped_points, 0);
+    }
+
+    #[test]
+    fn build_segment_objects_groups_points_by_box() {
+        let groups = vec![PromptGroup {
+            points: vec![
+                PointPrompt { x: 5.0, y: 5.0, label: 1 },
+                PointPrompt { x: 25.0, y: 25.0, label: 0 },
+            ],
+            boxes: vec![
+                BoxPrompt { x1: 0.0, y1: 0.0, x2: 10.0, y2: 10.0 },
+                BoxPrompt { x1: 20.0, y1: 20.0, x2: 30.0, y2: 30.0 },
+            ],
+        }];
+        let res = build_segment_objects(&groups);
+        assert_eq!(res.objects.len(), 2);
+        assert_eq!(res.dropped_points, 0);
+        assert_eq!(res.objects[0].points.len(), 1);
+        assert_eq!(res.objects[0].points[0].x, 5.0);
+        assert_eq!(res.objects[1].points.len(), 1);
+        assert_eq!(res.objects[1].points[0].x, 25.0);
+        assert!(res.objects[0].box_coords.is_some());
+        assert!(res.objects[1].box_coords.is_some());
+    }
+
+    #[test]
+    fn build_segment_objects_box_without_points() {
+        let groups = vec![PromptGroup {
+            points: vec![],
+            boxes: vec![BoxPrompt {
+                x1: 0.0,
+                y1: 0.0,
+                x2: 10.0,
+                y2: 10.0,
+            }],
+        }];
+        let res = build_segment_objects(&groups);
+        assert_eq!(res.objects.len(), 1);
+        assert!(res.objects[0].points.is_empty());
+        assert!(res.objects[0].box_coords.is_some());
+        assert_eq!(res.dropped_points, 0);
+    }
+
+    #[test]
+    fn build_segment_objects_drops_orphan_points() {
+        let groups = vec![
+            PromptGroup {
+                points: vec![PointPrompt { x: 5.0, y: 5.0, label: 1 }],
+                boxes: vec![BoxPrompt { x1: 0.0, y1: 0.0, x2: 10.0, y2: 10.0 }],
+            },
+            PromptGroup {
+                points: vec![
+                    PointPrompt { x: 50.0, y: 50.0, label: 1 },
+                    PointPrompt { x: 51.0, y: 51.0, label: 0 },
+                ],
+                boxes: vec![],
+            },
+        ];
+        let res = build_segment_objects(&groups);
+        assert_eq!(res.objects.len(), 1);
+        assert_eq!(res.dropped_points, 2);
+        assert!(res.objects[0].box_coords.is_some());
+        assert_eq!(res.objects[0].points.len(), 1);
+    }
+
+    #[test]
+    fn build_segment_objects_drops_point_outside_all_boxes() {
+        let groups = vec![PromptGroup {
+            points: vec![
+                PointPrompt { x: 5.0, y: 5.0, label: 1 },
+                PointPrompt { x: 99.0, y: 99.0, label: 1 },
+            ],
+            boxes: vec![BoxPrompt { x1: 0.0, y1: 0.0, x2: 10.0, y2: 10.0 }],
+        }];
+        let res = build_segment_objects(&groups);
+        assert_eq!(res.objects.len(), 1);
+        assert_eq!(res.objects[0].points.len(), 1);
+        assert_eq!(res.dropped_points, 1);
     }
 }

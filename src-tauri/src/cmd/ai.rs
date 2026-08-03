@@ -3,9 +3,10 @@ use base64::Engine as _;
 use crate::kernel::context::AppContext;
 use crate::kernel::notification::FrontendEvent;
 use crate::task::runner::{ensure_image, extract_mask, read_slice_from_entry};
+use db::models::annotation::{BoxType, PointSign};
 use db::ops::annotation_ops::{self, AnnotationInput, BoxInput, PointInput};
 use logging::{logging, Type};
-use nimg::ops::{BoxPrompt, PointPrompt, SegmentObject};
+use nimg::ops::{BoxPrompt, PointPrompt};
 use sha2::{Digest, Sha256};
 
 /// 单帧识别的单个对象（来自当前画布未保存标注）。
@@ -72,32 +73,42 @@ pub async fn ai_recognize_slice(
         .await
         .stringify_err()?;
 
-    // 组装 SAM3 prompts（不采用 prev_mask）
-    let segment_objects: Vec<SegmentObject> = objects
+    // 组装 SAM3 prompts（不采用 prev_mask）：按 box 分组对齐点组与 box 维度
+    let groups: Vec<nimg::ops::PromptGroup> = objects
         .iter()
-        .map(|o| SegmentObject {
+        .map(|o| nimg::ops::PromptGroup {
             points: o
                 .points
                 .iter()
                 .map(|p| PointPrompt {
                     x: p.x,
                     y: p.y,
-                    label: if p.sign == db::models::annotation::PointSign::Positive {
-                        1
-                    } else {
-                        0
-                    },
+                    label: if p.sign == PointSign::Positive { 1 } else { 0 },
                 })
                 .collect(),
-            box_coords: o.boxes.first().map(|b| BoxPrompt {
-                x1: b.x1,
-                y1: b.y1,
-                x2: b.x2,
-                y2: b.y2,
-            }),
+            boxes: o
+                .boxes
+                .iter()
+                .filter(|b| b.box_type == BoxType::Annotate)
+                .map(|b| BoxPrompt {
+                    x1: b.x1,
+                    y1: b.y1,
+                    x2: b.x2,
+                    y2: b.y2,
+                })
+                .collect(),
         })
         .collect();
-    let objects_json = nimg::ops::annotations_to_segment_objects(&segment_objects);
+    let segment = nimg::ops::build_segment_objects(&groups);
+    if segment.dropped_points > 0 {
+        logging!(
+            warn,
+            Type::Cmd,
+            "ai_recognize_slice: dropped {} box-less point(s)",
+            segment.dropped_points
+        );
+    }
+    let objects_json = nimg::ops::annotations_to_segment_objects(&segment.objects);
 
     let png = nimg::ops::slice_to_png_bytes(&entry.gray8, entry.width, entry.height)
         .stringify_err()?;
